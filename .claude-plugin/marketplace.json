@@ -1,0 +1,20 @@
+{
+  "name": "symfony-ai-skills",
+  "owner": {
+    "name": "MadCat34",
+    "email": "madcat34@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "symfony-ai-skills",
+      "description": "Symfony AI skills for Claude, Gemini, Codex, and any agentskills.io-compatible agent — Platform, Agent, Chat, Store, AI Bundle, MCP Bundle, Mate.",
+      "version": "0.1.0",
+      "author": {
+        "name": "MadCat34",
+        "email": "madcat34@gmail.com",
+        "url": "https://github.com/MadCat34"
+      },
+      "source": "./"
+    }
+  ]
+}

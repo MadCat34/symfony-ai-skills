@@ -1,0 +1,6 @@
+{
+  "name": "symfony-ai-skills",
+  "version": "0.1.0",
+  "description": "Symfony AI skills for Claude, Gemini, Codex, and any agentskills.io-compatible agent — Platform, Agent, Chat, Store, AI Bundle, MCP Bundle, Mate.",
+  "contextFileName": "GEMINI.md"
+}

@@ -1,0 +1,76 @@
+# Symfony AI Agent Skills
+
+> AI agent skills for the [Symfony AI](https://ai.symfony.com) PHP components: Platform, Agent, Chat, Store, AI Bundle, MCP Bundle, and Mate. Built on the agentskills.io open standard.
+
+## Orchestrator
+
+- [Symfony AI Orchestrator](skills/symfony-ai/SKILL.md): Decision tree that routes between Platform, Agent, Chat, Store, AI Bundle, MCP Bundle, and Mate.
+
+## Skills
+
+### Platform — invoke any LLM
+
+- [Platform](skills/platform/SKILL.md): Unified LLM invocation (chat, structured output, tool calling, embeddings, failover).
+- [Platform API Reference](skills/platform/references/api.md)
+- [Platform Bridges](skills/platform/references/bridges.md): All 37 supported providers (OpenAI, Anthropic, Azure, Gemini, VertexAI, Ollama, Mistral, etc.).
+- [Platform Embeddings](skills/platform/references/embeddings.md)
+- [Platform Patterns](skills/platform/references/patterns.md)
+- [Platform Gotchas](skills/platform/references/gotchas.md)
+
+### Agent — tool-calling, memory, multi-agent
+
+- [Agent](skills/agent/SKILL.md): Build autonomous AI agents with input/output processors.
+- [Agent API Reference](skills/agent/references/api.md)
+- [Agent Patterns](skills/agent/references/patterns.md)
+- [Agent Gotchas](skills/agent/references/gotchas.md)
+
+### Chat — stateful conversation
+
+- [Chat](skills/chat/SKILL.md): Send messages to an Agent and persist the conversation.
+- [Chat API Reference](skills/chat/references/api.md)
+- [Chat Patterns](skills/chat/references/patterns.md)
+- [Chat Gotchas](skills/chat/references/gotchas.md)
+
+### Store — vector DB and RAG
+
+- [Store](skills/store/SKILL.md): Store and query documents in a vector database. Requires a Platform for embeddings.
+- [Store API Reference](skills/store/references/api.md)
+- [Store Bridges](skills/store/references/bridges.md): All 24 supported vector stores.
+- [Store Patterns](skills/store/references/patterns.md)
+- [Store Gotchas](skills/store/references/gotchas.md)
+
+### AI Bundle — Symfony integration
+
+- [AI Bundle](skills/ai-bundle/SKILL.md): YAML config, attributes (#[AsTool], #[IsGrantedTool]), profiler.
+- [AI Bundle Config](skills/ai-bundle/references/config.md)
+- [AI Bundle Processors](skills/ai-bundle/references/processors.md)
+- [AI Bundle Security](skills/ai-bundle/references/security.md)
+- [AI Bundle Patterns](skills/ai-bundle/references/patterns.md)
+- [AI Bundle Gotchas](skills/ai-bundle/references/gotchas.md)
+
+### MCP Bundle — MCP server in your app
+
+- [MCP Bundle](skills/mcp-bundle/SKILL.md): Build an MCP server inside a Symfony app (tools, prompts, resources).
+- [MCP Bundle API Reference](skills/mcp-bundle/references/api.md)
+- [MCP Bundle Patterns](skills/mcp-bundle/references/patterns.md)
+- [MCP Bundle Gotchas](skills/mcp-bundle/references/gotchas.md)
+
+### Mate — dev tool for AI assistants to introspect your app
+
+- [Mate](skills/mate/SKILL.md): Standalone MCP dev server so the AI assistant can read your Symfony app's logs, profiler, container. Dev only.
+- [Mate API Reference](skills/mate/references/api.md)
+- [Mate Patterns](skills/mate/references/patterns.md)
+- [Mate Gotchas](skills/mate/references/gotchas.md)
+
+## Recipes — end-to-end patterns composing 2+ skills
+
+- [Recipes Index](skills/recipes/README.md)
+- [Agent response with source metadata](skills/recipes/agent-response-with-source-metadata.md)
+- [Audio transcription pipeline](skills/recipes/audio-transcription-pipeline.md)
+- [Bounded customer-support document investigation](skills/recipes/bounded-document-investigation.md)
+- [Chat with memory on Doctrine](skills/recipes/chat-with-memory-doctrine.md)
+- [Multi-agent orchestration](skills/recipes/multi-agent-orchestration.md)
+- [Query-aware hybrid retrieval](skills/recipes/query-aware-hybrid-retrieval.md)
+- [RAG with Pinecone](skills/recipes/rag-pinecone.md)
+- [RAG with Postgres pgvector](skills/recipes/rag-postgres-pgvector.md)
+- [Tool-calling agent](skills/recipes/tool-calling-agent.md)
