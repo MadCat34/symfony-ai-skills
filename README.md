@@ -91,6 +91,29 @@ These skills track the [symfony/ai](https://github.com/symfony/ai) monorepo, whi
 - Quarterly, to catch undocumented API drift.
 - Whenever a new bridge is added to Platform or Store (regenerate the bridge catalogue via `ls ai/src/{platform,store}/src/Bridge/`).
 
+## Local validation
+
+Two optional one-shot services ship in [`docker-compose.yml`](docker-compose.yml)
+behind profiles so `docker compose up` keeps starting only the MkDocs dev server.
+
+| Service    | Command                                                | Purpose                                                                                  |
+| ---------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `a11y`     | `docker compose run --rm a11y`                         | Playwright + axe-core 4.12 audit of the rendered site. WCAG 2.0/2.1 AAA + best-practice. |
+| `skills-ref` | `docker compose run --rm skills-ref validate <path>`   | Validate `SKILL.md` files against the [official upstream suite](https://github.com/agentskills/agentskills/tree/main/skills-ref). |
+
+```bash
+# Serve the docs (http://localhost:8000) and validate a skill in one go
+docker compose up -d
+sleep 5
+docker compose run --rm skills-ref validate /docs/skills/agent
+docker compose run --rm a11y             # → reports/a11y-audit/reports/
+```
+
+The first `a11y` run pulls the Playwright image and installs npm deps inside the
+container; both are reused on subsequent runs. `skills-ref` uses `git
+sparse-checkout` to clone only the `skills-ref/` subtree of `agentskills/agentskills`
+into the persistent `skills-ref-cache` volume — no submodule, no full clone.
+
 ### Sources of truth
 
 - **Symfony AI source code** : each component's `README.md` and `AGENTS.md` in the [symfony/ai monorepo](https://github.com/symfony/ai), plus `examples/*` for canonical snippets.

@@ -1,0 +1,17 @@
+{# Renders one skill as a Material card.
+   Variables:
+     skill: dict with keys slug, title, description, summary, source_url
+#}
+<div class="skill-card md-card">
+  <h2 class="skill-card__title">{{ skill.title }}</h2>
+  {% if skill.description %}
+  <p class="skill-card__desc">{{ skill.description }}</p>
+  {% endif %}
+  {% if skill.summary %}
+  <p class="skill-card__summary">{{ skill.summary }}</p>
+  {% endif %}
+  <a class="md-button md-button--primary skill-card__cta"
+     href="{{ skill.source_url }}" target="_blank" rel="noopener">
+    View source on GitHub
+  </a>
+</div>

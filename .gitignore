@@ -19,3 +19,19 @@ package-lock.json
 # Generated docs
 /docs/superpowers/specs/
 /docs/superpowers/plans/
+.superpowers/
+
+# MkDocs generated data (regenerated on every build by scripts/build-skill-index.py)
+/docs/_data/
+/.cache/
+
+# Python cache for the build hook and the macros module
+/scripts/__pycache__/
+/__pycache__/
+
+# MkDocs build output
+/site/
+
+# a11y audit (Playwright + axe-core)
+a11y-audit/node_modules/
+a11y-audit/reports/

@@ -1,0 +1,59 @@
+services:
+  mkdocs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    image: squidfunk/mkdocs-material
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/docs
+    command: serve --dev-addr=0.0.0.0:8000 --livereload
+    stdin_open: true
+    tty: true
+    networks:
+      - skills-net
+
+  a11y:
+    image: mcr.microsoft.com/playwright:v1.62.1-jammy
+    profiles: ["a11y"]
+    working_dir: /audit
+    volumes:
+      - ./a11y-audit:/audit
+    command:
+      - sh
+      - -c
+      - |
+        if [ ! -d /audit/node_modules/playwright ]; then
+          npm install --omit=dev --no-audit --no-fund
+        fi
+        mkdir -p /audit/reports
+        AUDIT_REPORTS_DIR=/audit/reports exec node run.mjs
+    environment:
+      AUDIT_BASE_URL: ${AUDIT_BASE_URL:-http://mkdocs:8000/symfony-ai-skills}
+      CI: "1"
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    depends_on:
+      - mkdocs
+    networks:
+      - skills-net
+
+  skills-ref:
+    image: python:3.12-slim
+    profiles: ["skills-ref"]
+    working_dir: /skills-ref
+    volumes:
+      - ./:/docs:ro
+      - skills-ref-cache:/skills-ref-cache
+      - ./scripts/skills-ref-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/entrypoint.sh"]
+    networks:
+      - skills-net
+
+networks:
+  skills-net:
+    driver: bridge
+
+volumes:
+  skills-ref-cache:

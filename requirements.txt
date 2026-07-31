@@ -1,0 +1,14 @@
+mkdocs
+mkdocs-material
+mkdocs-git-revision-date-localized-plugin
+Pygments
+pymdown-extensions
+mkdocs-mermaid2-plugin
+mkdocs-static-i18n[material]
+mkdocs-minify-plugin
+mkdocs-glightbox
+mkdocs-llmstxt
+mkdocs-section-index
+mkdocs-autolinks-plugin
+mkdocs-literate-nav
+mkdocs-macros-plugin

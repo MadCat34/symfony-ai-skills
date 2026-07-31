@@ -1,0 +1,22 @@
+{# Renders one recipe as a Material card.
+   Variables:
+     recipe: dict with keys slug, title, composes (list), summary, source_url
+#}
+<div class="recipe-card md-card">
+  <h2 class="recipe-card__title">{{ recipe.title }}</h2>
+  {% if recipe.composes %}
+  <p class="recipe-card__composes">
+    <strong>Composes:</strong>
+    {% for c in recipe.composes %}
+    <code>{{ c }}</code>{% if not loop.last %} {% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
+  {% if recipe.summary %}
+  <p class="recipe-card__summary">{{ recipe.summary }}</p>
+  {% endif %}
+  <a class="md-button md-button--primary recipe-card__cta"
+     href="{{ recipe.source_url }}" target="_blank" rel="noopener">
+    View source on GitHub
+  </a>
+</div>
