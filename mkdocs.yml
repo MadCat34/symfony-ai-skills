@@ -6,112 +6,111 @@ repo_url: https://github.com/MadCat34/symfony-ai-skills
 repo_name: MadCat34/symfony-ai-skills
 edit_uri: edit/main/docs/
 
-docs_dir: docs
-
 theme:
-  name: material
-  custom_dir: overrides
-  language: en
-  font:
-    text: Inter
-    code: JetBrains Mono
-  features:
-  - navigation.tracking
-  - navigation.sections
-  - navigation.top
-  - navigation.indexes
-  - search.suggest
-  - search.highlight
-  - search.share
-  - content.code.copy
-  - content.code.annotate
-  - content.tabs.link
-  - content.tooltips
-  palette:
-  - media: "(prefers-color-scheme: light)"
-    scheme: default
-    primary: black
-    accent: black
-    toggle:
-      icon: material/weather-night
-      name: Switch to dark mode
-  - media: "(prefers-color-scheme: dark)"
-    scheme: slate
-    primary: white
-    accent: white
-    toggle:
-      icon: material/weather-sunny
-      name: Switch to light mode
-  icon:
-    repo: fontawesome/brands/github
+    name: material
+    custom_dir: overrides
+    language: en
+    font:
+        text: Inter
+        code: JetBrains Mono
+    features:
+      - navigation.tracking
+      - navigation.sections
+      - navigation.top
+      - navigation.indexes
+      - search.suggest
+      - search.highlight
+      - search.share
+      - content.code.copy
+      - content.code.annotate
+      - content.tabs.link
+      - content.tooltips
+    palette:
+      - media: "(prefers-color-scheme: light)"
+        scheme: default
+        primary: black
+        accent: black
+        toggle:
+            icon: material/weather-night
+            name: Switch to dark mode
+      - media: "(prefers-color-scheme: dark)"
+        scheme: slate
+        primary: white
+        accent: white
+        toggle:
+            icon: material/weather-sunny
+            name: Switch to light mode
+    icon:
+        repo: fontawesome/brands/github
 
 extra_css:
-- stylesheets/extra.css
+  - stylesheets/extra.css
 
 extra:
-  generator: false
-  social:
-  - icon: fontawesome/brands/github
-    link: https://github.com/MadCat34/symfony-ai-skills
-    name: GitHub repository
+    generator: false
+    social:
+      - icon: fontawesome/brands/github
+        link: https://github.com/MadCat34/symfony-ai-skills
+        name: GitHub repository
 
 markdown_extensions:
-- admonition
-- attr_list
-- def_list
-- footnotes
-- md_in_html
-- tables
-- toc:
-    permalink: true
-- pymdownx.details
-- pymdownx.highlight:
-    anchor_linenums: true
-- pymdownx.inlinehilite
-- pymdownx.snippets
-- pymdownx.superfences:
-    custom_fences:
-    - name: mermaid
-      class: mermaid
-      format: !!python/name:pymdownx.superfences.fence_code_format ""
-- pymdownx.tabbed:
-    alternate_style: true
-- pymdownx.tasklist:
-    custom_checkbox: true
-- pymdownx.keys
-- pymdownx.mark
-- pymdownx.tilde
-- pymdownx.caret
-- pymdownx.emoji:
-    emoji_index: !!python/name:material.extensions.emoji.twemoji
-    emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+        permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+        anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+        custom_fences:
+          - name: mermaid
+            class: mermaid
+            format: !!python/name:pymdownx.superfences.fence_code_format ""
+  - pymdownx.tabbed:
+        alternate_style: true
+  - pymdownx.tasklist:
+        custom_checkbox: true
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.caret
+  - pymdownx.emoji:
+        emoji_index: !!python/name:material.extensions.emoji.twemoji ""
+        emoji_generator:
 
+            !!python/name:material.extensions.emoji.to_svg ""
 plugins:
-- search
-- macros:
-    module_name: main
-    include_dir: includes
-- git-revision-date-localized:
-    enable_creation_date: true
-    fallback_to_build_date: true
-- section-index
-- mermaid2
-- glightbox
-- llmstxt:
-    markdown_description: >-
-      Symfony AI Agent Skills is a collection of eight SKILL.md files and nine end-to-end recipes that package Symfony AI (ai.symfony.com) components for AI coding agents (Claude Code, Gemini, Codex).
-    sections:
-      Getting started:
-      - installation.md
-      - choosing-a-skill.md
-      Skills:
-      - reference/skills.md
-      Recipes:
-      - reference/recipes.md
-- autolinks
-- literate-nav
-- minify:
-    minify_html: true
+  - search
+  - macros:
+        module_name: main
+        include_dir: includes
+  - git-revision-date-localized:
+        enable_creation_date: true
+        fallback_to_build_date: true
+  - section-index
+  - mermaid2
+  - glightbox
+  - llmstxt:
+        markdown_description: >-
+            Symfony AI Agent Skills is a collection of eight SKILL.md files and nine end-to-end recipes that package Symfony AI (ai.symfony.com) components for AI coding agents (Claude Code, Gemini, Codex).
+        sections:
+            Getting started:
+              - installation.md
+              - choosing-a-skill.md
+            Skills:
+              - reference/skills.md
+            Recipes:
+              - reference/recipes.md
+  - autolinks
+  - literate-nav
+  - minify:
+        minify_html: true
 
 hooks:
-- scripts/build-skill-index.py
+  - scripts/build-skill-index.py

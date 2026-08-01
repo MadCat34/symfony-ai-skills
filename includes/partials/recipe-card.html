@@ -1,22 +1,23 @@
-{# Renders one recipe as a Material card.
+{# Renders one recipe as a card.
    Variables:
-     recipe: dict with keys slug, title, composes (list), summary, source_url
+     recipe: dict with keys slug, title, composes (list), summary, source_url, index
+   Used both by includes/home.html (showcase grid) and docs/reference/recipes.md
+   (recipe-grid). Title is an h3: the surrounding section always provides the h2.
 #}
-<div class="recipe-card md-card">
-  <h2 class="recipe-card__title">{{ recipe.title }}</h2>
+<div class="recipe-card">
+  <p class="recipe-card__file"><span aria-hidden="true">{{ "%02d"|format(recipe.index) }} ·</span> {{ recipe.slug }}<span class="recipe-card__ext">.RECIPE.md</span></p>
+  <h3 class="recipe-card__title">{{ recipe.title }}</h3>
   {% if recipe.composes %}
   <p class="recipe-card__composes">
-    <strong>Composes:</strong>
+    <span class="recipe-card__composes-label">Composes</span>
     {% for c in recipe.composes %}
-    <code>{{ c }}</code>{% if not loop.last %} {% endif %}
+    <span class="chip chip--secondary">{{ c }}</span>
     {% endfor %}
   </p>
   {% endif %}
-  {% if recipe.summary %}
-  <p class="recipe-card__summary">{{ recipe.summary }}</p>
-  {% endif %}
-  <a class="md-button md-button--primary recipe-card__cta"
-     href="{{ recipe.source_url }}" target="_blank" rel="noopener">
-    View source on GitHub
+  <a class="recipe-card__link"
+     href="{{ recipe.source_url }}" target="_blank" rel="noopener"
+     aria-label="View {{ recipe.title }} source on GitHub (opens in a new tab)">
+    View source on GitHub <span aria-hidden="true">↗</span>
   </a>
 </div>

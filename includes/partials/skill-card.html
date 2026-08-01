@@ -1,17 +1,18 @@
-{# Renders one skill as a Material card.
+{# Renders one skill as a card.
    Variables:
-     skill: dict with keys slug, title, description, summary, source_url
+     skill: dict with keys slug, title, description, summary, source_url, index
+   Used both by includes/home.html (showcase grid) and docs/reference/skills.md
+   (skill-grid). Title is an h3: the surrounding section always provides the h2.
 #}
-<div class="skill-card md-card">
-  <h2 class="skill-card__title">{{ skill.title }}</h2>
+<div class="skill-card">
+  <p class="skill-card__file"><span aria-hidden="true">{{ "%02d"|format(skill.index) }} ·</span> {{ skill.slug }}<span class="skill-card__ext">.SKILL.md</span></p>
+  <h3 class="skill-card__title">{{ skill.title }}</h3>
   {% if skill.description %}
   <p class="skill-card__desc">{{ skill.description }}</p>
   {% endif %}
-  {% if skill.summary %}
-  <p class="skill-card__summary">{{ skill.summary }}</p>
-  {% endif %}
-  <a class="md-button md-button--primary skill-card__cta"
-     href="{{ skill.source_url }}" target="_blank" rel="noopener">
-    View source on GitHub
+  <a class="skill-card__link"
+     href="{{ skill.source_url }}" target="_blank" rel="noopener"
+     aria-label="View {{ skill.title }} source on GitHub (opens in a new tab)">
+    View source on GitHub <span aria-hidden="true">↗</span>
   </a>
 </div>

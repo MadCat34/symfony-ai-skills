@@ -1,8 +1,11 @@
 {# ------------------------------------------------------------------
-   Marketing landing page (Markdown) for the Symfony AI Agent Skills site.
-   Renders as a single product page with 10 sections, including an
-   animated orbital SVG as the visual signature.
+   Marketing landing page for the Symfony AI Agent Skills site.
+   "Menthe" theme: organic mesh-gradient blobs + a mint/coral palette
+   tuned for WCAG AA/AAA contrast (see docs/stylesheets/extra.css).
    ------------------------------------------------------------------ #}
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
+<noscript><style>[data-reveal]{opacity:1!important;transform:none!important;}</style></noscript>
 
 {% if is_home %}<div class="signature-rule" aria-hidden="true"></div>{% endif %}
 
@@ -12,12 +15,12 @@
 <header class="topbar">
   <div class="topbar__inner">
     <a class="topbar__brand" href="./">
-      <span class="topbar__brand-mark" aria-hidden="true">◆</span>
+      <span class="topbar__brand-mark" aria-hidden="true">✦</span>
       <span class="topbar__brand-name">Symfony AI</span>
       <span class="topbar__brand-suffix">Agent Skills</span>
     </a>
     <nav class="topbar__nav" aria-label="Primary">
-      <a class="topbar__nav-link" href="skills/">Skills</a>
+      <a class="topbar__nav-link" href="reference/skills/">Skills</a>
       <a class="topbar__nav-link" href="reference/recipes/">Recipes</a>
       <a class="topbar__nav-link" href="installation/">Install</a>
       <a class="topbar__nav-link" href="https://github.com/MadCat34/symfony-ai-skills">
@@ -29,9 +32,10 @@
 </header>
 
 {# ====================================================================
-   2. Hero + animated orbital SVG
+   2. Hero — the signature: a pinned stack of SKILL.md index cards
    ==================================================================== #}
-<section class="hero" aria-labelledby="hero-title">
+<section class="hero" id="main-content" aria-labelledby="hero-title">
+  <div class="hero__glow" aria-hidden="true"></div>
   <div class="hero__inner">
     <div class="hero__copy">
       <p class="hero__eyebrow">
@@ -52,92 +56,75 @@
         <a class="btn btn--ghost btn--lg" href="reference/recipes/">See the recipes</a>
       </div>
       <p class="hero__trust">
-        <span class="hero__trust-item"><span class="hero__trust-tick hero__trust-tick--valid" aria-hidden="true">✓</span> Tested on real agents</span>
+        <span class="hero__trust-item"><span class="hero__trust-tick hero__trust-tick--primary" aria-hidden="true">✓</span> Tested on real agents</span>
         <span class="hero__trust-sep" aria-hidden="true">·</span>
-        <span class="hero__trust-item"><span class="hero__trust-tick hero__trust-tick--trust" aria-hidden="true">✓</span> 100% PHP, zero JS</span>
+        <span class="hero__trust-item"><span class="hero__trust-tick hero__trust-tick--primary" aria-hidden="true">✓</span> 100% PHP, zero JS</span>
         <span class="hero__trust-sep" aria-hidden="true">·</span>
-        <span class="hero__trust-item"><span class="hero__trust-tick hero__trust-tick--gold" aria-hidden="true">★</span> MIT licensed</span>
+        <span class="hero__trust-item"><span class="hero__trust-tick hero__trust-tick--secondary" aria-hidden="true">★</span> MIT licensed</span>
       </p>
     </div>
 
-    <div class="hero__orbit" aria-hidden="true">
-      <svg viewBox="-200 -200 400 400" xmlns="http://www.w3.org/2000/svg" class="orbit-svg" role="presentation">
-        <defs>
-          <radialGradient id="core-glow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#FF4D1A" stop-opacity="0.95"/>
-            <stop offset="60%" stop-color="#D0380B" stop-opacity="0.85"/>
-            <stop offset="100%" stop-color="#A52A06" stop-opacity="0.4"/>
-          </radialGradient>
-          <linearGradient id="line-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#D0380B" stop-opacity="0.0"/>
-            <stop offset="50%" stop-color="#D0380B" stop-opacity="0.9"/>
-            <stop offset="100%" stop-color="#1A4FFF" stop-opacity="0.9"/>
-          </linearGradient>
-        </defs>
-
-        <!-- Orbit ring -->
-        <circle r="140" fill="none" stroke="#E8DFCF" stroke-width="1" stroke-dasharray="2 4"/>
-        <circle r="100" fill="none" stroke="#E8DFCF" stroke-width="1" stroke-dasharray="1 3"/>
-
-        <!-- Connection lines (drawn from center to each skill) -->
-        {% set skills_orbit = ['platform', 'agent', 'chat', 'store', 'ai-bundle', 'mate', 'mcp-bundle', 'symfony-ai'] %}
-        {% for s in skills_orbit %}
-          {% set angle = (loop.index0 * 45) - 90 %}
-          {% set rad = angle * 3.14159 / 180 %}
-          {% set x = 140 * (rad|sin if rad|sin is defined else 0) %}
-          {% set y = 140 * (rad|cos if rad|cos is defined else 0) %}
-          <line x1="0" y1="0" x2="{{ x|round(1) }}" y2="{{ y|round(1) }}"
-                stroke="url(#line-gradient)" stroke-width="1.5"
-                stroke-linecap="round" class="orbit-line orbit-line--{{ loop.index }}"/>
+    <div class="hero__visual" aria-hidden="true">
+      <div class="hero__board corkboard">
+        {% set flagship = skills | selectattr('slug', 'equalto', 'symfony-ai') | list %}
+        {% set others = skills | rejectattr('slug', 'equalto', 'symfony-ai') | list %}
+        {% for skill in (others[:3] + flagship) %}
+          <div class="hero__card hero__card--{{ loop.index }}{% if skill.slug == 'symfony-ai' %} hero__card--flagship{% endif %}">
+            <span class="hero__card-pin"></span>
+            <p class="hero__card-tab">{{ skill.slug }}<span class="hero__card-ext">.SKILL.md</span></p>
+            <p class="hero__card-line hero__card-line--key">name:<span class="hero__card-line--val"> {{ skill.slug }}</span></p>
+            <p class="hero__card-line hero__card-line--key">agent:<span class="hero__card-line--val"> ready</span></p>
+            <p class="hero__card-stub">{{ skill.title }}</p>
+          </div>
         {% endfor %}
-
-        <!-- Center node -->
-        <circle r="48" fill="url(#core-glow)" class="orbit-core"/>
-        <text x="0" y="-2" text-anchor="middle" fill="#FFFFFF"
-              font-family="Archivo Black, sans-serif" font-size="13" letter-spacing="0.05em">SYMFONY</text>
-        <text x="0" y="14" text-anchor="middle" fill="#FFFFFF"
-              font-family="Archivo Black, sans-serif" font-size="13" letter-spacing="0.05em">AI</text>
-
-        <!-- Skill nodes around the orbit -->
-        {% set skills_orbit = ['platform', 'agent', 'chat', 'store', 'ai-bundle', 'mate', 'mcp-bundle', 'symfony-ai'] %}
-        {% for s in skills_orbit %}
-          {% set angle = (loop.index0 * 45) - 90 %}
-          {% set rad = angle * 3.14159 / 180 %}
-          {% set x = 140 * (rad|sin if rad|sin is defined else 0) %}
-          {% set y = 140 * (rad|cos if rad|cos is defined else 0) %}
-          <g class="orbit-node orbit-node--{{ loop.index }}" transform="translate({{ x|round(1) }}, {{ y|round(1) }})">
-            <circle r="22" fill="#FFFFFF" stroke="#D0380B" stroke-width="2"/>
-            <text y="4" text-anchor="middle" fill="#0F0E0C"
-                  font-family="Space Grotesk, sans-serif" font-size="9" font-weight="600">{{ s }}</text>
-          </g>
-        {% endfor %}
-      </svg>
+      </div>
     </div>
   </div>
 </section>
 
+
 {# ====================================================================
-   3. Trusted by
+   3. Trusted by — continuous marquee (paused under prefers-reduced-motion)
    ==================================================================== #}
 <section class="trusted" aria-labelledby="trusted-title">
   <p class="trusted__title" id="trusted-title">Tested on the agents your team already uses</p>
-  <ul class="trusted__list" role="list">
-    <li class="trusted__item"><span aria-hidden="true">●</span> Claude Code</li>
-    <li class="trusted__item"><span aria-hidden="true">●</span> Gemini CLI</li>
-    <li class="trusted__item"><span aria-hidden="true">●</span> Codex</li>
-    <li class="trusted__item"><span aria-hidden="true">●</span> Any agentskills.io runtime</li>
-  </ul>
+  <div class="trusted__marquee">
+    <ul class="trusted__list" role="list">
+      <li class="trusted__item"><span aria-hidden="true">●</span> Claude Code</li>
+      <li class="trusted__item"><span aria-hidden="true">●</span> Gemini CLI</li>
+      <li class="trusted__item"><span aria-hidden="true">●</span> Codex</li>
+      <li class="trusted__item"><span aria-hidden="true">●</span> Any agentskills.io runtime</li>
+    </ul>
+    <ul class="trusted__list" role="list" aria-hidden="true">
+      <li class="trusted__item"><span aria-hidden="true">●</span> Claude Code</li>
+      <li class="trusted__item"><span aria-hidden="true">●</span> Gemini CLI</li>
+      <li class="trusted__item"><span aria-hidden="true">●</span> Codex</li>
+      <li class="trusted__item"><span aria-hidden="true">●</span> Any agentskills.io runtime</li>
+    </ul>
+  </div>
 </section>
 
 {# ====================================================================
-   4. Stats express
+   4. Stats express — four stamped punch-cards, not a data table
    ==================================================================== #}
 <section class="stats" aria-label="Project at a glance">
   <dl class="stats__list">
-    <div class="stats__item"><dt>Skills</dt><dd>{{ skills | length }}</dd></div>
-    <div class="stats__item"><dt>Recipes</dt><dd>{{ recipes | length }}</dd></div>
-    <div class="stats__item"><dt>Vector stores</dt><dd>24</dd></div>
-    <div class="stats__item"><dt>Agents supported</dt><dd>3</dd></div>
+    <div class="stats__item stats__item--1">
+      <dd class="stamp stats__stamp">{{ skills | length }}</dd>
+      <dt class="stats__label">Skills</dt>
+    </div>
+    <div class="stats__item stats__item--2">
+      <dd class="stamp stats__stamp">{{ recipes | length }}</dd>
+      <dt class="stats__label">Recipes</dt>
+    </div>
+    <div class="stats__item stats__item--3">
+      <dd class="stamp stats__stamp">24</dd>
+      <dt class="stats__label">Vector stores</dt>
+    </div>
+    <div class="stats__item stats__item--4">
+      <dd class="stamp stats__stamp">3</dd>
+      <dt class="stats__label">Agents</dt>
+    </div>
   </dl>
 </section>
 
@@ -146,23 +133,29 @@
    ==================================================================== #}
 <section class="how" aria-labelledby="how-title">
   <header class="how__header">
-    <p class="eyebrow eyebrow--trust">How it works</p>
+    <p class="eyebrow eyebrow--primary">How it works</p>
     <h2 class="how__title" id="how-title">Three lines. No symlinks to wire by hand.</h2>
   </header>
   <ol class="how__steps" role="list">
-    <li class="how__step">
-      <p class="how__step-number">01</p>
-      <h3 class="how__step-title">Drop the skills into your agent's directory</h3>
+    <li class="how__step" data-reveal="1">
+      <div class="how__step-head">
+        <span class="stamp how__stamp" aria-hidden="true">01</span>
+        <h3 class="how__step-title">Drop the skills into your agent's directory</h3>
+      </div>
       <p class="how__step-body">Claude Code, Gemini CLI, Codex — they all read <code>SKILL.md</code> the same way. The skill tells the agent what it can do, when to do it, and what to do it on.</p>
     </li>
-    <li class="how__step">
-      <p class="how__step-number">02</p>
-      <h3 class="how__step-title">Ask for what you want, in plain English</h3>
+    <li class="how__step" data-reveal="2">
+      <div class="how__step-head">
+        <span class="stamp how__stamp" aria-hidden="true">02</span>
+        <h3 class="how__step-title">Ask for what you want, in plain English</h3>
+      </div>
       <p class="how__step-body">"Build a RAG pipeline." "Add memory to my chat." "Transcribe this audio." The agent picks the right skill, follows it, and writes the Symfony code.</p>
     </li>
-    <li class="how__step">
-      <p class="how__step-number">03</p>
-      <h3 class="how__step-title">Ship working PHP in under an hour</h3>
+    <li class="how__step" data-reveal="3">
+      <div class="how__step-head">
+        <span class="stamp how__stamp" aria-hidden="true">03</span>
+        <h3 class="how__step-title">Ship working PHP in under an hour</h3>
+      </div>
       <p class="how__step-body">No glue code, no YAML to remember, no integration tests to write from scratch. The skills encode the patterns; the agent encodes the intent.</p>
     </li>
   </ol>
@@ -173,9 +166,13 @@
    ==================================================================== #}
 <section class="showcase showcase--skills" aria-labelledby="showcase-skills-title">
   <header class="showcase__header">
-    <p class="eyebrow eyebrow--accent">Skills</p>
+    <p class="eyebrow eyebrow--primary">Skills</p>
     <h2 class="showcase__title" id="showcase-skills-title">Eight composable building blocks</h2>
     <p class="showcase__sub">Each one teaches your agent a specific Symfony AI capability.</p>
+    <p class="showcase__notice">
+      <span aria-hidden="true">⚠️</span>
+      <span><strong>Symfony AI is experimental:</strong> APIs may break between releases. Check <code>UPGRADE.md</code> in the <a href="https://github.com/symfony/ai">symfony/ai monorepo</a> before upgrading.</span>
+    </p>
   </header>
   <div class="showcase__grid">
     {% for skill in skills %}
@@ -192,7 +189,7 @@
    ==================================================================== #}
 <section class="showcase showcase--recipes" aria-labelledby="showcase-recipes-title">
   <header class="showcase__header">
-    <p class="eyebrow eyebrow--valid">Recipes</p>
+    <p class="eyebrow eyebrow--secondary">Recipes</p>
     <h2 class="showcase__title" id="showcase-recipes-title">Nine end-to-end patterns, ready to copy</h2>
     <p class="showcase__sub">RAG, hybrid search, multi-agent, audio, chat with memory. Pick one, ask your agent for it, ship it.</p>
   </header>
@@ -209,7 +206,7 @@
 {# ====================================================================
    8. Pull quote
    ==================================================================== #}
-<blockquote class="quote" role="figure" aria-label="Maintainers' note">
+<blockquote class="quote" role="figure" aria-label="Maintainers' note" data-reveal="1">
   <p class="quote__body">"Symfony AI is still experimental. The skills and recipes below reflect the current state of the framework. Expect BC breaks until 1.0."</p>
   <cite class="quote__cite">— the maintainers</cite>
 </blockquote>
@@ -218,13 +215,16 @@
    9. Open source pricing banner
    ==================================================================== #}
 <section class="pricing" aria-labelledby="pricing-title">
-  <div class="pricing__card">
+  <div class="pricing__card" data-reveal="1">
+    <span class="stamp pricing__stamp" aria-hidden="true">MIT<br>✓</span>
     <p class="pricing__eyebrow"><span class="pricing__badge" aria-hidden="true">★</span> Open source</p>
     <h2 class="pricing__title" id="pricing-title">Free. Forever. No catch.</h2>
     <p class="pricing__body">Every skill, every recipe, every line of code. MIT licensed. Sponsor the work on GitHub if it saves you time.</p>
     <div class="pricing__cta">
       <a class="btn btn--primary btn--lg" href="installation/">Install now</a>
-      <a class="btn btn--ghost btn--lg" href="https://github.com/MadCat34/symfony-ai-skills">★ Star on GitHub</a>
+      <a class="pricing__ticket" href="https://github.com/MadCat34/symfony-ai-skills">
+        <span aria-hidden="true">★</span> Star on GitHub
+      </a>
     </div>
   </div>
 </section>

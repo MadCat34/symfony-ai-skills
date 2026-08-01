@@ -7,6 +7,8 @@ description: Index of the nine end-to-end Symfony AI recipes.
 
 Each recipe composes at least two skills into an end-to-end example. Source files live under `skills/recipes/`. We don't duplicate recipe content here.
 
+## Browse all recipes
+
 <div class="recipe-grid" markdown>
 
 {% for recipe in recipes %}
