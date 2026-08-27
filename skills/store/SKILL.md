@@ -11,7 +11,7 @@ metadata:
 
 # Store : Symfony AI
 
-> **Store requires a configured Platform for embeddings. Read `platform/references/embeddings.md` first. No Platform → no embeddings → no store.**
+> **Store requires a configured Platform for embeddings. In the `platform` skill, read `references/embeddings.md` first. No Platform → no embeddings → no store.**
 
 > **Symfony AI is experimental.** APIs may break between releases. Always check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading.
 
@@ -185,7 +185,7 @@ Validation: run `bash skills/store/scripts/check-snippets.sh` to lint every PHP 
 
 ## See also
 
-- `platform/references/embeddings.md` : the embedding model side
-- `platform/references/bridges.md` : embedding model providers
+- `platform` skill, `references/embeddings.md` : the embedding model side
+- `platform` skill, `references/bridges.md` : embedding model providers
 - `agent` skill : for RAG agent patterns
 - `ai-bundle` skill : for Symfony wiring of stores / indexers / retrievers
