@@ -160,7 +160,7 @@ Both are useful for tests and profiler wiring.
 ## Common tasks
 
 - **In-memory chat for tests**: `new Chat($agent, new Store())`, with `use Symfony\AI\Chat\InMemory\Store;`. See [references/patterns.md#in-memory](references/patterns.md#in-memory).
-- **Doctrine DBAL chat**: `new Chat($agent, new DoctrineDbalMessageStore($connection, 'chat_messages'))` after running `ai:message-store:setup`. See [references/patterns.md#doctrine-dbal](references/patterns.md#doctrine-dbal).
+- **Doctrine DBAL chat**: `new Chat($agent, new DoctrineDbalMessageStore('chat_messages', $connection))` after running `ai:message-store:setup`. See [references/patterns.md#doctrine-dbal](references/patterns.md#doctrine-dbal).
 - **Wrap an Agent with tools**: build the agent the usual way (see `agent` skill), then pass it to `Chat`. See [references/patterns.md#chat-with-tools](references/patterns.md#chat-with-tools).
 - **Streaming reply**: `foreach ($chat->stream(Message::ofUser('...')) as $delta) { ... }`. The final message is persisted automatically.
 - **Inspect recorded calls**: wrap the chat in `TraceableChat` and call `getCalls()`.
