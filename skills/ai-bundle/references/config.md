@@ -149,7 +149,7 @@ ai:
             model: 'gpt-4o-mini'             # string OR { name: 'gpt-4o', options: { temperature: 0.7 } }
             memory: 'You are helpful.'        # string (StaticMemoryProvider) OR { service: 'App\Memory\Provider' }
             prompt: 'You are a helpful assistant.'   # string OR { text | file, include_tools, enable_translation, translation_domain }
-            tools:
+            tools:                          # see the bare-list form just below; both are equally current
                 enabled: true               # OR pass an explicit list:
                 # services:
                 #     - 'App\AI\WeatherService'   # bare string = { service: 'App\AI\WeatherService' }
@@ -175,7 +175,7 @@ Notes:
 
 - `prompt:` accepts a **string** (normalized to `{ text: '…' }`) **or** an array with `text`/`file` (mutually exclusive) plus `include_tools` (requires `tools.enabled: true`), `enable_translation` (requires `symfony/translation`), and `translation_domain`. See `config/options.php` lines 203-266.
 - `model:` accepts a string (with optional query string of options, e.g. `gpt-4o?temperature=0.7`) or `{ name, options }`. Both forms cannot be combined.
-- `tools:` has four acceptable YAML shapes: `true`, `false`, list (legacy), or `{ enabled, services }` (see `config/options.php` lines 267-313).
+- `tools:` has four acceptable YAML shapes: `true`, `false`, a bare list, or `{ enabled, services }` (see `config/options.php` lines 267-313) : `$services = $v['services'] ?? $v` normalizes both list forms identically. The bare list is **not legacy** — it's the form the official `demo/` application uses for every one of its agents (`config/packages/ai.yaml`), e.g. `tools: ['App\AI\WeatherService', { service: clock, name: clock, description: '...', method: now }]`. Reach for `{ enabled, services }` only when you also need `enabled: true` to auto-pick every `ai.tool`-tagged service instead of listing them explicitly.
 - `speech:` requires at least one of `text_to_speech_platform`/`speech_to_text_platform` and one of `tts_model`/`stt_model`.
 - **`system_prompt` is NOT a valid key** : use `prompt:`.
 - **`input_processors` / `output_processors` are NOT valid keys** : processors are auto-tagged via attributes/interfaces (see `references/processors.md`).
@@ -233,7 +233,28 @@ ai:
                 async: false
 ```
 
-Other supported providers (schemas in `config/store/<provider>.php`): `azuresearch`, `chromadb`, `clickhouse`, `cloudflare`, `elasticsearch`, `manticoresearch`, `mariadb`, `meilisearch`, `milvus`, `mongodb`, `neo4j`, `opensearch`, `postgres`, `redis`, `s3vectors`, `sqlite`, `supabase`, `surrealdb`, `typesense`, `vektor`, `weaviate`.
+`postgres` (`config/store/postgres.php`) is worth its own example : it's the store the official `demo/` application actually runs in production-shaped config.
+
+```yaml
+ai:
+    store:
+        postgres:
+            symfony_blog:
+                dbal_connection: 'doctrine.dbal.default_connection'   # OR dsn: '...' — exactly one of the two
+                table_name: 'symfony_blog'
+                vector_field: 'embedding'      # default
+                distance: 'cosine'             # cosine | inner_product | l1 | l2 ; default l2
+                lang: 'english'                # default; used for the tsvector language config
+                setup_options:                 # only read by the `ai:store:setup` command
+                    vector_type: 'vector'       # default
+                    vector_size: 1536           # default
+                    index_method: 'ivfflat'     # default
+                    index_opclass: 'vector_cosine_ops'   # default
+```
+
+`dsn` and `dbal_connection` are mutually exclusive and one of them is required (validated at compile time). `username`/`password` are only meaningful with `dsn`.
+
+Other supported providers (schemas in `config/store/<provider>.php`, not individually detailed here): `azuresearch`, `chromadb`, `clickhouse`, `cloudflare`, `elasticsearch`, `manticoresearch`, `mariadb`, `meilisearch`, `milvus`, `mongodb`, `neo4j`, `opensearch`, `redis`, `s3vectors`, `sqlite`, `supabase`, `surrealdb`, `typesense`, `vektor`, `weaviate`. Read the corresponding `config/store/<provider>.php` file directly when configuring one of these — the shape follows the same pattern (provider name as parent key, named instances under it) but options differ per backend.
 
 **There is no `bridge:` sub-key.** The provider name (`pinecone`, `mongodb`, `postgres`, …) is the parent key in YAML. There is no `embedding_model:` or `transformers:` sub-key : embedding is configured via `ai.vectorizer.<name>` and used by indexer/retriever.
 
