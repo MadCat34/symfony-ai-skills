@@ -128,6 +128,10 @@ Two PHP-FPM workers (or two Messenger consumers) handling the same `Chat`/`Store
 
 `MessageNormalizer::normalize()` writes the message UUID under `$context['identifier'] ?? 'id'`. The MongoDB bridge overrides this to `_id`, the SurrealDB bridge to `messageId` (because SurrealDB rewrites the `id` field on read-back). If you serialise a `MessageBag` yourself with a different identifier, the normalizer round-trip will produce a new UUID instead of preserving the original.
 
+## Streaming is not recommended with the Session message store
+
+`docs/components/chat.rst` warns that using `Chat::stream()` with `Symfony\AI\Chat\Bridge\Session\MessageStore` is **not** recommended, due to implementation limitations of PHP's session handling under a streamed response. Prefer a non-blocking backend (Doctrine, Redis, MongoDB, cache) for chats that stream, and reserve the Session store for non-streamed request/response chat.
+
 ## `initiate()` drops existing content
 
 `Chat::initiate()` calls `store->drop()` before `store->save()`. Use it only when you intend to start a fresh conversation (e.g. on user "new chat" action). Calling `initiate()` mid-conversation silently wipes the history.
