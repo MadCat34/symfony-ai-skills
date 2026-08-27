@@ -131,8 +131,12 @@ Agent skill.
 `Symfony\AI\Platform\Bridge\Failover\FailoverPlatform`, in its **own
 Composer package** `symfony/ai-failover-platform` — the monorepo directory
 `Bridge/Failover/` is split out at release time and is not part of
-`symfony/ai-platform`. Install it explicitly. Its constructor requires a
-`RateLimiterFactoryInterface` as the second argument.
+`symfony/ai-platform`. Install it explicitly. Its constructor is
+`(iterable $platforms, RateLimiterFactoryInterface $rateLimiterFactory, ClockInterface $clock = new MonotonicClock(), LoggerInterface $logger = new NullLogger())`
+(`Bridge/Failover/FailoverPlatform.php:38`) : `$rateLimiterFactory` is the
+only argument required beyond the platform list; `$clock` and `$logger`
+default to a monotonic clock and a no-op logger, and the optional
+`$logger` is what backs the per-platform-failure logging described below.
 
 ```php
 use Symfony\AI\Platform\Bridge\Anthropic\Factory as AnthropicFactory;
