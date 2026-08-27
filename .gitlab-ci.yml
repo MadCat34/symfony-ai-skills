@@ -137,8 +137,22 @@ test:skills-ref:
     - git clone --depth=1 "$SKILL_REF_REPO" /tmp/skills-ref
     - if [ ! -d /tmp/skills-ref/skills-ref ]; then echo "skills-ref suite not found at expected path"; exit 1; fi
     - cd /tmp/skills-ref/skills-ref
-    - python3 -m pip install --quiet -r requirements.txt 2>/dev/null || true
-    - bash scripts/run-against.sh "$CI_PROJECT_DIR/skills" || exit 1
+    - python3 -m pip install --quiet -e .
+    - cd "$CI_PROJECT_DIR"
+    - |
+      fail=0
+      for d in skills/*/; do
+        [ -d "$d" ] || continue
+        name=$(basename "$d")
+
+        # symfony-ai is the orchestrator meta-skill, not a single validatable skill.
+        case "$name" in
+          symfony-ai) continue ;;
+        esac
+        echo "Validating $name"
+        skills-ref validate "$d" || fail=1
+      done
+      exit "$fail"
   rules:
     - changes:
         - skills/**/SKILL.md
