@@ -1,0 +1,70 @@
+{
+  "skill_name": "agent",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Build an AI agent that calls a custom tool to look up orders",
+      "should_trigger": true,
+      "expected_output": "Declare a service with #[AsTool] methods, wrap in Toolbox, pass to Agent::call().",
+      "assertions": ["mentions #[AsTool] attribute", "shows Agent construction with Toolbox"]
+    },
+    {
+      "id": 2,
+      "prompt": "How do I give an agent long-term memory across conversations?",
+      "should_trigger": true,
+      "expected_output": "Register MemoryInputProcessor + MemoryOutputProcessor backed by an EmbeddingMemory (needs Platform + Store).",
+      "assertions": ["mentions memory processors", "references EmbeddingMemory + Store coupling"]
+    },
+    {
+      "id": 3,
+      "prompt": "I want multiple specialised agents (research, support) routed by intent",
+      "should_trigger": true,
+      "expected_output": "Use MultiAgent with named sub-agents; classifier picks the right one.",
+      "assertions": ["mentions MultiAgent", "explains sub-agent routing"]
+    },
+    {
+      "id": 4,
+      "prompt": "Make a tool method that the agent calls idempotently",
+      "should_trigger": true,
+      "expected_output": "Use FaultTolerantToolbox wrapping the toolbox; tool methods must be idempotent (use tool_call.id as key).",
+      "assertions": ["mentions FaultTolerantToolbox", "explains idempotence via tool_call.id"]
+    },
+    {
+      "id": 5,
+      "prompt": "Transcribe a 30-minute audio file then ask a question about it",
+      "should_trigger": true,
+      "expected_output": "Use SpeechAgent which wraps Whisper/Deepgram transcription + chat turn.",
+      "assertions": ["mentions SpeechAgent", "shows transcription + chat composition"]
+    },
+    {
+      "id": 6,
+      "prompt": "How do I persist chat messages across HTTP requests?",
+      "should_trigger": false,
+      "expected_output": "(Defer to chat skill; do not load agent skill for this query.)"
+    },
+    {
+      "id": 7,
+      "prompt": "Make a one-shot LLM call without any tools or memory",
+      "should_trigger": false,
+      "expected_output": "(Defer to platform skill; use Platform::invoke() directly.)"
+    },
+    {
+      "id": 8,
+      "prompt": "I need to store documents in Qdrant for similarity search",
+      "should_trigger": false,
+      "expected_output": "(Defer to store skill; do not load agent skill for this query.)"
+    },
+    {
+      "id": 9,
+      "prompt": "Expose my Symfony app as an MCP server",
+      "should_trigger": false,
+      "expected_output": "(Defer to mcp-bundle skill.)"
+    },
+    {
+      "id": 10,
+      "prompt": "Let Claude Code read my Symfony app's logs and profiler",
+      "should_trigger": false,
+      "expected_output": "(Defer to mate skill; dev tool only.)"
+    }
+  ]
+}

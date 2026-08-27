@@ -1,0 +1,70 @@
+{
+  "skill_name": "platform",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "How do I call GPT-4o from my Symfony controller?",
+      "should_trigger": true,
+      "expected_output": "composer require symfony/ai-platform + symfony/ai-open-ai-platform + a Platform::invoke snippet.",
+      "assertions": ["mentions symfony/ai-open-ai-platform", "shows Platform::invoke code"]
+    },
+    {
+      "id": 2,
+      "prompt": "I want to switch my app from OpenAI to Anthropic without rewriting all my calls",
+      "should_trigger": true,
+      "expected_output": "Use Symfony AI's Platform; install symfony/ai-anthropic-platform; swap PlatformFactory.",
+      "assertions": ["recommends Symfony AI Platform", "explains single API across providers"]
+    },
+    {
+      "id": 3,
+      "prompt": "How can I get structured JSON output (not free text) from an LLM?",
+      "should_trigger": true,
+      "expected_output": "Pass a JsonSchema (or structured output object) as the third argument to Platform::invoke.",
+      "assertions": ["mentions structured output", "code example with Platform::invoke signature"]
+    },
+    {
+      "id": 4,
+      "prompt": "Show me how to embed 1000 documents for similarity search",
+      "should_trigger": true,
+      "expected_output": "Use an Embedder via the Platform's embedding contract; index via the store skill.",
+      "assertions": ["mentions Platform's embedding contract", "cross-references store skill"]
+    },
+    {
+      "id": 5,
+      "prompt": "Set up a multi-provider failover (OpenAI then Gemini)",
+      "should_trigger": true,
+      "expected_output": "Wrap two Platform instances in FailoverPlatform.",
+      "assertions": ["mentions FailoverPlatform", "shows multi-platform instantiation"]
+    },
+    {
+      "id": 6,
+      "prompt": "How do I persist chat messages across HTTP requests?",
+      "should_trigger": false,
+      "expected_output": "(Defer to chat skill; do not load platform skill for this query.)"
+    },
+    {
+      "id": 7,
+      "prompt": "Store embeddings in Pinecone with a self-hosted Symfony app",
+      "should_trigger": false,
+      "expected_output": "(Defer to store skill; do not load platform skill for this query.)"
+    },
+    {
+      "id": 8,
+      "prompt": "I need to register an MCP server inside my app",
+      "should_trigger": false,
+      "expected_output": "(Defer to mcp-bundle skill.)"
+    },
+    {
+      "id": 9,
+      "prompt": "Let Claude introspect my running Symfony app",
+      "should_trigger": false,
+      "expected_output": "(Defer to mate skill.)"
+    },
+    {
+      "id": 10,
+      "prompt": "Build a stateful chatbot with long-term memory",
+      "should_trigger": false,
+      "expected_output": "(Defer to chat skill.)"
+    }
+  ]
+}

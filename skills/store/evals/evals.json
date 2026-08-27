@@ -1,0 +1,70 @@
+{
+  "skill_name": "store",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Build a RAG pipeline that retrieves docs then asks an LLM",
+      "should_trigger": true,
+      "expected_output": "Use Indexer to embed + store documents; query store for nearest vectors; prepend to LLM context.",
+      "assertions": ["mentions Indexer", "shows query() then LLM context composition"]
+    },
+    {
+      "id": 2,
+      "prompt": "Self-host a vector DB on Postgres for my Symfony app",
+      "should_trigger": true,
+      "expected_output": "Install symfony/ai-postgres-store; enable pgvector extension; CREATE TABLE with vector(1536).",
+      "assertions": ["mentions pgvector extension", "shows CREATE TABLE for vectors"]
+    },
+    {
+      "id": 3,
+      "prompt": "How do I chunk a long PDF into smaller documents before embedding?",
+      "should_trigger": true,
+      "expected_output": "Use TextSplitTransformer with chunkSize + overlap, chained via ChainTransformer.",
+      "assertions": ["mentions TextSplitTransformer", "explains chunkSize/overlap"]
+    },
+    {
+      "id": 4,
+      "prompt": "I want to use Pinecone as my managed vector DB",
+      "should_trigger": true,
+      "expected_output": "Install symfony/ai-pinecone-store; configure API key + environment; use Indexer to ingest.",
+      "assertions": ["mentions symfony/ai-pinecone-store", "shows bridge config"]
+    },
+    {
+      "id": 5,
+      "prompt": "Compare cosine similarity results between vector DBs",
+      "should_trigger": true,
+      "expected_output": "Note that scores differ across DBs even with 'cosine'; use the same DB for consistency.",
+      "assertions": ["mentions score non-comparability", "recommends same DB for consistency"]
+    },
+    {
+      "id": 6,
+      "prompt": "Just embed text without storing it anywhere",
+      "should_trigger": false,
+      "expected_output": "(Defer to platform skill; use the embedding contract directly.)"
+    },
+    {
+      "id": 7,
+      "prompt": "Persist chat messages with Doctrine",
+      "should_trigger": false,
+      "expected_output": "(Defer to chat skill; chat has its own Doctrine message store bridge.)"
+    },
+    {
+      "id": 8,
+      "prompt": "Build a tool-calling agent",
+      "should_trigger": false,
+      "expected_output": "(Defer to agent skill.)"
+    },
+    {
+      "id": 9,
+      "prompt": "Register an MCP server in my Symfony app",
+      "should_trigger": false,
+      "expected_output": "(Defer to mcp-bundle skill.)"
+    },
+    {
+      "id": 10,
+      "prompt": "Let the AI assistant introspect my running app",
+      "should_trigger": false,
+      "expected_output": "(Defer to mate skill.)"
+    }
+  ]
+}
