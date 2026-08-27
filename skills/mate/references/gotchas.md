@@ -188,9 +188,13 @@ If you delete these by hand, `discover` will start treating the root project as 
 
 `CORRECT`: tool names are flat strings (e.g. `server-info`, `monolog-search`). `CapabilityCollector::formatTools()` (lines 98-111) keys the tools array by the bare attribute name. There is no dotted-namespace convention in this codebase.
 
-## 17. Skill install: prefix `mate-` and refuse symlinks in skill trees
+## 17. `.agents/skills/` is a real copy, not a symlink into `vendor/`
 
-`SkillsInstaller::install()` (`src/Service/SkillsInstaller.php`) prefixes every skill directory with `mate-` (e.g. `mate-system-information`). Skills containing symlinks anywhere in their tree are rejected (`containsSymlink()` lines 165-189) to prevent a malicious package from exposing arbitrary files outside its own directory through the installed link. The source-of-truth lives in `.agents/skills/` and mirrors into `.claude/skills/` : both managed directories.
+`SkillInstaller::install()` (`src/Skill/SkillInstaller.php`) prefixes every skill directory with `mate-` (e.g. `mate-system-information`) and places it under `.agents/skills/` as a **plain copy** of the source skill, not a symlink into `vendor/`. This is a deliberate change from the previous symlink-based approach : since the installed tree is a real copy, you can read and diff exactly what your agent will load, and committing `.agents/skills/` is safe and recommended (an upstream skill update then shows up as a reviewable diff). Mate does not add it to your `.gitignore`.
+
+Only `.claude/skills/` is still a symlink : a **relative** link pointing at the corresponding `.agents/skills/` copy (falling back to a second copy when the filesystem does not support symlinks, e.g. some Windows setups — `SkillInstaller::linkMirror()`). Both `.agents/skills/` and `.claude/skills/` are Mate-managed and get pruned of stale `mate-*` entries on every `skills:install` (`pruneStrays()`).
+
+To customize a skill's content instead of editing the generated copy directly (which gets overwritten on the next `skills:install`), set `'mode' => 'override'` for it in `mate/extensions.php` and edit your own copy under `mate/skills/<name>/` — see gotcha 20 below on `extensions.php` state.
 
 ## 18. Real extension package names
 
@@ -201,6 +205,34 @@ If you delete these by hand, `discover` will start treating the root project as 
 ## 19. `mate/.env` is committed (not gitignored); neither is auto-loaded without config
 
 `resources/mate/.gitignore` contains exactly one line: `.env.local`. So the file `mate/.env` itself is committed (empty by default), but `mate/.env.local` is not. Importantly, neither `.env` nor `.env.local` is auto-loaded unless you set `mate.env_file` (parameter) in `mate/config.php` AND have `symfony/dotenv` installed; otherwise loading is a no-op.
+
+## 20. `extensions.php` splits editable state from tool-written state
+
+Per-skill entries in `mate/extensions.php` mix two kinds of fields (`SkillStateRepository`, `src/Skill/SkillStateRepository.php`):
+
+- **Yours to edit**: `enabled` (bool) and `mode` (`'managed'` or `'override'`).
+- **Written by `skills:install` on every run, do not hand-edit**: `state` (`'managed'` | `'override'` | `'disabled'`), `source`, `source_hash`, `hash`, and `targets`.
+
+```php
+return [
+    'acme/mate-myext' => [
+        'enabled' => true,
+        'skills' => [
+            'weather' => [
+                'enabled' => true,
+                'mode' => 'managed',        // yours: switch to 'override' to take ownership of the content
+                'state' => 'managed',       // written by skills:install
+                'source' => '...',          // written
+                'source_hash' => '...',     // written
+                'hash' => '...',            // written
+                'targets' => ['...'],       // written
+            ],
+        ],
+    ],
+];
+```
+
+Setting `mode: 'override'` tells `skills:install` to stop overwriting that skill's `.agents/skills/mate-<name>/` copy from the upstream source on every run; place your own version under `mate/skills/<name>/` instead. If you previously ran a `0.13` development build before this field set stabilized, delete the now-unused `mate/skills.lock.php` — it is neither read nor written by the current version.
 
 ## See also
 

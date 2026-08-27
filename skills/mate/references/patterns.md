@@ -122,7 +122,7 @@ vendor/bin/mate skills:install          # explicit re-sync of extension skills
 vendor/bin/mate debug:capabilities      # confirm my-symfony-version is listed
 ```
 
-On `discover` the new package is added to `mate/extensions.php` as `'acme/mate-myext' => ['enabled' => true]`, and each `skills/<name>/` directory becomes `mate-<name>` under `.agents/skills/` and `.claude/skills/` (symlinked, see `SkillsInstaller::placeSkill()`). Dangling `mate-*` links are pruned on every install.
+On `discover` the new package is added to `mate/extensions.php` as `'acme/mate-myext' => ['enabled' => true]`, and each `skills/<name>/` directory becomes `mate-<name>`, copied into `.agents/skills/` (a real copy, safe to commit) and mirrored as a relative symlink under `.claude/skills/` (`SkillInstaller::install()` / `linkMirror()`). Stale `mate-*` entries in either directory are pruned on every install.
 
 ## 3. Bootstrap check {#bootstrap-check}
 
