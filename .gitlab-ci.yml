@@ -9,10 +9,6 @@ variables:
   GIT_DEPTH: "10"
   SKILL_REF_REPO: "https://github.com/agentskills/agentskills.git"
 
-cache:
-  paths:
-    - .skills-ref/
-
 before_script:
   - apk add --no-cache bash git jq python3 py3-pip
   - apk add --no-cache php84 php84-dom php84-xml php84-mbstring 2>/dev/null || apk add --no-cache php php-dom php-xml php-mbstring
@@ -158,5 +154,3 @@ test:skills-ref:
         - skills/**/SKILL.md
         - skills/**/references/**
   allow_failure: true
-  variables:
-    GIT_STRATEGY: "none"
