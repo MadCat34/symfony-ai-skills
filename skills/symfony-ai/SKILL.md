@@ -58,10 +58,6 @@ These skills compose naturally. A typical Symfony AI application:
 - `chat` + `Bridge\Doctrine\DoctrineDbalMessageStore` : persist chat across HTTP requests.
 - `ai-bundle` to configure any of the above via `config/packages/ai.yaml`.
 
-
-
-
-
 ## When to use which MCP skill (do not confuse)
 
 - **`mcp-bundle`** : you build an MCP server inside your Symfony app so that *external* agents can call your tools. Trigger: "expose my Symfony app as an MCP server".
@@ -82,4 +78,3 @@ These two skills MUST NOT be used together; their descriptions contain mutually-
 - Tool calling is wired via the named `toolbox` constructor argument of `Agent`, not via input/output processors. `Agent` drives the tool-calling loop itself.
 - For RAG you need TWO skills working together: `platform` (for embeddings) AND `store` (for the vector DB). Build the indexing chain with the actual `Document\Vectorizer` and `DocumentIndexer` APIs.
 - `mcp-bundle` ≠ `mate`. Build-vs-consume MCP server. Confusing them is the #1 routing mistake.
-

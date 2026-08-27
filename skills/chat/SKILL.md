@@ -176,4 +176,3 @@ Both are useful for tests and profiler wiring.
 - `agent` skill : for the underlying tool-calling agent that `Chat` wraps.
 - `platform` skill : for raw LLM invocation (Agent wraps it).
 - `ai-bundle` skill : for Symfony DI wiring of `Chat`, stores, and console commands.
-

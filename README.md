@@ -21,22 +21,6 @@ Symfony AI skills for Claude, Gemini, Codex, and any [agentskills.io](https://ag
 | [mcp-bundle](skills/mcp-bundle/SKILL.md) | Build an MCP server inside a Symfony app                       | [api](skills/mcp-bundle/references/api.md) · [patterns](skills/mcp-bundle/references/patterns.md) · [gotchas](skills/mcp-bundle/references/gotchas.md)                                                                                                                    |
 | [mate](skills/mate/SKILL.md)             | Dev tool : let the AI assistant read your app (logs, profiler) | [api](skills/mate/references/api.md) · [patterns](skills/mate/references/patterns.md) · [gotchas](skills/mate/references/gotchas.md)                                                                                                                                      |
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Version window
 
 - **PHP** 8.2+

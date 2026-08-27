@@ -165,3 +165,8 @@ pick the one that fits the question.
   misbehaving and you need the trap list.**
 - **Validation**: run `bash skills/platform/scripts/check-snippets.sh` to
   lint every PHP code block in this skill with `php -l`.
+
+## See also
+
+- `agent` skill : building a tool-calling agent on top of raw Platform calls.
+- `store` skill : vector storage once you have embeddings from Platform.

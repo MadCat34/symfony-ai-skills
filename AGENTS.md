@@ -18,4 +18,3 @@ This project uses the [Symfony AI](https://ai.symfony.com) stack : components fo
 - Symfony AI is **experimental** : `BC breaks` possible. Check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading.
 - For RAG, you need BOTH `platform` (for embeddings) AND `store` (for the vector DB). Open with `symfony-ai` if unsure which to start with.
 - For MCP server inside your app → `mcp-bundle`. For letting an AI assistant read your app's logs/profiler → `mate`. Never both at once.
-

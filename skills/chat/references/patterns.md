@@ -213,4 +213,3 @@ Conversation history and memory are independent dimensions: a chat can have pers
 - `agent` skill : for the underlying `Agent` and `Toolbox` patterns.
 - `ai-bundle` skill : for Symfony DI wiring of `Chat` and bridge services.
 - `references/gotchas.md` : for the per-bridge caveats.
-
