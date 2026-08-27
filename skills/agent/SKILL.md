@@ -6,7 +6,7 @@ metadata:
   author: MadCat34
   email: madcat34@gmail.com
   url: https://github.com/MadCat34
-  version: "0.12.0"
+  version: "0.13.0-dev"
 ---
 
 # Agent
@@ -53,7 +53,7 @@ InputProcessor[] (registration order)
 PlatformInterface::invoke(model, messages, options)
    |
    v
-Tool-calling loop (wired via `AgentProcessor`, registered as BOTH an input and an output processor, max 50 iterations)
+Tool-calling loop (if a `toolbox` was passed to Agent, max 50 iterations)
    |
    v
 OutputProcessor[] (registration order)
@@ -62,15 +62,14 @@ OutputProcessor[] (registration order)
 ResultInterface
 ```
 
-The processor pipeline mutates a typed `Input` container before the platform call, then mutates an `Output` container after the platform call. Tool calling **is** part of that pipeline : `AgentProcessor` drives the loop, and it must be registered as both an input processor (to inject tool definitions) and an output processor (to execute tool calls and recurse) — see [Quick reference](#quick-reference-tool-calling-agent) below.
+The processor pipeline mutates a typed `Input` container before the platform call, then mutates an `Output` container after the platform call. Tool calling is **not** part of that pipeline : `Agent` drives its own tool-calling loop internally once a `toolbox` is passed to its constructor (see [Quick reference](#quick-reference-tool-calling-agent) below).
 
 ## Quick reference: tool-calling agent
 
-This compiles against `src/agent/`. Tools are objects decorated with `#[AsTool]` on the **class**; wrap the `Toolbox` in an `AgentProcessor` and pass that same instance as both the input and output processor:
+This compiles against `src/agent/`. Tools are objects decorated with `#[AsTool]` on the **class**; pass the `Toolbox` directly to `Agent` via the `toolbox` constructor argument:
 
 ```php
 use Symfony\AI\Agent\Agent;
-use Symfony\AI\Agent\Toolbox\AgentProcessor;
 use Symfony\AI\Agent\Toolbox\Toolbox;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Symfony\AI\Platform\Bridge\OpenAi\Factory as OpenAiFactory;
@@ -86,9 +85,8 @@ final class WeatherService
 
 $platform = OpenAiFactory::createPlatform($_ENV['OPENAI_API_KEY']);
 $toolbox = new Toolbox([new WeatherService()]);
-$processor = new AgentProcessor($toolbox);
 
-$agent = new Agent($platform, 'gpt-4o-mini', [$processor], [$processor]);
+$agent = new Agent($platform, 'gpt-4o-mini', toolbox: $toolbox);
 
 $result = $agent->call("What's the weather in Paris?");
 echo $result->getContent();
@@ -104,7 +102,7 @@ Notes:
 
 ## Key gotchas
 
-- **Tools are wired by passing the same `AgentProcessor` instance as BOTH an input and an output processor.** `Agent` has no `toolbox` argument; tool calling is driven entirely by the processor pipeline: `$processor = new AgentProcessor($toolbox); new Agent($platform, $model, [$processor], [$processor]);`. Registering it on only one side breaks tool calling silently (tool definitions never reach the model, or results never get executed).
+- **Tools are wired via the named `toolbox` constructor argument, not `$inputProcessors`/`$outputProcessors`.** Passing the toolbox as the third positional constructor argument will fail with a type error — use the named argument instead: `new Agent($platform, $model, toolbox: $toolbox)`.
 
 - **`Toolbox` is not variadic.** The constructor is `(iterable $tools, ...)`. Pass `[new WeatherService()]` : an array, not a splat.
 
@@ -120,7 +118,7 @@ See `references/gotchas.md` for the full list (processor order, idempotence, rec
 
 | Task                               | Building blocks                                                               |
 | ---------------------------------- | ----------------------------------------------------------------------------- |
-| Tool-calling agent                 | `AgentProcessor(new Toolbox([services]))`, passed as both input and output processor |
+| Tool-calling agent                 | `Toolbox([services])` passed as `Agent`'s `toolbox` argument                  |
 | Tool idempotence / fault tolerance | `FaultTolerantToolbox` wraps a `Toolbox` (converts errors to `ToolResult`)    |
 | Static memory (pre-seeded)         | `StaticMemoryProvider(['Alice likes pizza'])` + `MemoryInputProcessor`        |
 | Embedding-based memory             | `EmbeddingProvider($platform, $model, $vectorStore)` + `MemoryInputProcessor` |

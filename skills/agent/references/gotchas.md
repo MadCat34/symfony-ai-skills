@@ -2,22 +2,16 @@
 
 Cross-checked against `src/agent/src/`. The top 5 are in `SKILL.md`; this is the rest.
 
-## 1. Tools are wired via `AgentProcessor`, registered as BOTH input and output processor
+## 1. Tools are wired via the `toolbox` named argument, not `$inputProcessors`/`$outputProcessors`
 
-Read `src/Agent.php` : the signature is `(PlatformInterface $platform, string $model, iterable $inputProcessors = [], iterable $outputProcessors = [], string $name = 'agent')`. There is no `toolbox` argument. Tool calling is driven entirely by `AgentProcessor` (`src/Toolbox/AgentProcessor.php`), which must be passed as **both** an input processor (injects tool definitions into the platform options) and an output processor (executes tool calls and recurses).
+Read `src/Agent.php` : the signature is `(PlatformInterface $platform, string $model, iterable $inputProcessors = [], iterable $outputProcessors = [], string $name = 'agent', ?ToolboxInterface $toolbox = null, ?ToolExecutorInterface $toolExecutor = null, ?int $maxToolCalls = 50, bool $excludeToolMessages = false, bool $includeSources = false, ?EventDispatcherInterface $eventDispatcher = null)`. `toolbox` is the 6th parameter, so pass it by name; the agent drives the tool-calling loop itself instead of wiring it through a processor.
 
 ```php
-// WRONG — Toolbox passed directly, Agent has no toolbox parameter
+// WRONG — TypeError, third positional argument is $inputProcessors, not a toolbox
+$agent = new Agent($platform, 'gpt-4o-mini', [$toolbox]);
+
+// CORRECT
 $agent = new Agent($platform, 'gpt-4o-mini', toolbox: $toolbox);
-
-// WRONG — processor registered on only one side; tool calls are executed but never
-// injected into the platform options (or vice versa)
-$processor = new AgentProcessor($toolbox);
-$agent = new Agent($platform, 'gpt-4o-mini', [$processor], []);
-
-// CORRECT — same instance, both sides
-$processor = new AgentProcessor($toolbox);
-$agent = new Agent($platform, 'gpt-4o-mini', [$processor], [$processor]);
 ```
 
 ## 2. `Toolbox` is not variadic : `iterable` only
@@ -85,9 +79,9 @@ $router = new MultiAgent($orchestrator, [new Handoff($target, ['when', 'keywords
 
 `src/Agent.php` iterates `$this->outputProcessors` in `foreach` order : the same as for input processors. There is no reverse-order semantics. The previous "output processors in reverse order" guidance in older docs is wrong.
 
-## 8. `AgentProcessor`'s `maxToolCalls` guards the tool-calling loop
+## 8. `Agent`'s `maxToolCalls` guards the tool-calling loop
 
-`src/Toolbox/AgentProcessor.php`: the default is `50` (`?int $maxToolCalls = 50`). Past that, `MaxIterationsExceededException` is thrown. Set `maxToolCalls: null` to disable the guard. `AgentProcessor` also accepts `excludeToolMessages` (don't add tool/assistant messages back to the bag) and `includeSources` (collect `Source` objects from tool results that implement `HasSourcesInterface`) as constructor arguments alongside `toolbox`.
+`src/Agent.php`: the default is `50` (`?int $maxToolCalls = 50`). Past that, `MaxIterationsExceededException` is thrown. Set `maxToolCalls: null` to disable the guard. `Agent` also accepts `excludeToolMessages` (don't add tool/assistant messages back to the bag) and `includeSources` (collect `Source` objects from tool results that implement `HasSourcesInterface`) as constructor arguments alongside `toolbox`.
 
 ## 9. `ToolException` (config) ≠ `ToolExecutionExceptionInterface` (runtime)
 
@@ -103,11 +97,11 @@ $router = new MultiAgent($orchestrator, [new Handoff($target, ['when', 'keywords
 
 ## 12. Lifecycle and streaming boundaries
 
-- **Use one dispatcher for the whole lifecycle.** Passing different `EventDispatcherInterface` instances to `Toolbox` and `AgentProcessor` splits request/resolution/success/failure events from the batch event. Pass the same instance to both.
+- **Use one dispatcher for the whole lifecycle.** Passing different `EventDispatcherInterface` instances to `Toolbox` and `Agent` splits request/resolution/success/failure events from the batch event. Pass the same instance to both.
 - **Do not validate typed arguments in `ToolCallRequested`.** That event fires before `ToolCallArgumentResolverInterface::resolveArguments()` runs. Validate denormalized arguments in `ToolCallArgumentsResolved`, whose `getArguments()` contains the resolved array.
-- **Exhaust streams before reading final metadata.** `AgentProcessor` attaches a `StreamListener` internally when tool calling is active; source collections and result metadata can be updated while tool calls are consumed. Do not assume the `sources` metadata entry is final before stream exhaustion.
+- **Exhaust streams before reading final metadata.** `Agent` attaches a `StreamListener` internally when tool calling is active; source collections and result metadata can be updated while tool calls are consumed. Do not assume the `sources` metadata entry is final before stream exhaustion.
 - **Provenance is not citation.** `Source` and `SourceCollection` preserve tool-reported metadata. They do not prove phrase-level attribution or that the source or generated claim is true.
-- **`maxToolCalls` is constructor-only.** It bounds `AgentProcessor`'s internal tool-calling loop, not an individual `Agent::call()` option. Configure it when constructing the processor, for example `new AgentProcessor($toolbox, maxToolCalls: 8)`; use `null` to disable the guard.
+- **`maxToolCalls` is constructor-only.** It bounds `Agent`'s internal tool-calling loop, not an individual `Agent::call()` option. Configure it when constructing the agent, for example `new Agent($platform, $model, toolbox: $toolbox, maxToolCalls: 8)`; use `null` to disable the guard.
 
 Symfony AI is experimental and BC breaks are possible; re-check `UPGRADE.md` when changing versions.
 
