@@ -157,7 +157,7 @@ ai:
                 #     - agent: 'default'           # wrap another agent as a sub-tool
                 #       name: 'delegate'
                 #       description: 'Delegate to the default agent.'
-            keep_tool_messages: false        # misleadingly named — see Notes below
+            exclude_tool_messages: false
             include_sources: false
             max_tool_calls: 50               # int or null
             fault_tolerant_toolbox: true     # boolean, default true
@@ -180,7 +180,6 @@ Notes:
 - **`system_prompt` is NOT a valid key** : use `prompt:`.
 - **`input_processors` / `output_processors` are NOT valid keys** : processors are auto-tagged via attributes/interfaces (see `references/processors.md`).
 - **`max_tool_calls` IS a valid key** (`config/options.php` lines 323-330): int or `null` to disable, default `50`. `circuit_breaker_threshold` and similar names are **not** valid — the only other fault-tolerance key is `fault_tolerant_toolbox: bool`.
-- **`keep_tool_messages: true` actually EXCLUDES tool messages.** The name is inverted against its behavior (`config/options.php` line 315, default `false`): the value is passed straight through as `AgentProcessor`'s `$excludeToolMessages` constructor argument (`AiBundle.php` line 1276), unnegated. So the default `false` keeps tool messages (correct), but setting `keep_tool_messages: true` to *keep* them removes them from the conversation history instead. This is fixed (renamed to `exclude_tool_messages`, same value semantics) in `symfony/ai` 0.13 — see `UPGRADE.md`.
 
 ## `ai.multi_agent`
 
