@@ -199,7 +199,33 @@ Behaviour: resolves the URI against the registry (static or `ResourceTemplateRef
 
 ### `skills:install`
 
-Source: `src/Command/SkillsInstallCommand.php`. Supports `--dry-run` (reports what would change without touching the filesystem). Re-runs `SkillInstaller::install()` for all enabled extensions plus the root project. Already-installed skills whose source is unchanged are left untouched; stale `mate-*` entries — copies under `.agents/skills/`, symlinks under `.claude/skills/` — are pruned (`SkillInstaller::pruneStrays()`).
+Source: `src/Command/SkillsInstallCommand.php`. Supports `--dry-run` (reports what would change without touching the filesystem). Calls `SkillManager::reinstall()` — the facade every `skills:*` command goes through — which re-runs `SkillInstaller::install()` for all enabled extensions plus the root project. Already-installed skills whose source is unchanged are left untouched; stale `mate-*` entries — copies under `.agents/skills/`, symlinks under `.claude/skills/` — are pruned (`SkillManager::pruneStrays()` → `SkillInstaller::pruneStrays()`).
+
+### `skills:list`
+
+Source: `src/Command/SkillsListCommand.php`. `--format=table|json|toon` (default `table`; `toon` requires the optional `helge-sverre/toon` package). Read-only : lists every declared skill with its installed/original name, owning package, `enabled`, `mode`, `state`, `source`, and a computed status flag (disabled / not-installed / stale / broken).
+
+### `skills:validate [name]`
+
+Source: `src/Command/SkillsValidateCommand.php`. Optional `name` argument (installed `mate-…` or original name) restricts validation to one skill. `--format=table|json|toon`, `--strict` (treat warnings as failures). Read-only : compares the generated `.agents/skills/` / `.claude/skills/` folders against what `mate/extensions.php` records. Exits `1` on any error, and on warnings too when `--strict` is set; purely informational "suggestions" never affect the exit code. Most findings are fixed by running `skills:install` or `skills:prune`.
+
+### `skills:prune`
+
+Source: `src/Command/SkillsPruneCommand.php`. `--dry-run` (list what would be removed without touching the filesystem). Calls `SkillManager::pruneStrays()` to remove leftover `mate-*`-prefixed folders that `skills:install` didn't already catch — e.g. after an interrupted run or a hand-edited `extensions.php`. Never touches anything without the `mate-` prefix.
+
+### `skills:override <name>`
+
+Source: `src/Command/SkillsOverrideCommand.php`. Required `name` argument (installed or original name), `-f`/`--force` (replace an existing copy). Copies the package skill's content into `mate/skills/<name>/` and sets that skill's `mode` to `'override'` in `extensions.php`, so `skills:install` stops overwriting it from upstream. Errors if a copy already exists there unless `--force` is passed.
+
+### `skills:reset <name>`
+
+Source: `src/Command/SkillsResetCommand.php`. Required `name` argument, `--delete-copy` (also delete the `mate/skills/<name>/` copy). Hands the skill back to Mate by setting `mode` to `'managed'` again; the override copy is kept on disk by default so you don't lose it by accident.
+
+### `skills:disable <name>` / `skills:enable <name>`
+
+Source: `src/Command/SkillsDisableCommand.php` / `SkillsEnableCommand.php`. Required `name` argument. `skills:disable` sets `enabled: false` and removes the skill's generated folders (the entry stays in `extensions.php`, and an override copy under `mate/skills/` is untouched). `skills:enable` sets `enabled: true` and rebuilds the folders — it is a no-op with a warning if the *owning extension* itself is still disabled.
+
+All seven commands above resolve the `name` argument (installed `mate-…` or original name) through `SkillManager::resolve()`.
 
 ---
 
@@ -224,7 +250,7 @@ Discovered by the core package's own `extra.ai-mate.scan-dirs: [src/Capability]`
 
 ## Environment variables
 
-Set in `src/default.config.php:41-47` and consumed at container build time:
+Set in `src/default.config.php:55-60` and consumed at container build time:
 
 | Variable | Type | Default | Effect |
 |---|---|---|---|
@@ -257,7 +283,7 @@ Other env vars (`MATE_LOG_LEVEL`, `MATE_CACHE_DIR`, `MATE_TRUNCATION_LOG_LINES`,
 
 ## `extensions.php` : key/value map
 
-Written by `ExtensionConfigSynchronizer::writeExtensionsFile()` (lines 113-136). Real shape (verified):
+Written by `ExtensionConfigSynchronizer::synchronize(array $discoveredExtensions, array $discoveredSkills = []): SynchronizationResult` (`src/mate/src/Service/ExtensionConfigSynchronizer.php:57`), preserving prior `enabled`/`mode` flags. Real shape (verified):
 
 ```php
 <?php

@@ -78,7 +78,14 @@ Verified against `src/App.php` (every command below is registered there) and the
 | `vendor/bin/mate mcp:tools:inspect <name>`       | Show tool schema (positional arg, `--format text\|json\|toon`)                                             |
 | `vendor/bin/mate mcp:tools:call <name> '<json>'` | Execute a tool (positional args, `--format pretty\|json\|toon`)                                            |
 | `vendor/bin/mate mcp:resources:read <uri>`       | Read an MCP resource (positional URI, `--format pretty\|json\|toon`)                                       |
-| `vendor/bin/mate skills:install`                 | Re-sync extension skills into `.agents/skills/` + `.claude/skills/`                                        |
+| `vendor/bin/mate skills:install [--dry-run]`     | Re-sync extension skills into `.agents/skills/` + `.claude/skills/`                                        |
+| `vendor/bin/mate skills:list [--format=...]`     | List declared/installed skills and their status (read-only)                                                |
+| `vendor/bin/mate skills:validate [name] [--strict]` | Check generated folders against `extensions.php` (read-only)                                            |
+| `vendor/bin/mate skills:prune [--dry-run]`       | Remove leftover `mate-*` folders `skills:install` missed                                                   |
+| `vendor/bin/mate skills:override <name> [-f]`    | Copy a skill into `mate/skills/<name>/`, set `mode: 'override'`                                            |
+| `vendor/bin/mate skills:reset <name> [--delete-copy]` | Set `mode: 'managed'` again, keep the override copy by default                                        |
+| `vendor/bin/mate skills:disable <name>`          | Hide a skill from coding agents (`enabled: false`)                                                         |
+| `vendor/bin/mate skills:enable <name>`           | Make a disabled skill visible again (`enabled: true`)                                                      |
 
 ## Editor MCP configuration (STDIO only)
 
