@@ -2,12 +2,13 @@
 
 Five end-to-end recipes, each one a complete, syntactically-valid PHP snippet. Source-of-truth: `src/agent/src/`.
 
-## 1. Tool-calling agent (pass a `toolbox` to `Agent`)
+## 1. Tool-calling agent (wire an `AgentProcessor` as both processors)
 
-The `Toolbox` is passed directly to `Agent` via the named `toolbox` constructor argument; `Agent` drives the tool-calling loop itself. Tools are objects with a `#[AsTool]` attribute on the **class**.
+`Toolbox` is wrapped in an `AgentProcessor`, and that same instance is passed as both the input processor (injects tool definitions) and the output processor (executes tool calls and recurses). Tools are objects with a `#[AsTool]` attribute on the **class**.
 
 ```php
 use Symfony\AI\Agent\Agent;
+use Symfony\AI\Agent\Toolbox\AgentProcessor;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Symfony\AI\Agent\Toolbox\Toolbox;
 use Symfony\AI\Platform\Bridge\OpenAi\Factory as OpenAiFactory;
@@ -23,11 +24,13 @@ final class WeatherService
 
 $platform = OpenAiFactory::createPlatform($_ENV['OPENAI_API_KEY']);
 $toolbox = new Toolbox([new WeatherService()]);
+$processor = new AgentProcessor($toolbox);
 
 $agent = new Agent(
     $platform,
     'gpt-4o-mini',
-    toolbox: $toolbox,
+    [$processor],
+    [$processor],
 );
 
 $result = $agent->call("What's the weather in Paris?");
@@ -57,11 +60,9 @@ use Symfony\AI\Agent\Agent;
 use Symfony\AI\Agent\InputProcessor\SystemPromptInputProcessor;
 use Symfony\AI\Agent\Memory\MemoryInputProcessor;
 use Symfony\AI\Agent\Memory\StaticMemoryProvider;
-use Symfony\AI\Agent\Toolbox\Toolbox;
 use Symfony\AI\Platform\Bridge\OpenAi\Factory as OpenAiFactory;
 
 $platform = OpenAiFactory::createPlatform($_ENV['OPENAI_API_KEY']);
-$toolbox = new Toolbox([]);   // no tools in this example
 
 $memoryProvider = new StaticMemoryProvider([
     'The user prefers metric units.',
@@ -76,7 +77,6 @@ $agent = new Agent(
         new MemoryInputProcessor([$memoryProvider]),
     ],
     [],
-    toolbox: $toolbox,
 );
 
 echo $agent->call('What unit system should I use?')->getContent();
@@ -140,7 +140,6 @@ For retention, indexing, isolation, and cost differences, see [MessageStore vs M
 use Symfony\AI\Agent\Agent;
 use Symfony\AI\Agent\MultiAgent\Handoff;
 use Symfony\AI\Agent\MultiAgent\MultiAgent;
-use Symfony\AI\Agent\Toolbox\Toolbox;
 use Symfony\AI\Platform\Bridge\OpenAi\Factory as OpenAiFactory;
 
 $platform = OpenAiFactory::createPlatform($_ENV['OPENAI_API_KEY']);
@@ -149,13 +148,11 @@ $researchAgent = new Agent(
     $platform, 'gpt-4o-mini',
     [], [],
     'research',
-    toolbox: new Toolbox([]),
 );
 $supportAgent = new Agent(
     $platform, 'gpt-4o-mini',
     [], [],
     'support',
-    toolbox: new Toolbox([]),
 );
 $orchestrator = new Agent(
     $platform, 'gpt-4o-mini',
@@ -212,10 +209,11 @@ Pass a `MessageBag` containing a `UserMessage` whose content includes `Audio`. `
 
 ## 6. Shared lifecycle dispatcher and source propagation
 
-Use one dispatcher instance for `Toolbox` events and the `ToolCallsExecuted` event emitted by `Agent`. A source-aware application tool implements `HasSourcesInterface`; `HasSourcesTrait` exposes the public collection setter/getter and a private `addSource()` helper for the tool body.
+Use one dispatcher instance for `Toolbox` events and the `ToolCallsExecuted` event emitted by `AgentProcessor`. A source-aware application tool implements `HasSourcesInterface`; `HasSourcesTrait` exposes the public collection setter/getter and a private `addSource()` helper for the tool body.
 
 ```php
 use Symfony\AI\Agent\Agent;
+use Symfony\AI\Agent\Toolbox\AgentProcessor;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
 use Symfony\AI\Agent\Toolbox\Source\HasSourcesInterface;
 use Symfony\AI\Agent\Toolbox\Source\HasSourcesTrait;
@@ -248,19 +246,23 @@ $platform = OpenAiFactory::createPlatform($_ENV['OPENAI_API_KEY']);
 $dispatcher = new EventDispatcher();
 $lookup = new InternalReleaseNotesLookup();
 $toolbox = new Toolbox([$lookup], eventDispatcher: $dispatcher);
-
-$agent = new Agent(
-    $platform,
-    'gpt-4o-mini',
-    toolbox: $toolbox,
+$processor = new AgentProcessor(
+    $toolbox,
     eventDispatcher: $dispatcher,
     includeSources: true,
     maxToolCalls: 8,
 );
 
+$agent = new Agent(
+    $platform,
+    'gpt-4o-mini',
+    [$processor],
+    [$processor],
+);
+
 // Toolbox builds the ToolResult (including the SourceCollection) automatically when it invokes the tool.
 ```
 
-With `includeSources: true` on `Agent`, it merges each `ToolResult::getSources()` collection and stores the final `SourceCollection` under the result metadata key `sources` after the outermost tool loop completes. For a streamed result, consume the stream completely before treating that metadata as final.
+With `includeSources: true` on `AgentProcessor`, it merges each `ToolResult::getSources()` collection and stores the final `SourceCollection` under the result metadata key `sources` after the outermost tool loop completes. For a streamed result, consume the stream completely before treating that metadata as final.
 
 This flow records provenance metadata: source name, reference, and content associated with tool output. It does **not** establish phrase-level attribution, a guaranteed citation relationship, or the truth of either the source or generated answer. Symfony AI is experimental; check `UPGRADE.md` before upgrading.

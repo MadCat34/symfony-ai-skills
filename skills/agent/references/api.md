@@ -25,8 +25,7 @@ Symfony\AI\Agent\
   Memory\EmbeddingProvider
   Toolbox\Toolbox                        (final)
   Toolbox\ToolboxInterface
-  Toolbox\ToolExecutorInterface
-  Toolbox\SequentialToolExecutor         (default ToolExecutorInterface)
+  Toolbox\AgentProcessor                 (input AND output processor, drives the tool-calling loop)
   Toolbox\FaultTolerantToolbox
   Toolbox\TraceableToolbox
   Toolbox\Attribute\AsTool               (TARGET_CLASS | IS_REPEATABLE)
@@ -72,8 +71,6 @@ final class Agent implements AgentInterface
      * @param iterable<InputProcessorInterface>  $inputProcessors
      * @param iterable<OutputProcessorInterface> $outputProcessors
      * @param non-empty-string                   $model
-     * @param bool                                $excludeToolMessages keeps the messages appended during tool calling out of the caller's message bag
-     * @param bool                                $includeSources      exposes the sources collected during tool calling as `sources` result metadata
      */
     public function __construct(
         PlatformInterface $platform,
@@ -81,12 +78,6 @@ final class Agent implements AgentInterface
         private readonly iterable $inputProcessors = [],
         private readonly iterable $outputProcessors = [],
         private readonly string $name = 'agent',
-        ?ToolboxInterface $toolbox = null,
-        ?ToolExecutorInterface $toolExecutor = null,
-        ?int $maxToolCalls = 50,
-        bool $excludeToolMessages = false,
-        bool $includeSources = false,
-        ?EventDispatcherInterface $eventDispatcher = null,
     );
 
     public function getModel(): string;
@@ -99,7 +90,7 @@ final class Agent implements AgentInterface
 }
 ```
 
-`toolbox` is the 6th constructor parameter (pass it by name). When set and no `toolExecutor` is given, `Agent` defaults to `SequentialToolExecutor`. `Agent` drives the tool-calling loop itself; tools no longer enter the pipeline via a processor.
+`Agent` has no `toolbox`, `maxToolCalls`, `excludeToolMessages`, `includeSources`, or `eventDispatcher` constructor arguments — those all live on `AgentProcessor` (below). Tool calling enters the pipeline only through a processor, registered on both sides.
 
 ## `AgentInterface`
 
@@ -248,32 +239,28 @@ interface ToolboxInterface
 }
 ```
 
-## `ToolExecutorInterface` / `SequentialToolExecutor`
+## `AgentProcessor`
 
 ```php
 namespace Symfony\AI\Agent\Toolbox;
 
-interface ToolExecutorInterface
-{
-    /**
-     * @param ToolCall[] $toolCalls
-     *
-     * @return ToolResult[] one result per tool call, in the same order as the given calls
-     */
-    public function execute(array $toolCalls): array;
-}
-
-final class SequentialToolExecutor implements ToolExecutorInterface
+final class AgentProcessor implements InputProcessorInterface, OutputProcessorInterface
 {
     public function __construct(
         private readonly ToolboxInterface $toolbox,
+        private readonly ToolResultConverter $resultConverter = new ToolResultConverter(),
+        private readonly ?EventDispatcherInterface $eventDispatcher = null,
+        private readonly bool $excludeToolMessages = false,
+        private readonly bool $includeSources = false,
+        private readonly ?int $maxToolCalls = 50,
     );
 
-    public function execute(array $toolCalls): array;
+    public function processInput(Input $input): void;
+    public function processOutput(Output $output): void;
 }
 ```
 
-There is no more `AgentProcessor` : tool calling is driven by `Agent` itself (see `Runner`, `@internal`). `Agent::__construct()` injects the tool list into the platform options, executes the loop via `ToolExecutorInterface` (default `SequentialToolExecutor`, one call after another), and recurses until a non-`ToolCallResult` is returned. Default `maxToolCalls` is **50**; throws `MaxIterationsExceededException` past that. A custom `ToolExecutorInterface` (e.g. concurrent execution) can be passed via the `toolExecutor` constructor argument.
+Tool calling is driven by `AgentProcessor`, registered as **both** an input processor (injects tool definitions into the platform options) and an output processor (executes tool calls via `Toolbox::execute()` and recurses until a non-`ToolCallResult` is returned). `Agent` itself has no knowledge of tools. Default `maxToolCalls` is **50**; throws `MaxIterationsExceededException` past that, or pass `null` to disable the guard. `excludeToolMessages` keeps tool/assistant tool-call messages out of the caller's `MessageBag`; `includeSources` merges `ToolResult::getSources()` into the final result metadata under the key `sources`.
 
 ## `FaultTolerantToolbox`
 
