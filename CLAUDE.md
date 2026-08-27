@@ -14,7 +14,7 @@ Symfony AI itself is **experimental** — APIs break between minor releases. Whe
 
 ## Commands
 
-No test runner. CI is six shell-only jobs, and `.gitlab-ci.yml` and `.github/workflows/ci.yml` now declare the same six. Reproduce locally:
+No test runner. CI is eight jobs (`lint:skills`, `lint:references`, `lint:descriptions`, `lint:references-links`, `check:composer`, `check:snippets`, `check:symbols`, `test:skills-ref`), and `.gitlab-ci.yml` and `.github/workflows/ci.yml` declare the same eight with matching script bodies. Reproduce locally:
 
 ```bash
 # lint:skills — frontmatter name must equal directory name, description non-empty, < 500 lines
@@ -27,6 +27,12 @@ done
 # lint:references — filenames must match the approved whitelist
 ls skills/*/references/*.md
 
+# lint:descriptions — description quality/length and routing clause
+bash scripts/lint-descriptions.sh
+
+# lint:references-links — SKILL.md "read references/x.md when ..." bullets match what's on disk
+bash scripts/check-references-links.sh
+
 # check:composer — every symfony/ai-* and symfony/mcp-* package cited must exist on Packagist
 grep -rhoE 'symfony/(ai|mcp)-[a-z0-9-]+' skills/ | sort -u
 
@@ -35,11 +41,17 @@ bash scripts/check-snippets.sh
 
 # check:symbols — every Symfony\AI\* symbol cited must resolve in the monorepo
 SYMFONY_AI_SRC=../symfony-ai bash scripts/check-symbols.sh
+
+# test:skills-ref — validate every skill (except symfony-ai) against the upstream agentskills/skills-ref suite; allowed to fail, informational only
 ```
 
 `scripts/check-snippets.sh` extracts every `php` block from `skills/**/*.md` into a temp dir, prefixes `<?php` when the block lacks one, and runs `php -l`. It needs a `php` binary on PATH. `references/api.md` is excluded by design: those files are signature catalogues (bodyless declarations, ASCII namespace trees) that cannot parse as standalone PHP. The per-skill copies under `skills/{platform,agent,store}/scripts/` do the same for one skill.
 
 `scripts/check-symbols.sh` is the guard that actually catches defects. Syntax linting cannot: `use Symfony\AI\Store\Document\TextFileLoader;` is flawless PHP naming a class that does not exist. The script maps each cited `Symfony\AI\<Component>\<Path>` onto `src/<component>/src/` in the monorepo and asserts the file or directory is there. It needs the monorepo (`$SYMFONY_AI_SRC`, default `../symfony-ai`) and exits 0 with `SKIP` when it is absent. `scripts/known-absent-symbols.txt` holds the symbols the docs deliberately assert do **not** exist; those are checked in reverse, so a negative claim that goes stale fails the build.
+
+`test:skills-ref` clones `agentskills/agentskills` fresh, `pip install -e`s its `skills-ref` package, then loops over `skills/*/` calling `skills-ref validate` per directory, skipping `symfony-ai` in both CI files — this exclusion logic used to live only inside GitHub's job (GitLab called an upstream `scripts/run-against.sh` wrapper instead, whose own exclusion behavior wasn't visible from this repo); both now run the identical explicit loop. The job is `allow_failure`/`continue-on-error`, so it never blocks a merge — it exists to catch spec drift against the upstream skills-ref suite.
+
+One deliberate remaining asymmetry: GitLab jobs use `rules: changes:` to run only when relevant paths change; GitHub Actions has no per-job path filter, so all eight jobs run on every push/PR. This is a platform difference, not a defect — replicating it in GitHub Actions would require an extra marketplace action (e.g. `dorny/paths-filter`) for a purely cosmetic CI-minutes saving.
 
 ## Repository invariants
 
