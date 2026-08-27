@@ -103,6 +103,18 @@ $router = new MultiAgent($orchestrator, [new Handoff($target, ['when', 'keywords
 - **Provenance is not citation.** `Source` and `SourceCollection` preserve tool-reported metadata. They do not prove phrase-level attribution or that the source or generated claim is true.
 - **`maxToolCalls` is constructor-only.** It bounds `Agent`'s internal tool-calling loop, not an individual `Agent::call()` option. Configure it when constructing the agent, for example `new Agent($platform, $model, toolbox: $toolbox, maxToolCalls: 8)`; use `null` to disable the guard.
 
-Symfony AI is experimental and BC breaks are possible; re-check `UPGRADE.md` when changing versions.
+## 13. `tools` is a per-call option, not just a construction-time toolbox
 
-The processor reads `$input->getOptions()['use_memory']`, removes it from the options bag, and short-circuits to `return` when the value is `false` (or when no providers are registered). Pass `['use_memory' => false]` from your caller to disable memory for a specific call without changing the agent's processor list.
+`src/Execution/Runner.php` (`exposeTools()`): passing `['tools' => ['tavily_search']]` as the second argument of `Agent::call()` restricts, for that one call only, which tools from the constructed `toolbox` are exposed to the model — the filter only applies when the option is a flat array of strings (tool names); anything else leaves the full toolbox exposed. This does not remove tools from the `Toolbox` itself, just from what that call advertises to the platform.
+
+```php
+// Only "tavily_search" is exposed to the model for this call; the rest of the
+// toolbox is untouched and still available on the next call.
+$agent->call($input, ['tools' => ['tavily_search']]);
+```
+
+## 14. `use_memory: false` disables memory for one call
+
+`MemoryInputProcessor::processInput()` reads `$input->getOptions()['use_memory']`, removes it from the options bag, and short-circuits to `return` when the value is `false` (or when no providers are registered). Pass `['use_memory' => false]` from your caller to disable memory for a specific call without changing the agent's processor list.
+
+Symfony AI is experimental and BC breaks are possible; re-check `UPGRADE.md` when changing versions.
