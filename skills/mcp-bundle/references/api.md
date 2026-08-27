@@ -606,7 +606,7 @@ Notes:
 | `mcp.server.<name>.controller` | `Symfony\AI\McpBundle\Controller\McpController` | `configureServer()`, only when `transports.http` |
 | `mcp.server.command` | `Symfony\AI\McpBundle\Command\McpCommand` | `configureServers()`, one shared instance for every STDIO-enabled server |
 | `mcp.server.route_loader` | `Symfony\AI\McpBundle\Routing\RouteLoader` | `configureServers()`, one shared instance for every HTTP-enabled server |
-| `mcp.server.debug_command` | `Symfony\AI\McpBundle\Command\DebugCommand` | `loadExtension()` |
+| `mcp.debug_command` | `Symfony\AI\McpBundle\Command\DebugCommand` | `McpBundle::configureDebugCommand()`, one shared instance |
 | `mcp.data_collector` | `Symfony\AI\McpBundle\Profiler\DataCollector` | `configureServers()` (kernel.debug only) |
 | `mcp.client.<name>` | `Symfony\AI\McpBundle\Client\McpClient` | `configureClients()`; aliased for argument as `McpClientInterface $<name>` (and as a plain `McpClientInterface` when it is the only client) |
 | `mcp.client.<client>.server.<server>.transport` | SDK client transport | `configureClients()` |
@@ -615,7 +615,7 @@ Notes:
 | `mcp.psr_http_factory` | `Symfony\Bridge\PsrHttpMessage\Factory\PsrHttpFactory` | services.php |
 | `mcp.http_foundation_factory` | `Symfony\Bridge\PsrHttpMessage\Factory\HttpFoundationFactory` | services.php |
 | `mcp.app.renderer` | `Symfony\AI\McpBundle\App\McpAppRenderer` | configureApps() (Twig only) |
-| `mcp.app.reference_handler` | `Symfony\AI\McpBundle\App\McpAppReferenceHandler` | McpPass::configureAppReferenceHandler() |
+| `mcp.server.<name>.app.reference_handler` | `Symfony\AI\McpBundle\App\McpAppReferenceHandler` | `McpPass::configureAppReferenceHandler()`, per server |
 
 ## See also
 
