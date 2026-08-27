@@ -1,0 +1,6 @@
+# Symbols the documentation deliberately cites as NOT existing, so readers stop
+# reaching for names that come from training data rather than from the source.
+# check-symbols.sh fails if any of these ever appears in the monorepo, which
+# would mean the doc's negative claim has gone stale.
+
+Symfony\AI\Store\Indexer\Indexer

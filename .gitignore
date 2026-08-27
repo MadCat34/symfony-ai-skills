@@ -1,0 +1,21 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Build artifacts
+node_modules/
+vendor/
+composer.lock
+package-lock.json
+
+# Local env
+.env
+.env.*
+!.env.example
+
+# Generated docs
+/docs/superpowers/specs/
+/docs/superpowers/plans/

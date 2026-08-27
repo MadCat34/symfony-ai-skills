@@ -1,0 +1,148 @@
+stages:
+  - lint
+  - check
+  - test
+
+image: alpine:3.20
+
+variables:
+  GIT_DEPTH: "10"
+  SKILL_REF_REPO: "https://github.com/agentskills/agentskills.git"
+
+cache:
+  paths:
+    - .skills-ref/
+
+before_script:
+  - apk add --no-cache bash git jq python3 py3-pip
+  - apk add --no-cache php84 php84-dom php84-xml php84-mbstring 2>/dev/null || apk add --no-cache php php-dom php-xml php-mbstring
+  - ln -sf /usr/bin/php84 /usr/bin/php 2>/dev/null || ln -sf /usr/bin/php /usr/bin/php
+
+lint:skills:
+  stage: lint
+  script:
+    - |
+      echo "Verifying frontmatter (name + description) on every SKILL.md"
+      fail=0
+      for f in $(find skills -name SKILL.md); do
+        dir_name=$(basename "$(dirname "$f")")
+        name=$(awk 'BEGIN{ok=0} /^---$/{ok++; next} ok==1 && /^name:/{print $2; exit}' "$f")
+        desc_line=$(awk 'BEGIN{ok=0} /^---$/{ok++; next} ok==1 && /^description:/{print; exit}' "$f")
+        if [ "$name" != "$dir_name" ]; then
+          echo "FAIL $f: name='$name' != dir='$dir_name'"
+          fail=1
+        fi
+        if [ -z "$desc_line" ]; then
+          echo "FAIL $f: empty description"
+          fail=1
+        fi
+        lines=$(wc -l < "$f")
+        if [ "$lines" -ge 500 ]; then
+          echo "WARN $f: $lines lines (spec recommends < 500)"
+        fi
+      done
+      [ "$fail" -eq 0 ]
+  rules:
+    - changes:
+        - skills/**/SKILL.md
+
+lint:references:
+  stage: lint
+  script:
+    - |
+      echo "Reference file naming"
+      fail=0
+      for dir in skills/*/; do
+        name=$(basename "$dir")
+        if [ "$name" = "symfony-ai" ]; then continue; fi
+        if [ -d "$dir/references" ]; then
+          for f in "$dir"/references/*.md; do
+            [ -e "$f" ] || continue
+            base=$(basename "$f" .md)
+            case "$base" in
+              api|patterns|gotchas|bridges|embeddings|config|processors|security) ;;
+              *) echo "WARN $f: unexpected reference name '$base'"; fail=1 ;;
+            esac
+          done
+        fi
+      done
+      [ "$fail" -eq 0 ]
+  rules:
+    - changes:
+        - skills/**/references/**
+
+lint:descriptions:
+  stage: lint
+  script:
+    - bash scripts/lint-descriptions.sh
+  rules:
+    - changes:
+        - skills/**/SKILL.md
+        - scripts/lint-descriptions.sh
+
+lint:references-links:
+  stage: lint
+  script:
+    - bash scripts/check-references-links.sh
+  rules:
+    - changes:
+        - skills/**/SKILL.md
+        - skills/**/references/**
+        - scripts/check-references-links.sh
+
+check:composer:
+  stage: check
+  script:
+    - |
+      echo "Composer package existence check"
+      fail=0
+      # The mcp- prefix matters: symfony/mcp-bundle was a permanent blind
+      # spot while the pattern only covered symfony/ai-*.
+      pkgs=$(grep -rhoE 'symfony/(ai|mcp)-[a-z0-9-]+' skills/ | sort -u)
+      for p in $pkgs; do
+        status=$(curl -s -o /dev/null -w "%{http_code}" "https://repo.packagist.org/p2/$p.json" || echo "000")
+        if [ "$status" != "200" ]; then
+          echo "FAIL package '$p' not found on packagist ($status)"
+          fail=1
+        fi
+      done
+      [ "$fail" -eq 0 ]
+  rules:
+    - changes:
+        - skills/**/*.md
+
+check:snippets:
+  stage: check
+  script:
+    - bash scripts/check-snippets.sh
+  rules:
+    - changes:
+        - skills/**/*.md
+        - scripts/check-snippets.sh
+
+check:symbols:
+  stage: check
+  script:
+    - git clone --depth=1 https://github.com/symfony/ai.git /tmp/symfony-ai
+    - SYMFONY_AI_SRC=/tmp/symfony-ai bash scripts/check-symbols.sh
+  rules:
+    - changes:
+        - skills/**/*.md
+        - scripts/check-symbols.sh
+        - scripts/known-absent-symbols.txt
+
+test:skills-ref:
+  stage: test
+  script:
+    - git clone --depth=1 "$SKILL_REF_REPO" /tmp/skills-ref
+    - if [ ! -d /tmp/skills-ref/skills-ref ]; then echo "skills-ref suite not found at expected path"; exit 1; fi
+    - cd /tmp/skills-ref/skills-ref
+    - python3 -m pip install --quiet -r requirements.txt 2>/dev/null || true
+    - bash scripts/run-against.sh "$CI_PROJECT_DIR/skills" || exit 1
+  rules:
+    - changes:
+        - skills/**/SKILL.md
+        - skills/**/references/**
+  allow_failure: true
+  variables:
+    GIT_STRATEGY: "none"
