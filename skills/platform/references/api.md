@@ -55,7 +55,7 @@ Symfony\AI\Platform\
 │   │     McpCallResult, McpApprovalRequestResult, McpListToolsResult,
 │   │     WebSearchResult)
 │   ├── Stream\                     (NdjsonStream, RawSseStream, SseStream, ListenerInterface,
-│   │   StartEvent, DeltaEvent, CompleteEvent, AbstractStreamListener, HttpStreamInterface)
+│   │   StartEvent, DeltaEvent, CompleteEvent, ErrorEvent, AbstractStreamListener, HttpStreamInterface)
 │   ├── Stream\Delta\               (TextDelta, PartialObjectDelta, ToolInputDelta,
 │   │   ToolCallStart, ToolCallComplete, BinaryDelta, ChoiceDelta, MetadataDelta,
 │   │   ThinkingStart, ThinkingDelta, ThinkingComplete, ThinkingSignature, DeltaInterface)
@@ -227,6 +227,30 @@ There is no `asText()` / `asObject()` on the interface : those are on
 | `ChoiceResult`         | `ResultInterface[]` (≥ 2 required)           |
 | `MultiPartResult`      | non-empty `ResultInterface[]`, iterable      |
 | `ThinkingResult`       | `?string` (text content only, nullable)      |
+
+## `Result\Stream\ListenerInterface`
+
+```php
+namespace Symfony\AI\Platform\Result\Stream;
+
+interface ListenerInterface
+{
+    public function onStart(StartEvent $event): void;      // once, before the first delta
+
+    public function onDelta(DeltaEvent $event): void;       // per delta, before it reaches the consumer;
+                                                              // can rewrite or skip the delta via the event
+
+    public function onComplete(CompleteEvent $event): void; // terminal; stream drained without error
+
+    public function onError(ErrorEvent $event): void;       // terminal; draining threw, right before rethrow
+}
+```
+
+`onComplete()` and `onError()` are mutually exclusive terminal events; a stream the consumer abandons mid-iteration reaches neither. A custom listener implementing `ListenerInterface` directly (not extending `AbstractStreamListener`) must add `onError()` — it did not exist before `onComplete()`-only listeners were the whole contract. `ErrorEvent::getError(): \Throwable` exposes the exception that will be rethrown to the caller.
+
+A finalizing side effect that must run regardless of outcome (cost accounting, quota debit, audit logging) has to be implemented in **both** `onComplete()` and `onError()` — there is no single "stream ended" hook.
+
+The Gemini and VertexAI bridges yield a single `ToolCallComplete` delta at the end of a stream, carrying every function call of the response, instead of one per streamed `functionCall` part — a listener collecting tool calls across deltas can take the last batch instead of merging every occurrence. The exception is a multi-candidate response (`candidateCount` > 1): its deltas stay wrapped in `ChoiceDelta`, each carrying one `ToolCallComplete` per function call, without a terminal batch — a consumer walking `ChoiceDelta::getDeltas()` still has to merge those itself.
 
 ## `TokenUsage`
 
