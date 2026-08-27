@@ -12,6 +12,8 @@ Symfony\AI\Agent\
   Input                                  (final, mutable)
   Output                                 (final)
   InputNormalizer                        (@internal, static toMessageBag)
+  Execution\Runner                       (@internal, drives the tool-calling loop; exposeTools() applies the per-call `tools` option)
+  Execution\ToolCallBudget                (@internal, enforces maxToolCalls / throws MaxIterationsExceededException)
   InputProcessorInterface                (processInput(Input): void)
   OutputProcessorInterface               (processOutput(Output): void)
   Attribute\AsInputProcessor             (TARGET_CLASS | IS_REPEATABLE)
@@ -273,7 +275,7 @@ final class SequentialToolExecutor implements ToolExecutorInterface
 }
 ```
 
-There is no more `AgentProcessor` : tool calling is driven by `Agent` itself (see `Runner`, `@internal`). `Agent::__construct()` injects the tool list into the platform options, executes the loop via `ToolExecutorInterface` (default `SequentialToolExecutor`, one call after another), and recurses until a non-`ToolCallResult` is returned. Default `maxToolCalls` is **50**; throws `MaxIterationsExceededException` past that. A custom `ToolExecutorInterface` (e.g. concurrent execution) can be passed via the `toolExecutor` constructor argument.
+There is no more `AgentProcessor` : tool calling is driven by `Agent` itself, delegating to `Symfony\AI\Agent\Execution\Runner` (`@internal`) and `Symfony\AI\Agent\Execution\ToolCallBudget` (`@internal`, the class actually enforcing `maxToolCalls` and throwing `MaxIterationsExceededException`). `Agent::__construct()` injects the tool list into the platform options, `Runner` executes the loop via `ToolExecutorInterface` (default `SequentialToolExecutor`, one call after another), and recurses until a non-`ToolCallResult` is returned. Default `maxToolCalls` is **50**. A custom `ToolExecutorInterface` (e.g. concurrent execution) can be passed via the `toolExecutor` constructor argument. `Runner::exposeTools()` also honors a per-call `tools` option (see `references/gotchas.md` #13) to restrict, for one `Agent::call()` only, which tools are exposed.
 
 ## `FaultTolerantToolbox`
 
