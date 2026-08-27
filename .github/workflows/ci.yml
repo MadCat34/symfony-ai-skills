@@ -148,7 +148,6 @@ jobs:
         for d in "$GITHUB_WORKSPACE"/skills/*/; do
           [ -d "$d" ] || continue
           name=$(basename "$d")
-  
           # symfony-ai is the orchestrator meta-skill, not a single validatable skill.
           case "$name" in
             symfony-ai) continue ;;

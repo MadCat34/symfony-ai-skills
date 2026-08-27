@@ -72,8 +72,6 @@ Enforced by CI or by convention; breaking one silently breaks skill loading in t
 2. `skills/<component>/SKILL.md` — ~150–240 lines: when to use vs. the alternative, install block, five-line quick reference, architecture sketch, top gotchas, then a **References** section whose bullets are written as instructions to the agent ("read `references/api.md` **when** …"). The conditional phrasing is deliberate — it keeps references out of context until needed.
 3. `skills/<component>/references/*.md` — 100–670 lines of API surface, catalogues, runnable patterns, trap lists.
 
-
-
 ### Descriptions are the routing mechanism
 
 The `description:` frontmatter field is the only thing the host agent sees before deciding to load a skill. Each follows a fixed shape: `Use when <primary intent>` → `Also trigger when the user asks "<verbatim question>"` (several) → `Triggers on <class/symbol names>` → `Do NOT trigger when <sibling skill's territory>`.
@@ -110,4 +108,3 @@ Keep `AGENTS.md` and `GEMINI.md` in sync with each other and consumer-facing. Do
 - Symfony AI is **experimental** : `BC breaks` possible. Check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading.
 - For RAG, you need BOTH `platform` (for embeddings) AND `store` (for the vector DB). Open with `symfony-ai` if unsure which to start with.
 - For MCP server inside your app → `mcp-bundle`. For letting an AI assistant read your app's logs/profiler → `mate`. Never both at once.
-

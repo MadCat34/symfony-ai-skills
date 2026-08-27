@@ -13,6 +13,16 @@ Tracks `symfony/ai`'s `main` branch ahead of the 0.13.0 release (not tagged: 0.1
 - `platform` : `Result\Stream\ListenerInterface` gains `onError(ErrorEvent)`; Gemini/VertexAI bridges batch `ToolCallComplete` at stream end instead of one per function call (multi-candidate responses excepted).
 - `chat`, `store`, `symfony-ai` : no content changes, version metadata aligned with the rest of the suite.
 
+**Follow-up strict audit** (all 8 skills cross-checked against `src/`, `docs/`, `examples/`, and `demo/` on `main`, not just `UPGRADE.md`) found and fixed further drift:
+
+- `platform` : `FailoverPlatform`'s optional `$clock`/`$logger` constructor args were undocumented.
+- `chat` : `DoctrineDbalMessageStore` argument order was swapped in one example; added the missing "streaming + Session store" warning from the official docs.
+- `mcp-bundle` : two stale service ids left over from the multi-server rewrite (`mcp.server.debug_command` → `mcp.debug_command`, `mcp.app.reference_handler` → per-server), plus an undocumented HTTP-path uniqueness constraint.
+- `agent` : per-call tool filtering (`Agent::call($input, ['tools' => [...]])`) was entirely undocumented; fixed an orphaned gotcha paragraph; named the internal `Execution\Runner`/`Execution\ToolCallBudget` classes.
+- `mate` : 7 CLI commands added since 0.12.0 (`skills:list`, `skills:validate`, `skills:prune`, `skills:override`, `skills:reset`, `skills:disable`, `skills:enable`) were undocumented; fixed a nonexistent method-name citation and a stale line reference.
+- `ai-bundle` : the `postgres` store — the exact backend the official `demo/` app runs — had zero schema documentation; the bare-list `tools:` form was mislabeled "legacy" when it's what `demo/` actually uses everywhere.
+- `store`, `symfony-ai` : audited, no issues found.
+
 ## [0.12.0] - 2026-08-27
 
 Initial release: 8 agent skills (Platform, Agent, Chat, Store, AI Bundle, MCP Bundle, Mate, Symfony AI orchestrator).

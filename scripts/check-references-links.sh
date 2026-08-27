@@ -49,9 +49,6 @@ for skill_md in skills/*/SKILL.md; do
     done
 done
 
-
-
-
 if [ "$failed" -gt 0 ]; then
     echo "$failed reference integrity issue(s)" >&2
     exit 1
