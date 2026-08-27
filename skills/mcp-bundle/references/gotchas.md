@@ -146,6 +146,8 @@ Default store is `file`. Default directory is the Symfony cache directory, names
 
 For multi-process setups (FrankenPHP, Roadrunner), use `cache` (with a shared pool like Redis) or `framework` (with a shared session handler) : the file store will not see sessions created by other workers.
 
+`McpBundle::assertServersAreIsolated()` enforces a second, independent compile-time constraint : two HTTP-enabled servers cannot resolve to the same `http.path` either (`LogicException`: `The MCP servers "%s" and "%s" are both configured on the HTTP path "%s"...`). Since the default path is always derived from the server name, this only bites when two servers explicitly set the same `http.path` by hand.
+
 ## 14. MCP Apps are enabled per server via the `apps` registry kind, not a boolean flag
 
 There is no `apps.enabled` option anymore. A server enables the `McpApps` extension (`Builder::enableExtension(new McpApps())`) exactly when its `registry` matches at least one `#[AsMcpApp]` service under the `apps` kind — the same explicit opt-in mechanism as tools/prompts/resources. Migrating the old `enabled: false` means simply omitting `apps` from that server's registry; the old auto/`true` modes become `apps: ['*']` (or an explicit namespace/service list).
