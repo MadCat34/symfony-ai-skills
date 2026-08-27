@@ -108,7 +108,7 @@ Behaviour:
 
 - Calls `extensionDiscovery->discover()` and `extensionDiscovery->discoverRootProject()`.
 - On zero extensions: still materialises `mate/AGENT_INSTRUCTIONS.md` + the `AGENTS.md` block for the root project.
-- Otherwise: `extensionConfigSynchronizer->synchronize($extensions)` writes a fresh `mate/extensions.php` (preserving prior `enabled` flags : `ExtensionConfigSynchronizer::synchronize()`), then re-runs `AgentInstructionsMaterializer::materializeForExtensions()` and `SkillsInstaller::install()` for the enabled subset.
+- Otherwise: `extensionConfigSynchronizer->synchronize($extensions)` writes a fresh `mate/extensions.php` (preserving prior `enabled`/`mode` flags you may have edited : `ExtensionConfigSynchronizer::synchronize()`), then re-runs `AgentInstructionsMaterializer::materializeForExtensions()` and `SkillInstaller::install()` for the enabled subset.
 
 There is no `--regenerate-instructions` flag : instructions are regenerated on every `discover`.
 
@@ -199,7 +199,7 @@ Behaviour: resolves the URI against the registry (static or `ResourceTemplateRef
 
 ### `skills:install`
 
-Source: `src/Command/SkillsInstallCommand.php`. No flags. Re-runs `SkillsInstaller::install()` for all enabled extensions plus the root project. Already-installed skills are left untouched; dangling `mate-*` symlinks under `.agents/skills/` or `.claude/skills/` are pruned (`SkillsInstaller::pruneStale()`).
+Source: `src/Command/SkillsInstallCommand.php`. Supports `--dry-run` (reports what would change without touching the filesystem). Re-runs `SkillInstaller::install()` for all enabled extensions plus the root project. Already-installed skills whose source is unchanged are left untouched; stale `mate-*` entries — copies under `.agents/skills/`, symlinks under `.claude/skills/` — are pruned (`SkillInstaller::pruneStrays()`).
 
 ---
 

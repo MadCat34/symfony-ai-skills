@@ -7,7 +7,7 @@ metadata:
   author: MadCat34
   email: madcat34@gmail.com
   url: https://github.com/MadCat34
-  version: "0.12.0"
+  version: "0.13.0-dev"
 ---
 
 # Mate
