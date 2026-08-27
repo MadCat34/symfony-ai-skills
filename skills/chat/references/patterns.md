@@ -92,7 +92,6 @@ For multiple conversations in the same DB, use a different table name per sessio
 ```php
 use Symfony\AI\Agent\Agent;
 use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
-use Symfony\AI\Agent\Toolbox\AgentProcessor;
 use Symfony\AI\Agent\Toolbox\Toolbox;
 use Symfony\AI\Chat\Chat;
 use Symfony\AI\Chat\InMemory\Store;
@@ -110,10 +109,9 @@ class Weather
 
 $platform = OpenAiFactory::createPlatform($_ENV['OPENAI_API_KEY']);
 
-// Toolbox takes an *iterable* of tools. Wrap it in an AgentProcessor and pass
-// that same instance as BOTH the input and output processor.
-$processor = new AgentProcessor(new Toolbox([new Weather()]));
-$agent = new Agent($platform, 'gpt-4o-mini', [$processor], [$processor]);
+// Toolbox takes an *iterable* of tools. Pass it to Agent via the named
+// `toolbox` argument : Agent drives the tool-calling loop itself.
+$agent = new Agent($platform, 'gpt-4o-mini', toolbox: new Toolbox([new Weather()]));
 
 $chat = new Chat($agent, new Store());
 
