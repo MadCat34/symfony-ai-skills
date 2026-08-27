@@ -6,30 +6,30 @@ Read this when a recipe misbehaves or you need the real defaults (transport, por
 
 If an editor expects STDIO and you serve HTTP (or vice versa), the client silently hangs or errors out:
 
-- Claude Code, Cursor, Windsurf and most editor integrations use **STDIO**. They spawn `php bin/console mcp:server` (NOT `mcp:serve`) and pipe JSON-RPC over stdin/stdout.
-- Web clients (hosted LLM agents talking to your remote server) use **HTTP** at `/_mcp` (default path).
+- Claude Code, Cursor, Windsurf and most editor integrations use **STDIO**. They spawn `php bin/console mcp:server <name>` (NOT `mcp:serve`) and pipe JSON-RPC over stdin/stdout.
+- Web clients (hosted LLM agents talking to your remote server) use **HTTP** at `/mcp/<name>` (default path, per server).
 
-You can enable both transports simultaneously : the bundle registers `mcp.server.command` and `mcp.server.controller` independently based on `client_transports.{stdio,http}`. The two transports do not share a session; a session id from one is meaningless to the other.
+You can enable both transports simultaneously, per server, via `transports.{stdio,http}`. The bundle registers a shared `mcp.server.command` for every STDIO-enabled server and one `mcp.server.<name>.controller` per HTTP-enabled server. The two transports do not share a session; a session id from one is meaningless to the other, and each server's session storage is isolated from every other server's by default.
 
-## 2. Default HTTP path is `/_mcp`, not `/mcp`
+## 2. Default HTTP path is `/mcp/<name>`, always derived from the server name
 
 From `config/options.php`:
 
 ```text
-->scalarNode('path')->defaultValue('/_mcp')->end()
+->stringNode('path')->defaultNull()->info('HTTP endpoint path. Defaults to "/mcp/<name>".')->end()
 ```
 
-If the client config says `POST /mcp` and you never set `mcp.http.path`, every request 404s. Set the path explicitly or update the client URL.
+`path` defaulting to `null` (resolved to `/mcp/<name>` at compile time, never `/_mcp` or a fixed `/mcp`) means adding a second server can never move an existing one's endpoint. If the client config says `POST /mcp` and you never set `mcp.servers.<name>.http.path`, every request 404s. Set the path explicitly or update the client URL.
 
-## 3. STDIO command is `mcp:server`, not `mcp:serve`
+## 3. STDIO command is `mcp:server [name]`, not `mcp:serve`
 
 From `Command/McpCommand.php`:
 
 ```text
-#[AsCommand('mcp:server', 'Starts an MCP server')]
+#[AsCommand('mcp:server', 'Starts an MCP server over STDIO')]
 ```
 
-Editor configs that use `bin/console mcp:serve` will fail with "Command not found". Always use `mcp:server`.
+Editor configs that use `bin/console mcp:serve` will fail with "Command not found". Always use `mcp:server`. The server-name argument is optional only when exactly one server has `transports.stdio: true`; with more than one, omitting it errors out listing the available names.
 
 ## 4. Capability negotiation is automatic; do not hand-roll responses
 
@@ -72,7 +72,7 @@ If you need to surface a structured error, the bundle's own exception types are 
 
 ## 7. DNS rebinding protection on HTTP
 
-The SDK's `StreamableHttpTransport` ships `DnsRebindingProtectionMiddleware` enabled by default, restricted to localhost. The bundle's `MiddlewareFactory` reads `mcp.http.allowed_hosts`:
+The SDK's `StreamableHttpTransport` ships `DnsRebindingProtectionMiddleware` enabled by default, restricted to localhost. The bundle's per-server `MiddlewareFactory` reads `mcp.servers.<name>.http.allowed_hosts`:
 
 - `null` (unset): SDK default (localhost only : fine for local dev, blocks public hosts).
 - `list<string>`: replace with a `DnsRebindingProtectionMiddleware` restricted to those hostnames.
@@ -80,12 +80,13 @@ The SDK's `StreamableHttpTransport` ships `DnsRebindingProtectionMiddleware` ena
 
 ```yaml
 mcp:
-    client_transports:
-        http: true
-    http:
-        allowed_hosts: ['mcp.example.com']   # restrict to a public hostname
-# or
-        allowed_hosts: false                  # public server, no rebinding protection
+    servers:
+        public:
+            http:
+                allowed_hosts: ['mcp.example.com']   # restrict to a public hostname
+                # or
+                # allowed_hosts: false                  # public server, no rebinding protection
+            registry: ['App\Mcp\Public\']
 ```
 
 ## 8. Auth via reverse proxy
@@ -93,7 +94,7 @@ mcp:
 MCP itself does not define authentication. For HTTP transport:
 
 - Terminate TLS + auth at nginx/Caddy (mTLS, OAuth2 introspection, `auth_request`, `forward_auth`).
-- Reject unauthenticated requests with HTTP 401 before they reach `/_mcp` : the SDK will not receive them.
+- Reject unauthenticated requests with HTTP 401 before they reach `/mcp/<name>` : the SDK will not receive them.
 - For STDIO, the security boundary is the OS user that owns the spawned process; the host (editor) is the trust anchor.
 
 If you need per-tool authorization, implement a Symfony Security voter and call `Security::isGranted()` at the top of the tool method. The bundle does not provide a built-in `#[IsGranted]`-style attribute for MCP tools (that exists on `ai-bundle` for AI tool calling, not MCP).
@@ -120,38 +121,49 @@ The bundle's `registerMcpAttributes()` autoconfig throws `LogicException` when t
 
 This surfaces at container compile time, not at runtime : fix the class or move the attribute to a method.
 
-## 12. Service registration is mandatory
+## 12. Service registration AND a matching registry entry are both mandatory
 
-A class carrying `#[McpTool]` (or any other capability attribute) MUST also be a registered container service with autoconfiguration. Otherwise `McpPass` never sees it, `debug:mcp` reports zero capabilities, and the warning text specifically calls this out. Check:
+A class carrying `#[McpTool]` (or any other capability attribute) MUST be a registered container service with autoconfiguration, **and** matched by at least one server's `registry` pattern. Missing either one means `debug:mcp` shows it as absent (not a service) or under "Not exposed by any server" (a service, but unmatched); the warning text calls out the service-registration case specifically. Check:
 
 - `config/services.yaml`: `App\` resource with `autoconfigure: true` (Symfony default).
 - `#[Autoconfigure(false)]` on the class : remove it.
 - Excluded via `App\Excluded\` etc. : include the path.
 - For dev-only tools, use Symfony's `#[When('dev')]` attribute.
+- The service id / FQCN / namespace prefix is actually listed (or covered by `'*'`) in some server's `registry` — check the right `kind` (`tools`/`prompts`/`resources`/`resource_templates`/`apps`) if using the map form.
 
 ## 13. Default session store is `file`; check the directory
 
 ```yaml
 mcp:
-    http:
-        session:
-            store: 'file'
-            directory: '%kernel.cache_dir%/mcp-sessions'
+    servers:
+        demo:
+            session:
+                store: 'file'
+                directory: '%kernel.cache_dir%/mcp-sessions/demo'   # default; one directory per server
 ```
 
-Default store is `file`. Default directory is the Symfony cache directory. In a Docker container with an ephemeral filesystem, sessions vanish on restart : switch to `framework` (Symfony's `SessionHandlerInterface`) or `cache` (PSR-16) for persistence across deploys.
+Default store is `file`. Default directory is the Symfony cache directory, namespaced per server. In a Docker container with an ephemeral filesystem, sessions vanish on restart : switch to `framework` (Symfony's `SessionHandlerInterface`) or `cache` (PSR-16) for persistence across deploys. Two servers cannot share the same store : it is rejected at compile time.
 
 For multi-process setups (FrankenPHP, Roadrunner), use `cache` (with a shared pool like Redis) or `framework` (with a shared session handler) : the file store will not see sessions created by other workers.
 
-## 14. `apps.enabled` auto-detection
+## 14. MCP Apps are enabled per server via the `apps` registry kind, not a boolean flag
 
-`mcp.apps.enabled` defaults to `null` (= auto). Auto behaviour in `McpAppPass`:
+There is no `apps.enabled` option anymore. A server enables the `McpApps` extension (`Builder::enableExtension(new McpApps())`) exactly when its `registry` matches at least one `#[AsMcpApp]` service under the `apps` kind — the same explicit opt-in mechanism as tools/prompts/resources. Migrating the old `enabled: false` means simply omitting `apps` from that server's registry; the old auto/`true` modes become `apps: ['*']` (or an explicit namespace/service list).
 
-- If `enabled` is `true` OR any service is tagged `mcp.app`: enable the `McpApps` server extension once.
-- If `enabled` is `false`: hard-disable : register nothing even if `#[AsMcpApp]` classes exist.
-- If `enabled` is `null` and NO `#[AsMcpApp]` exists: do NOT enable the extension.
+```yaml
+mcp:
+    servers:
+        internal:
+            registry:
+                tools: ['App\Mcp\Tool\']
+                apps: ['*']          # enables MCP Apps on this server
+        public:
+            registry:
+                tools: ['App\Mcp\Tool\']
+                # no "apps" key: MCP Apps stay disabled here even if #[AsMcpApp] classes exist
+```
 
-For an explicit "no apps" deployment, set `apps.enabled: false` to be defensive.
+An `#[AsMcpApp]` class not matched by any server's `apps` registry entry is simply not exposed (visible in `debug:mcp` as unassigned), same as any other capability kind.
 
 ## 15. The bundle is experimental
 

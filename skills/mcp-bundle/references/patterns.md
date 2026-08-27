@@ -10,13 +10,14 @@ All patterns rely on the bundle auto-discovering methods on autoconfigured servi
 
 ```yaml
 mcp:
-    app: 'demo-mcp'
-    version: '0.1.0'
-    description: 'One-tool HTTP MCP server'
-    client_transports:
-        http: true
-    http:
-        path: '/_mcp'           # default; explicit for clarity
+    servers:
+        demo:
+            name: 'demo-mcp'
+            version: '0.1.0'
+            description: 'One-tool HTTP MCP server'
+            http:
+                path: '/mcp/demo'          # default '/mcp/demo'; explicit for clarity
+            registry: ['App\MCP\']         # required: what this server exposes
 ```
 
 `config/routes.yaml`:
@@ -54,19 +55,19 @@ Test with curl:
 
 ```bash
 # initialize
-curl -sX POST http://localhost:8000/_mcp \
+curl -sX POST http://localhost:8000/mcp/demo \
      -H 'Content-Type: application/json' \
      -H 'Accept: application/json, text/event-stream' \
      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
 
 # list tools
-curl -sX POST http://localhost:8000/_mcp \
+curl -sX POST http://localhost:8000/mcp/demo \
      -H 'Content-Type: application/json' \
      -H 'Accept: application/json, text/event-stream' \
      -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'
 
 # call tool
-curl -sX POST http://localhost:8000/_mcp \
+curl -sX POST http://localhost:8000/mcp/demo \
      -H 'Content-Type: application/json' \
      -H 'Accept: application/json, text/event-stream' \
      -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_weather","arguments":{"city":"Paris"}}}'
@@ -85,10 +86,14 @@ php bin/console debug:mcp get_weather
 
 ```yaml
 mcp:
-    app: 'demo-mcp'
-    version: '0.1.0'
-    client_transports:
-        stdio: true
+    servers:
+        demo:
+            name: 'demo-mcp'
+            version: '0.1.0'
+            transports:
+                stdio: true
+                http: false          # optional : turn HTTP off if only STDIO is needed
+            registry: ['App\MCP\']
 ```
 
 `src/MCP/WeatherService.php`: same as the HTTP pattern : the same `#[McpTool]` method serves both transports, the choice is which transport the client connects to.
@@ -101,12 +106,14 @@ Claude Code `~/.claude.json` (or `mcp.json`):
         "weather": {
             "type": "stdio",
             "command": "php",
-            "args": ["bin/console", "mcp:server"],
+            "args": ["bin/console", "mcp:server", "demo"],
             "cwd": "/absolute/path/to/your/symfony/app"
         }
     }
 }
 ```
+
+The `demo` argument names the server (`mcp.servers.demo`) and can be omitted only when it is the sole server with `transports.stdio: true`.
 
 The client spawns the process and pipes JSON-RPC over stdin/stdout. The bundle's `McpCommand` constructs an `Mcp\Server\Transport\StdioTransport` and runs the server; the SDK handles the JSON-RPC framing. Keep the same warning about stdout pollution (see gotchas).
 
@@ -180,10 +187,11 @@ UI resources are HTML bodies served at `ui://...` URIs (mime type `text/html;pro
 
 ```yaml
 mcp:
-    client_transports:
-        http: true
-    apps:
-        enabled: true     # or leave null for auto (true if any #[AsMcpApp] exists)
+    servers:
+        demo:
+            registry:
+                tools: ['App\MCP\']
+                apps: ['*']       # required to enable MCP Apps on this server — no more apps.enabled flag
 ```
 
 `templates/mcp/dashboard.html.twig`:
@@ -256,11 +264,60 @@ If you forget to add the `render` method (or whatever you passed to `method:`) o
 
 The same logic applies to `#[AsMcpAppTool]` placed on the primary tool method: `LogicException` ("must not also carry #[AsMcpAppTool]").
 
+## Consuming a remote MCP server (client)
+
+Reach an external MCP server from your application — a third-party server, or an instance of your own app — and call its tools. This is unrelated to `mcp.servers` (which exposes *your* app); both can coexist.
+
+`config/packages/mcp.yaml`:
+
+```yaml
+mcp:
+    clients:
+        docs:
+            servers:
+                readme:
+                    transport: http
+                    url: 'https://docs.example.com/mcp'
+                    headers:
+                        Authorization: 'Bearer %env(DOCS_MCP_TOKEN)%'
+```
+
+```php
+namespace App\Service;
+
+use Symfony\AI\McpBundle\Client\McpClientInterface;
+
+final class DocsLookup
+{
+    public function __construct(
+        private readonly McpClientInterface $docs,   // matches the "docs" client by argument name
+    ) {
+    }
+
+    public function search(string $query): \Mcp\Schema\Result\CallToolResult
+    {
+        $connection = $this->docs->get('readme');   // one of "docs"'s configured remote servers
+
+        // callTool() opens the connection lazily on this first call. Inspect the SDK's
+        // Mcp\Schema\Result\CallToolResult (Mcp\Schema\Content\* parts) for the response shape.
+        return $connection->callTool('search_docs', ['query' => $query]);
+    }
+}
+```
+
+The connection opens lazily on the first call (`callTool()`, `getTools()`, ...), not on `get()` or on service construction. With a single configured client, a plain `McpClientInterface $docs` type hint also works without matching by name.
+
+```bash
+php bin/console debug:mcp --client=docs      # connect and list what "readme" advertises
+php bin/console debug:mcp --clients          # list configured clients without connecting
+```
+
 ## Diagnostic recipes
 
-- **Tool not appearing in `debug:mcp`** : the class is not a registered service, or it is excluded from autoconfiguration. Check `config/services.yaml`. The `debug:mcp` warning text explicitly points at autoconfiguration.
-- **No capabilities at all** : verify `client_transports.{stdio,http}` is true (one of them must be). When both are false, `McpCommand` / `McpController` services are not registered.
+- **Tool not appearing in `debug:mcp`** : the class is not a registered service, is excluded from autoconfiguration, or no server's `registry` pattern matches it (check "Not exposed by any server" in `debug:mcp`'s output). The warning text explicitly points at autoconfiguration.
+- **No capabilities at all** : verify at least one server has `transports.{stdio,http}` true AND a non-empty `registry`. A server with an empty effective registry fails the container build (a validation error, not a silent no-op).
 - **Class-level attribute without `__invoke`** : `registerMcpAttributes` throws `LogicException` at compile time, container build fails.
+- **Client connection never reaches a remote server** : the connection is lazy — confirm you actually called a method on the `ServerConnectionInterface` (e.g. `callTool()`), not just `$client->get($name)`, which only resolves the connection object.
 
 ## See also
 

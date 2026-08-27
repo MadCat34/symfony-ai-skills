@@ -1,12 +1,12 @@
 ---
 name: mcp-bundle
-description: 'Use when building an MCP (Model Context Protocol) server inside a Symfony application : registering tools, prompts, or resources via the official MCP SDK, serving over HTTP or STDIO. Do NOT trigger when the goal is to expose a running Symfony app to an external AI assistant for inspection/debugging : use the `mate` skill for that. Triggers on `#[McpTool]`, `#[McpPrompt]`, `#[McpResource]`, `#[McpResourceTemplate]`, `#[AsMcpApp]`, `#[AsMcpAppTool]`, `mcp:server`, `debug:mcp`, `Symfony\AI\McpBundle\`.'
+description: 'Use when building an MCP (Model Context Protocol) server inside a Symfony application : registering tools, prompts, or resources via the official MCP SDK, serving over HTTP or STDIO, or consuming remote MCP servers as a client. Do NOT trigger when the goal is to expose a running Symfony app to an external AI assistant for inspection/debugging : use the `mate` skill for that. Triggers on `#[McpTool]`, `#[McpPrompt]`, `#[McpResource]`, `#[McpResourceTemplate]`, `#[AsMcpApp]`, `#[AsMcpAppTool]`, `mcp:server`, `debug:mcp`, `McpClientInterface`, `Symfony\AI\McpBundle\`.'
 license: MIT
 metadata:
   author: MadCat34
   email: madcat34@gmail.com
   url: https://github.com/MadCat34
-  version: "0.12.0"
+  version: "0.13.0-dev"
 ---
 
 # MCP Bundle
@@ -69,32 +69,52 @@ class WeatherService
 
 Make sure the class is a registered service with autoconfiguration enabled (the default in `config/services.yaml`). `#[McpTool]` works on a method OR on a class with `__invoke()` (McpBundle's autoconfig in `registerMcpAttributes` enforces this; a class-level attribute without `__invoke()` throws `LogicException`).
 
+The bundle supports several MCP servers per application. Every server-related option lives under a named entry in `mcp.servers`, and **capabilities are not exposed automatically** : each server declares what it exposes via a required `registry` key (`['*']` = everything of that kind).
+
 `config/packages/mcp.yaml`:
 
 ```yaml
 mcp:
-    app: 'weather-mcp'                      # server name (default: "app")
-    version: '1.0.0'
-    description: 'Weather tools for the agent'
-    pagination_limit: 50                   # default 50
-    instructions: 'Use the tools in metric units.'
-    client_transports:
-        stdio: true                        # enables `mcp:server` command
-        http:  true                        # enables `/_mcp` HTTP route
-    http:
-        path: '/_mcp'                      # default; controller only registered if http=true
-        allowed_hosts: ~                   # null=SDK default (localhost only), list, or false
-        session:
-            store: 'file'                  # file|memory|cache|framework
-            directory: '%kernel.cache_dir%/mcp-sessions'
-            cache_pool: 'cache.mcp.sessions'
-            prefix: 'mcp-'
-            ttl: 3600
-    apps:
-        enabled: ~                         # null=auto (true if at least one #[AsMcpApp]), true, or false
+    servers:
+        weather:
+            name: 'weather-mcp'                 # advertised name (default: the config key, "weather")
+            version: '1.0.0'
+            description: 'Weather tools for the agent'
+            pagination_limit: 50                # default 50
+            instructions: 'Use the tools in metric units.'
+            transports:
+                stdio: false                    # enables `mcp:server weather`
+                http: true                      # default true; enables the HTTP route
+            http:
+                path: '/mcp/weather'            # default: "/mcp/<name>"
+                allowed_hosts: ~                # null=SDK default (localhost only), list, or false
+            session:
+                store: 'file'                   # file|memory|cache|framework, default "file"
+                directory: '%kernel.cache_dir%/mcp-sessions/weather'
+                cache_pool: 'cache.mcp.sessions'
+                prefix: 'mcp-weather-'
+                ttl: 3600
+            registry: ['App\Mcp\Weather\']      # required: what this server exposes
 ```
 
-Routes config (`config/routes.yaml`):
+`registry` accepts either one list covering every kind (tools, prompts, resources, resource templates, apps), or a map narrowing each kind separately:
+
+```yaml
+mcp:
+    servers:
+        public:
+            http: { path: /mcp/public }
+            registry:
+                tools: ['App\Mcp\Public\']
+                resources: ['*']
+        internal:
+            http: { path: /mcp/internal }
+            registry: '*'                        # everything of every kind
+```
+
+Entries match a service id, an FQCN, or a namespace prefix (trailing `\`). A pattern matching **no service at all** on its server is a compile-time error (almost always a typo). A service carrying an MCP attribute that no server's registry matches is simply not exposed — `debug:mcp` reports it under "Not exposed by any server".
+
+Routes config (`config/routes.yaml`) is unchanged:
 
 ```yaml
 mcp:
@@ -102,7 +122,7 @@ mcp:
     type: mcp
 ```
 
-The bundle's `RouteLoader` only adds a route when `client_transports.http` is true (`RouteLoader::load`). It registers one route `_mcp_endpoint` at `mcp.http.path` (default `/_mcp`) accepting GET, POST, DELETE, OPTIONS, dispatched to `mcp.server.controller::handle`.
+The bundle's `RouteLoader` adds one route per server that has `transports.http: true`, named `_mcp_endpoint_<name>`, at `http.path` (default `/mcp/<name>` — always derived from the server name, so adding a second server never moves an existing endpoint), dispatched to `mcp.server.<name>.controller::handle`.
 
 ## What the bundle does to your classes
 
@@ -116,22 +136,24 @@ The autoconfiguration + compiler pass flow replaces the SDK's file-based discove
 
 ## Transports
 
+Each server's transports are configured independently under `mcp.servers.<name>.transports`.
+
 ### HTTP (streamable)
 
-Enabled when `mcp.client_transports.http: true`. The bundle's `McpController` constructs an SDK `Mcp\Server\Transport\StreamableHttpTransport` per request (`McpController::handle`), runs the server with it, and adapts the PSR-7 response back to a Symfony `Response` (`httpFoundationFactory->createResponse`). SSE responses (`text/event-stream`) are returned as streamed responses.
+Enabled when `transports.http: true` (default). The bundle's per-server `McpController` (service id `mcp.server.<name>.controller`) constructs an SDK `Mcp\Server\Transport\StreamableHttpTransport` per request, runs that server with it, and adapts the PSR-7 response back to a Symfony `Response`. SSE responses (`text/event-stream`) are returned as streamed responses.
 
 ```bash
-curl -X POST http://localhost:8000/_mcp \
+curl -X POST http://localhost:8000/mcp/weather \
      -H 'Content-Type: application/json' \
      -H 'Accept: application/json, text/event-stream' \
      -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"curl","version":"0"}}}'
 ```
 
-DNS-rebinding protection: the SDK's `StreamableHttpTransport` ships a `DnsRebindingProtectionMiddleware` enabled by default (localhost only). The bundle's `MiddlewareFactory` keeps that default, restricts it to a list of hostnames, or disables it entirely depending on `mcp.http.allowed_hosts` (null | list<string> | false).
+DNS-rebinding protection: the SDK's `StreamableHttpTransport` ships a `DnsRebindingProtectionMiddleware` enabled by default (localhost only). The bundle's per-server `MiddlewareFactory` keeps that default, restricts it to a list of hostnames, or disables it entirely depending on `mcp.servers.<name>.http.allowed_hosts` (null | list<string> | false).
 
-Session store: HTTP transport requires a session store (`mcp.session.store`). The bundle configures one of four backends based on `mcp.http.session.store`:
+Session store: HTTP transport requires a session store (`mcp.server.<name>.session.store`), isolated per server by default (`%kernel.cache_dir%/mcp-sessions/<name>` and the `mcp-<name>-` cache prefix). Two servers resolving to the **same** storage is rejected at compile time : session ids are not namespaced by server, so a shared store would let a session minted on one server be accepted by another. The bundle configures one of four backends based on `mcp.servers.<name>.session.store`:
 
-- `file` (default) : `Mcp\Server\Session\FileSessionStore`, writing under `mcp.http.session.directory`.
+- `file` (default) : `Mcp\Server\Session\FileSessionStore`, writing under `session.directory`.
 - `memory` : `Mcp\Server\Session\InMemorySessionStore`, in-process only.
 - `cache` : `Mcp\Server\Session\Psr16SessionStore`, wrapping the configured PSR-16 pool (a `cache.mcp.sessions` pool wrapping `cache.app` is auto-created when missing).
 - `framework` : `Symfony\AI\McpBundle\Session\FrameworkSessionStore`, wrapping Symfony's `SessionHandlerInterface` (lazy `gc()`, expiry enforced on `read()`).
@@ -140,15 +162,60 @@ For multi-process deployments (FrankenPHP, Roadrunner) or containers with epheme
 
 ### STDIO
 
-Enabled when `mcp.client_transports.stdio: true`. The bundle registers `mcp:server` (`Command\McpCommand`):
+Enabled per server via `transports.stdio: true`. The bundle registers a single `mcp:server` command (`Command\McpCommand`) shared by every STDIO-enabled server, taking the server name as an optional argument:
 
 ```bash
-php bin/console mcp:server
+php bin/console mcp:server weather
 ```
 
-The command constructs an SDK `Mcp\Server\Transport\StdioTransport` and runs the server (`McpCommand::execute`). It is intended to be launched by an MCP-compatible client (Claude Code, Cursor, etc.) : the client spawns the process and pipes JSON-RPC over stdin/stdout.
+The argument is required as soon as more than one server enables STDIO (one process can only serve one of them — the transport owns the process' STDIN/STDOUT); with exactly one STDIO-enabled server it can be omitted. The command constructs an SDK `Mcp\Server\Transport\StdioTransport` and runs the named server with it. It is intended to be launched by an MCP-compatible client (Claude Code, Cursor, etc.) : the client spawns the process and pipes JSON-RPC over stdin/stdout.
 
-The HTTP and STDIO transports are independent. A session id from one is meaningless to the other. STDIO does not use the `mcp.session.store` service : sessions live in the SDK transport itself.
+The HTTP and STDIO transports are independent. A session id from one is meaningless to the other. STDIO does not use the session store service : sessions live in the SDK transport itself.
+
+## MCP clients (consuming remote MCP servers)
+
+The bundle can also act as a **client**, reaching MCP servers outside your application (a third-party MCP server, or another instance of your own app). This is a separate axis from `mcp.servers` : both can be configured in the same application, but "server" (exposing your app to others) and "client" (your app reaching another server) are unrelated roles.
+
+```yaml
+mcp:
+    clients:
+        research:                              # client name — the container alias
+            client_info:
+                name: 'my-app'                 # defaults to the config key
+            forward_server_logs: true          # default true; forwards remote log notifications to the "mcp" channel
+            servers:
+                docs:                           # one client can reach several remote servers
+                    transport: http
+                    url: 'https://docs.example.com/mcp'
+                    headers:
+                        Authorization: 'Bearer %env(DOCS_MCP_TOKEN)%'
+                filesystem:
+                    transport: stdio
+                    command: ['npx', '-y', '@modelcontextprotocol/server-filesystem', '/tmp']
+```
+
+Each client is registered as `mcp.client.<name>` (`Symfony\AI\McpBundle\Client\McpClient`, implementing `McpClientInterface`) and autowired **under its own name**, not `<name>Client`:
+
+```php
+final class OneWay
+{
+    public function __construct(
+        private McpClientInterface $research,   // matches the "research" client by argument name
+    ) {
+    }
+}
+
+// or, when the argument is named for its role rather than for the client:
+final class TheOtherWay
+{
+    public function __construct(
+        #[Target('research')] private McpClientInterface $client,
+    ) {
+    }
+}
+```
+
+When exactly **one** client is configured, a plain `McpClientInterface` type hint (no name match needed) also resolves to it. `transport: stdio` requires `command`; `transport: http` requires `url`; mixing stdio-only and http-only options on the wrong transport is a compile-time error. `debug:mcp --client=research` connects and lists what the remote server(s) advertise; `debug:mcp --clients` lists configured clients without connecting.
 
 ## Attribute catalogue (from the SDK)
 
@@ -200,26 +267,32 @@ List what is actually registered : useful to verify a class was picked up:
 
 ```bash
 php bin/console debug:mcp
-php bin/console debug:mcp get_weather   # details (input/output schema, handler, ...)
+php bin/console debug:mcp get_weather        # details (input/output schema, handler, ...)
+php bin/console debug:mcp --server=weather   # restrict to one server
+php bin/console debug:mcp --client=research  # connect a configured client, list what it reaches
+php bin/console debug:mcp --clients          # list configured clients without connecting
 ```
 
-`debug:mcp` (in `Command\DebugCommand`) triggers `Mcp\Server\Builder::build()` to populate the registry, then prints Tools / Prompts / Resources / Resource Templates tables with their handlers. An empty result prints a warning pointing you at "make sure the classes are registered as services with autoconfiguration enabled".
+`debug:mcp` (in `Command\DebugCommand`) triggers each server's `Mcp\Server\Builder::build()` to populate its registry, then prints Tools / Prompts / Resources / Resource Templates tables with their handlers, plus a "Not exposed by any server" section for attributed services no registry pattern matches. An empty result prints a warning pointing you at "make sure the classes are registered as services with autoconfiguration enabled".
 
-The `Symfony\AI\McpBundle\Profiler\DataCollector` provides the same view in the Web Profiler panel. It is registered only when `kernel.debug = true` AND at least one of `client_transports.{stdio,http}` is true. It implements `LateDataCollectorInterface` so the registry is built (and the server is `build()`-ed) on every profiled request, not only on requests actually serving the MCP endpoint.
+The `Symfony\AI\McpBundle\Profiler\DataCollector` provides the same server-side view in the Web Profiler panel. It is registered only when `kernel.debug = true` AND at least one server has `transports.{stdio,http}` enabled. It implements `LateDataCollectorInterface` so each registry is built on every profiled request, not only on requests actually serving an MCP endpoint.
 
 ## Key gotchas
 
 - **Root namespace is `Symfony\AI\McpBundle\`, not `Symfony\Mcp\Bundle\`.** Anything `use Symfony\Mcp\Bundle\...` is wrong : that namespace does not exist.
 - **The four capability attributes come from the SDK (`Mcp\Capability\Attribute\`), not the bundle.** Their constructors are permissive: `McpTool`/`McpPrompt` take all-optional parameters; `McpResource`/`McpResourceTemplate` only require `uri` / `uriTemplate`. There is no `parameters:` or `arguments:` argument.
 - **The bundle does NOT define `McpServer`, `HttpTransport`, or `StdioTransport` classes.** `Mcp\Server` is built via `Mcp\Server::builder()` and the bundle uses the SDK's `StreamableHttpTransport` / `StdioTransport`.
-- **Default HTTP path is `/_mcp`, not `/mcp`.** (`config/options.php` line 53.)
-- **STDIO command is `mcp:server`, not `mcp:serve`.** (Constant on `#[AsCommand('mcp:server', ...)]` in `Command\McpCommand`.)
-- **Transport mismatch.** HTTP clients cannot talk to STDIO servers and vice-versa. Pick exactly one of `mcp.client_transports.http` / `stdio` (or both : the controller and command are registered independently).
+- **Capabilities are opt-in, not automatic.** Each server needs an explicit `registry:` — there is no implicit "every attributed service belongs to every server" fallback. A service whose registry pattern matches nothing on its server fails the container build; a service matched by no server's registry is silently unexposed (visible in `debug:mcp` under "Not exposed by any server").
+- **Default HTTP path is `/mcp/<name>`, not `/_mcp`.** Always derived from the server's name; set `http.path` explicitly to keep a pre-existing URL when adding a server.
+- **STDIO command is `mcp:server [name]`, not `mcp:serve`.** The name argument is required once more than one server enables STDIO.
+- **Two servers cannot share the same session storage.** Session ids are not namespaced by server; the container compiler rejects two servers resolving to identical session storage.
+- **A configured client autowires under its own name, not `<name>Client`.** `mcp.clients.research` → `#[Target('research')] McpClientInterface $client` or an argument literally named `$research`. A single configured client also answers a plain `McpClientInterface` type hint.
+- **`servers`/`clients` are unrelated axes.** `mcp.servers` exposes your app; `mcp.clients` reaches other servers. Configuring one does not imply or require the other.
 - **No bundle-level `McpException` class.** The bundle exposes `Symfony\AI\McpBundle\Exception\ExceptionInterface` (interface) and `Symfony\AI\McpBundle\Exception\LogicException` (extends `\LogicException`). JSON-RPC errors are SDK types at `Mcp\Schema\JsonRpc\Error` with constants like `INVALID_PARAMS = -32602`.
 - **Class-level attribute without `__invoke()` throws `LogicException`.** The `registerMcpAttributes` autoconfig requires `__invoke()` when the attribute is on a class. Move the attribute to a method or add `__invoke()`.
-- **Service registration is mandatory.** A class carrying `#[McpTool]` must also be a registered (autoconfigured) service, otherwise it never reaches `McpPass` and `debug:mcp` shows "No MCP capabilities are registered".
+- **Service registration is mandatory.** A class carrying `#[McpTool]` must also be a registered (autoconfigured) service AND matched by some server's `registry`, otherwise it never reaches a `Builder` and `debug:mcp` shows it as unexposed or missing entirely.
 - **Resource templates** are still informational (the SDK's `addResourceTemplate` is for `resources/templates/list`). Treat them as discovery-only.
-- **DNS-rebinding protection is ON by default** (localhost only). Set `mcp.http.allowed_hosts` to a list or to `false` for a public HTTP server; otherwise requests from a public host will be rejected at the middleware layer.
+- **DNS-rebinding protection is ON by default** (localhost only), per server. Set `mcp.servers.<name>.http.allowed_hosts` to a list or to `false` for a public HTTP server; otherwise requests from a public host will be rejected at the middleware layer.
 
 ## Common tasks
 
