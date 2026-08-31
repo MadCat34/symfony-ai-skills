@@ -6,6 +6,8 @@
 
 > 🤖 **AI-assisted creation** : These skills were created and maintained with assistance from Claude AI.
 
+> 💡 **Inspiration** : Symfony AI Skills is heavily inspired by [Symfony UX Skills](https://github.com/smnandre/symfony-ux-skills) by Simon André.
+
 Symfony AI skills for Claude, Gemini, Codex, and any [agentskills.io](https://agentskills.io/specification)-compatible agent : **Platform**, **Agent**, **Chat**, **Store**, **AI Bundle**, **MCP Bundle**, **Mate**. Eight skills, versioned against the [symfony/ai](https://github.com/symfony/ai) monorepo.
 
 ## Skills
