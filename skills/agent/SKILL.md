@@ -6,7 +6,7 @@ metadata:
   author: MadCat34
   email: madcat34@gmail.com
   url: https://github.com/MadCat34
-  version: "0.13.0-dev"
+  version: "0.13.0"
 ---
 
 # Agent
@@ -59,10 +59,12 @@ Tool-calling loop (if a `toolbox` was passed to Agent, max 50 iterations)
 OutputProcessor[] (registration order)
    |
    v
-ResultInterface
+Execution (lazy — drives the run only when consumed)
 ```
 
 The processor pipeline mutates a typed `Input` container before the platform call, then mutates an `Output` container after the platform call. Tool calling is **not** part of that pipeline : `Agent` drives its own tool-calling loop internally once a `toolbox` is passed to its constructor (see [Quick reference](#quick-reference-tool-calling-agent) below).
+
+`Agent::call()` returns a lazy `Execution`, not a `ResultInterface` directly : nothing runs until you consume it (`->getContent()`, `->getResult()`, or a `foreach`). See `references/api.md` § `Execution` for its full contract.
 
 ## Quick reference: tool-calling agent
 
