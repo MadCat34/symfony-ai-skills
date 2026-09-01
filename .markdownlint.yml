@@ -1,0 +1,7 @@
+# markdownlint-cli2 config for this repo.
+#
+# MD013 (line-length) is disabled deliberately: skills/**/*.md and the root
+# docs use long, dense prose lines (one sentence/paragraph per line) rather
+# than a fixed 80-column hard wrap — this repo's CI has no markdownlint job,
+# so this file only matters when a maintainer runs markdownlint locally.
+MD013: false
