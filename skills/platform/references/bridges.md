@@ -7,6 +7,20 @@ Each bridge is a separate Composer package : install only what you use.
 To regenerate the table from source, run `ls -1 src/platform/src/Bridge/` and
 read the `name` field of each `composer.json`.
 
+## Contents
+
+- Full table
+- Grouped by category
+  - Commercial frontier / hosted
+  - Cloud-provider proxies / hosts
+  - Local / self-hosted
+  - Audio / specialised modalities
+  - Aggregators / orchestrators
+  - Subprocess-based agents (process wrappers)
+  - Decorator / cross-cutting bridges
+- Reranking : where to find it
+- Installation pattern
+
 ## Full table
 
 | Dir               | Composer package                          | Notes                                           |

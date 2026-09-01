@@ -4,6 +4,17 @@ Read this when the user asks for embeddings, vector search, similarity, or
 reranking. These use a **different contract** than text generation : different
 model identifier, different `Result` subtype, different bridge package.
 
+## Contents
+
+- Embeddings contract
+- End-to-end RAG (Platform + Store)
+- Embedding model selection (this codebase)
+- Reranking
+  - Cohere (canonical)
+  - OpenRouter (alternative)
+- Gotchas
+- When to use what
+
 ## Embeddings contract
 
 The Platform component does **not** ship a `PlatformVectorizer` or an

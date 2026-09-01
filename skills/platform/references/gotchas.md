@@ -3,6 +3,29 @@
 The exhaustive version of the gotchas in `SKILL.md`. Read this when the user
 hits a specific failure mode.
 
+## Contents
+
+- 1. `TokenUsage` is `final`, fields are `private readonly ?int`
+- 2. `FinishReason` is a `final class`, not an enum : and cases differ
+- 3. `Vector` has no public fields
+- 4. `ResultInterface` has only three methods : not `asText()`
+- 5. Streaming requires `'stream' => true`
+- 6. `CachePlatform` only kicks in with `prompt_cache_key`
+- 7. `FailoverPlatform` requires a `RateLimiterFactoryInterface`
+- 8. There is no `RetryPlatform` bridge
+- 9. Message factory: `forSystem`, not `ofSystem`
+- 10. Multimodal content blocks
+- 11. Tool-call ID access
+- 12. The actual exception catalogue
+- 13. `template_vars` edge case
+- 14. Bridge factories need API keys at construction time
+- 15. PII / request logging
+- 16. Embedding vs completion share NO method signatures
+- 17. Reusing Platform instances
+- 18. Stream consumers and intermediate validity
+- 19. `FailoverPlatform` does not retry, map models, or resume streams
+- 20. Capability guards: exact cases, no invention
+
 ## 1. `TokenUsage` is `final`, fields are `private readonly ?int`
 
 `Symfony\AI\Platform\TokenUsage\TokenUsage` is `final`. The eleven fields
@@ -267,88 +290,35 @@ new HTTP client per request and defeats pooling.
 ## 18. Stream consumers and intermediate validity
 
 `DeferredResult::asStreamedObject()` and `DeferredResult::asPartialJsonStream()`
-are best-effort render helpers, not validated view models. Document this in
-any business-logic review:
-
-- `asStreamedObject()` yields progressively populated instances of the
-  target class on every `PartialObjectDelta` whose recovered JSON has
-  changed. The yielded objects are constructed from partial JSON and **may
-  carry default / unset fields**. They are not safe to pass to your domain
-  layer; only the final object : equivalent to `asObject()` : is.
-- `asPartialJsonStream()` yields the largest valid JSON snapshot
-  recoverable from the cumulative text buffer. A snapshot is "valid" in the
-  `PartialJsonParser` sense (syntactically parseable JSON), not "complete"
-  in the schema sense. Consumers must keep rendering until stream exhaustion
-  and run business validation on the last yielded value, never on an
-  intermediate one.
-- The shared `\Generator` in `DeferredResult::$stream` is driven exactly once
-  across `asStream()`, `asStreamedObject()`, and `asObject()`. Pick a
-  primary accessor; reaching for a second one will only see the remaining
-  deltas. `DeferredResult::asObject()` will pump the remainder if
-  `asStreamedObject()` stopped early, but the intermediate yields you saw
-  before the stop are not replayable.
-- Metadata is **not** complete before the stream is exhausted.
-  `Symfony\AI\Platform\Metadata\StreamListener` and
-  `Symfony\AI\Platform\TokenUsage\StreamListener` push deltas as
-  they arrive, and the `finally` blocks in `asStream()` /
-  `asTextStream()` / `asStreamedObject()` flush the aggregated metadata
-  into `DeferredResult::$metadata` only after iteration ends. Do not branch
-  on `$result->getMetadata()->get('finish_reason')` mid-stream.
+are best-effort render helpers, not validated view models : yielded objects
+and JSON snapshots may carry default or incomplete data, and metadata is not
+complete until the stream is exhausted. Full decision table and consumption
+contract (single-shot generator shared across `asStream()`/`asStreamedObject()`/
+`asObject()`, why `getMetadata()` is unsafe mid-stream): `references/patterns.md`
+§6.1–6.2.
 
 ## 19. `FailoverPlatform` does not retry, map models, or resume streams
 
 The decorator iterates platforms in order, consumes one rate-limit token per
 attempt, and on any `\Throwable` records the platform as failed (via a
-`\WeakMap`) and moves on. Read the actual `FailoverPlatform.php` before
-relying on any feature beyond that.
+`\WeakMap`) and moves on. Full "what it does / does not provide" breakdown
+(no model mapping, no option translation, no retry/backoff, no circuit
+breaker, no stream-resume — there is no `RetryPlatform` bridge, see gotcha
+#8): `references/patterns.md` §6.4.
 
-- **Same model argument is forwarded verbatim.** `'gpt-4o-mini'` is passed
-  to every underlying platform, including a Claude or Gemini one. There is
-  no model-name mapping. Wrap each platform with its own `Model` object if
-  you want per-provider model names.
-- **No option translation.** `$options` is forwarded as-is. Provider
-  options differ (`response_format` vs `tools` keys are not uniform across
-  bridges). A wrong option key for one provider surfaces as a bridge-level
-  exception, not as a normalised error.
-- **No universal retry / backoff.** A failure on platform A moves directly
-  to platform B; there is no per-call retry, no exponential delay, no
-  jitter. There is no `RetryPlatform` bridge : it has been removed (see
-  gotcha #8).
-- **No circuit breaker.** The `\WeakMap` records failures but does not
-  open / half-open / close like a circuit breaker. The only gating is the
-  `RateLimiterFactoryInterface` you inject; a saturated limiter is the
-  closest analogue.
-- **No stream-resume guarantee.** The shared `\Generator` inside
-  `DeferredResult` is single-shot. A mid-stream failure on one platform
-  starts a brand new invocation on the next; deltas already yielded are
-  not replayed. If you need resumable streaming, buffer at the application
-  layer.
-- After every platform fails, `FailoverPlatform` throws a bare
-  `RuntimeException('All platforms failed.')` constructed without a
-  previous throwable; the original failures are reachable only via
-  `$logger` output from per-platform attempts. Catch this and inspect the
-  `LoggerInterface` you passed in (it only logs per-platform throwables;
-  the final "All platforms failed." carries nothing).
+One detail not covered there: after every platform fails, `FailoverPlatform`
+throws a bare `RuntimeException('All platforms failed.')` constructed
+without a previous throwable; the original per-platform failures are
+reachable only via `$logger` output, not via the final exception.
 
 ## 20. Capability guards: exact cases, no invention
 
-`Capability` is a string-backed enum at
-`Symfony\AI\Platform\Capability`. `Model::supports()` returns `bool` via
-`Capability::equalsOneOf()`. Only the cases enumerated in `Capability.php`
-exist : do not invent a case for a capability you "expect" to be there.
-
-Cases most relevant to the `DeferredResult` surface:
-
-- `Capability::OUTPUT_STRUCTURED` : gates
-  `options['response_format']`; the `StructuredOutput\PlatformSubscriber`
-  throws `MissingModelSupportException::forStructuredOutput($model)` if the
-  model lacks it.
-- `Capability::OUTPUT_STREAMING` : model advertises SSE / chunked deltas.
-  Not centrally guarded; check `Model::supports()` before passing
-  `'stream' => true` or calling `asTextStream()` /
-  `asStreamedObject()`.
-- `Capability::TOOL_CALLING` : model accepts `Tool[]` in
-  `options['tools']`. Not centrally guarded; check before adding tools.
+`Capability` is a string-backed enum at `Symfony\AI\Platform\Capability`.
+`Model::supports()` returns `bool` via `Capability::equalsOneOf()`. Only the
+cases enumerated in `Capability.php` exist : do not invent a case for a
+capability you "expect" to be there. Guard pattern and the 3 cases gating
+`DeferredResult`/`PlatformSubscriber` behavior (`OUTPUT_STRUCTURED`,
+`OUTPUT_STREAMING`, `TOOL_CALLING`): `references/patterns.md` §6.3.
 
 Capability names that **do not exist** in this codebase (do not invent):
 `STREAMING` (use `OUTPUT_STREAMING`), `STRUCTURED_OUTPUT` (use

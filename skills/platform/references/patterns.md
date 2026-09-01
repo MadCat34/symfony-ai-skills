@@ -5,6 +5,19 @@ Five patterns that compile against the source under
 classes and method names; anything that does not exist in the source is
 omitted.
 
+## Contents
+
+- 1. Structured output (typed JSON via `response_format`)
+- 2. Tool calling from raw Platform
+- 3. Multi-provider failover with rate limiting
+- 4. Streaming responses
+- 5. Multi-modal input (image + text)
+- 6. Streaming decision table, capability guards, FailoverPlatform boundaries
+  - 6.1 Streaming accessor decision table
+  - 6.2 Stream validity and consumption contract
+  - 6.3 Capability guards via `Model::supports()`
+  - 6.4 `FailoverPlatform` boundaries
+
 ## 1. Structured output (typed JSON via `response_format`)
 
 There is no `StructuredOutput\Object` or `StructuredOutput\Property` class.
