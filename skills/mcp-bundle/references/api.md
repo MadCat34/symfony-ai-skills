@@ -4,6 +4,30 @@ Read this when the user asks for the full signature catalogue of the bundle, the
 
 Source of truth: `https://github.com/symfony/ai/tree/main/src/mcp-bundle/` (namespace `Symfony\AI\McpBundle\`).
 
+## Contents
+
+- Two namespaces
+- Bundle namespaces
+- SDK namespaces used by the bundle
+- SDK attribute signatures (real, from `Mcp\Capability\Attribute\`)
+- Bundle attribute signatures
+- Bundle classes
+  - `Symfony\AI\McpBundle\McpBundle`
+  - `Symfony\AI\McpBundle\Controller\McpController`
+  - `Symfony\AI\McpBundle\Command\McpCommand`
+  - `Symfony\AI\McpBundle\Command\DebugCommand`
+  - `Symfony\AI\McpBundle\Attribute\AsMcpApp` / `AsMcpAppTool`
+  - `Symfony\AI\McpBundle\Routing\RouteLoader`
+  - `Symfony\AI\McpBundle\Http\MiddlewareFactory`
+  - `Symfony\AI\McpBundle\Profiler\DataCollector`
+  - `Symfony\AI\McpBundle\Session\FrameworkSessionStore`
+  - `Symfony\AI\McpBundle\DependencyInjection\McpPass`
+  - `Symfony\AI\McpBundle\DependencyInjection\McpAppPass`
+  - `Symfony\AI\McpBundle\Client\McpClientInterface` / `McpClient` / `ServerConnectionInterface`
+  - Exceptions
+- Config tree (`config/options.php`)
+- Service IDs
+
 ## Two namespaces
 
 The bundle uses **two** namespaces that must not be confused:
@@ -534,6 +558,14 @@ mcp:
                 path: ~                                # default '/mcp/<name>'
                 allowed_hosts: ~                       # null=SDK default (localhost), list<string>, or false
 
+            protocol_versions: []                      # narrows which revisions this server answers; [] = SDK default (all)
+                                                        # a single handshake-era revision pins the handshake to it;
+                                                        # cannot narrow the modern era to a subset (compile-time error)
+
+            request_state:
+                key: ~                                  # HMAC key, >= 32 bytes; required for multi-round elicit() on the modern era
+                ttl: 600                                # seconds a minted state stays valid
+
             session:
                 store: 'file'                          # file | memory | cache | framework
                 directory: ~                            # file backend; default '%kernel.cache_dir%/mcp-sessions/<name>'
@@ -589,6 +621,10 @@ Notes:
 - `registry` accepts a bare list (one set of patterns for every kind) or a map keyed by `tools`/`prompts`/`resources`/`resource_templates`/`apps`. A pattern matching nothing on its server is a compile-time error; `'*'` cannot be combined with other entries in the same list.
 
 - Two servers must not resolve to the same session storage : rejected at compile time.
+
+- Every HTTP server now answers both the handshake era and the 2026-07-28 revision on the same endpoint, with no config change required. That revision drops server-initiated requests (`sample()`, `listRoots()` on the gateway your handler receives) : see `references/gotchas.md` #16. Set `protocol_versions: ['2025-11-25']` to refuse the modern era outright instead.
+
+- `request_state.key` is only required for a modern-era server whose handler calls `elicit()` more than once (or returns an `InputRequiredResult`) : without a session, the answer to the first ask has to be signed and carried back through the client for the second round.
 
 - `clients.<name>.servers.<name>` validates `stdio` and `http` options are mutually exclusive per entry (a `command` on an `http` entry, or a `url` on a `stdio` entry, is a compile-time error).
 

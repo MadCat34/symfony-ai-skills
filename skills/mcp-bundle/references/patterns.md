@@ -4,6 +4,17 @@ Read this when the user wants a concrete working recipe: HTTP tool, STDIO server
 
 All patterns rely on the bundle auto-discovering methods on autoconfigured services. The default `config/services.yaml` (`App\:` with `autoconfigure: true`) is enough : no extra wiring required.
 
+## Contents
+
+- HTTP server with one tool
+- STDIO server for editor integration
+- Prompt + tool combination
+- Resource (single, fixed URI)
+- MCP App (UI resource) : `#[AsMcpApp]`
+- When the class has no handler method
+- Consuming a remote MCP server (client)
+- Diagnostic recipes
+
 ## HTTP server with one tool
 
 `config/packages/mcp.yaml`:

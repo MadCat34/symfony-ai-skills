@@ -6,7 +6,7 @@ metadata:
   author: MadCat34
   email: madcat34@gmail.com
   url: https://github.com/MadCat34
-  version: "0.13.0-dev"
+  version: "0.13.0"
 ---
 
 # MCP Bundle
@@ -159,6 +159,8 @@ Session store: HTTP transport requires a session store (`mcp.server.<name>.sessi
 - `framework` : `Symfony\AI\McpBundle\Session\FrameworkSessionStore`, wrapping Symfony's `SessionHandlerInterface` (lazy `gc()`, expiry enforced on `read()`).
 
 For multi-process deployments (FrankenPHP, Roadrunner) or containers with ephemeral filesystems, switch from `file` to `cache` (with a shared Redis pool) or `framework` (with a shared session handler).
+
+Every HTTP server also answers the 2026-07-28 revision automatically alongside the handshake era, with no config change. That revision drops server-initiated requests : `$gateway->sample()`/`listRoots()` inside a handler now fails for clients speaking it. See `references/gotchas.md` #15.
 
 ### STDIO
 
