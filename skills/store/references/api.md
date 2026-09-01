@@ -2,7 +2,44 @@
 
 Source of truth: `https://github.com/symfony/ai/tree/main/src/store/src/`. All namespaces below use the `Symfony\AI\Store` root.
 
-> The Store component is experimental : verify signatures against the source before pinning a version.
+## Contents
+
+- Namespace tree
+- StoreInterface
+- ManagedStoreInterface
+- IndexerInterface
+  - `DocumentIndexer`
+  - `SourceIndexer`
+  - `ConfiguredSourceIndexer`
+  - `DocumentProcessor` (the actual pipeline)
+- RetrieverInterface
+- Query types
+- Document types
+  - TextDocument
+  - VectorDocument
+  - Metadata
+  - EmbeddableDocumentInterface
+- Vectorizer
+  - `VectorizerInterface`
+  - `Vectorizer` (concrete)
+- Transformers
+  - ChainTransformer
+  - TextSplitTransformer
+  - ChunkDelayTransformer
+  - SummaryGeneratorTransformer
+  - TextReplaceTransformer
+  - TextTrimTransformer
+- LoaderInterface
+  - Loaders
+- Filters
+- Reranker
+- Distance
+- Events
+- Commands
+- Exceptions
+- CombinedStore and TraceableStore
+- InMemory\Store
+- Bridges
 
 ## Namespace tree
 
@@ -97,6 +134,7 @@ interface StoreInterface
 ```
 
 Notes:
+
 - `add()` takes a single `VectorDocument` or an array of them : not variadic.
 - `remove()` accepts a string id or an array of string ids; non-string ids (e.g. `int`) must be cast by the caller. The `InMemory\Store` casts via `(string) $document->getId()` internally.
 - `query()` requires a `QueryInterface` : pass `VectorQuery`, `TextQuery`, or `HybridQuery`. It never takes a raw `Vector`.

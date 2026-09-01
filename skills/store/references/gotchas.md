@@ -2,6 +2,31 @@
 
 Source of truth: `https://github.com/symfony/ai/tree/main/src/store/src/`. Every entry below comes from a real class or method in the source : no fabricated behaviours.
 
+## Contents
+
+- 1. Embedding-model match (index-time vs query-time)
+- 2. Chunking window : defaults are 1000/200, not 500/50
+- 3. Batch indexing memory and rate limits
+- 4. Metadata is JSON-serialised
+- 5. Distance metrics differ across bridges
+- 6. Reranker ordering : Cohere reranker model
+- 7. Transformer chain order
+- 8. Drop semantics
+- 9. Query-time `limit` vs `maxItems`
+- 10. Vector dimension validation
+- 11. Re-indexing after metadata schema change
+- 12. Empty result sets
+- 13. Adding documents without an id
+- 14. `Vectorizer::vectorize()` on arrays of `EmbeddableDocumentInterface`
+- 15. `CombinedStore` and equal sub-stores
+- 16. `TraceableStore` reset between tests
+- 17. `Metadata::KEY_TEXT` propagation
+- 18. Reading order: read `platform/references/embeddings.md` first
+- 19. Ingestion pipeline is application-owned
+- 20. Generated chunk UUIDs and naive replacement
+- 21. `semanticRatio` is not portable across hybrid implementations
+- 22. Reranker failure when text metadata is absent
+
 ## 1. Embedding-model match (index-time vs query-time)
 
 `Vectorizer::vectorize()` calls `PlatformInterface::invoke($model, $content, $options)`. The model passed in the constructor is used for **both** indexing and retrieval. If you change `$model`, you must re-index everything.
