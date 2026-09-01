@@ -4,6 +4,18 @@ Source of truth: `https://github.com/symfony/ai/tree/main/src/store/src/`. Each 
 
 > Always confirm with `bash scripts/check-snippets.sh` after editing.
 
+## Contents
+
+- Pattern 1 : InMemory (tests, prototyping)
+- Pattern 2 : Postgres + pgvector (self-hosted)
+- Pattern 3 : Pinecone (managed)
+- Pattern 4 : Hybrid retrieval + Cohere rerank
+- Pattern 5 : Index a directory of Markdown
+- Pattern 6 : Bundle-friendly indexer with default source
+- Pattern 7 : Deterministic query preprocessing via `PreQueryEvent`
+- Pattern 8 : Bounded candidate retrieval + reranking
+- Hybrid semantics per store
+
 ## Pattern 1 : InMemory (tests, prototyping)
 
 ```php
@@ -388,6 +400,6 @@ Symfony AI distinguishes two ways to combine vector and text search:
 
 **`CombinedStore` rank fusion.** `CombinedStore::__construct(StoreInterface $vectorStore, StoreInterface $textStore, int $rrfK = 60)` decomposes `HybridQuery` into a `VectorQuery` against the vector store and a `TextQuery` against the text store, then merges with Reciprocal Rank Fusion. RRF scores use `1.0 / (rrfK + rank + 1)` per ranker; the final `VectorDocument` carries the summed RRF score. When the same instance is passed for both sub-stores, `CombinedStore` skips the second `add()` / `remove()` / `clear()` call.
 
-**Why `semanticRatio` is not portable.** The keyword is forwarded into `HybridQuery::__construct()` and the meaning is bridge-defined. `CombinedStore` ignores it entirely (RRF only), `Postgres\Store` interpolates it into a SQL ranking expression, and `Meilisearch\Store` forwards it as a backend payload : the three mechanisms are not interchangeable. Treat the value as a per-backend tuning knob; pick the absolute value the target bridge documentation recommends, and re-tune when you switch backends.
+**Why `semanticRatio` is not portable.** The keyword is forwarded into `HybridQuery::__construct()` and the meaning is bridge-defined : `CombinedStore` ignores it entirely (RRF only), `Postgres\Store` and `Meilisearch\Store` each interpret it differently. Treat it as a per-backend tuning knob and re-tune when you switch backends. Full per-bridge breakdown : `references/gotchas.md` #21.
 
-**Why store query limits are bridge-specific.** `StoreInterface::query(QueryInterface $query, array $options = []): iterable` carries an opaque `$options` array : the bridge owns it. `InMemory\Store` and `Cache\Store` read `maxItems` plus a `filter` callable; `Postgres\Store` reads `limit` and `maxScore`; `Pinecone\Store` reads `topK`; `Meilisearch\Store` reads `semanticRatio` (no client-side limit : the API returns the default top). When you compose a `Retriever` with a bridge, the keys you pass in `$options` are forwarded as-is, so consult the bridge's `query()` source before assuming a limit.
+**Why store query limits are bridge-specific.** `StoreInterface::query(QueryInterface $query, array $options = []): iterable` carries an opaque `$options` array : the bridge owns it (`maxItems` for InMemory/Cache, `limit` for Postgres, `topK` for Pinecone, …). Consult the bridge's `query()` source before assuming a limit key. Full table : `references/gotchas.md` #9.

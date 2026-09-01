@@ -33,6 +33,17 @@ Each bridge exposes a concrete class : `Store`, `SearchStore` (AzureSearch), or 
 
 Total: **24 bridges**. Two implementations for Sqlite (`Store` for FTS5-only hybrid; `VecStore` for sqlite-vec).
 
+## Contents
+
+- Grouped by category
+  - Cloud-managed
+  - SQL / NoSQL databases
+  - Search engines
+  - Vector-native engines
+  - Caching / ephemeral
+- `StoreFactory`
+- Picking a backend
+
 ## Grouped by category
 
 ### Cloud-managed
