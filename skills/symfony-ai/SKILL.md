@@ -6,12 +6,12 @@ metadata:
   author: MadCat34
   email: madcat34@gmail.com
   url: https://github.com/MadCat34
-  version: "0.13.0-dev"
+  version: "0.13.0"
 ---
 
 # Symfony AI (Orchestrator)
 
-> ⚠️ **Symfony AI is experimental** : APIs may break between releases. Always check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading. Last verified against `symfony/ai` **v0.12.0** on 2026-07-28.
+> ⚠️ **Symfony AI is experimental** : APIs may break between releases. Always check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading. Last verified against `symfony/ai` **v0.13.0** on 2026-09-01.
 
 Decision tree that routes between the seven specialized Symfony AI skills.
 
