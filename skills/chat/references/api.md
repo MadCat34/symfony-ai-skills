@@ -2,6 +2,31 @@
 
 Read this when the user asks for the full signature catalogue of the Chat framework. Everything below is grounded in the source files under `src/chat/src/`.
 
+## Contents
+
+- Core namespaces
+- `Chat`
+- `ChatInterface`
+- `MessageStoreInterface`
+- `ManagedStoreInterface`
+- `InMemory\Store`
+- Streaming persistence (since 0.13)
+- `TraceableChat`
+- `TraceableMessageStore`
+- `MessageNormalizer`
+- Bridges
+  - `Bridge\Doctrine\DoctrineDbalMessageStore`
+  - `Bridge\Redis\MessageStore`
+  - `Bridge\MongoDb\MessageStore`
+  - `Bridge\Cache\MessageStore`
+  - `Bridge\Session\MessageStore`
+  - `Bridge\Meilisearch\MessageStore`
+  - `Bridge\Cloudflare\MessageStore`
+  - `Bridge\SurrealDb\MessageStore`
+  - `Bridge\Pogocache\MessageStore`
+- Console commands
+- Exceptions
+
 ## Core namespaces
 
 ```php
@@ -11,7 +36,6 @@ Symfony\AI\Chat\
 ├── MessageStoreInterface             (save, load)
 ├── ManagedStoreInterface             (setup, drop — SEPARATE interface)
 ├── InMemory\Store                    (built-in, both interfaces)
-├── ChatStreamListener                (persists streamed assistant message)
 ├── TraceableChat                     (decorator, ChatInterface)
 ├── TraceableMessageStore             (decorator)
 ├── MessageNormalizer                 (Symfony Serializer normalizer)
@@ -49,7 +73,7 @@ final class Chat implements ChatInterface
 
 - `initiate()` calls `store->drop()` then `store->save($messages)`. Useful for seeding a system prompt or pre-loading history.
 - `submit()` loads history, appends the user message, calls the agent, appends the assistant message, persists, returns the assistant message.
-- `stream()` loads history, appends the user message, calls the agent with `['stream' => true]`, attaches a `ChatStreamListener`, and yields `DeltaInterface` events. The final message is built and persisted on `CompleteEvent`.
+- `stream()` loads history, appends the user message, calls the agent with `['stream' => true]`, and `yield from`s the returned (lazy) `Execution::asStream()` — no listener involved. Once the generator is fully drained, `stream()` builds the assistant message from `$execution->getResult()`, merges `$execution->getMetadata()`, appends it to the bag, and persists via `store->save()`.
 
 `Chat` has no `getMessages()`, `clear()`, or chat-id concept. There is no `send()` method.
 
@@ -120,24 +144,29 @@ final class Store implements ManagedStoreInterface, MessageStoreInterface, Reset
 
 Backed by a single `MessageBag` keyed by `$identifier`. Useful for tests and single-process scripts.
 
-## `ChatStreamListener`
+## Streaming persistence (since 0.13)
+
+There is no `ChatStreamListener` — it was removed. `AgentInterface::call()` returns a lazy `Execution` instead of a `StreamResult`, and `Chat::stream()` consumes that execution itself:
 
 ```php
-namespace Symfony\AI\Chat;
-
-final class ChatStreamListener extends AbstractStreamListener
+public function stream(UserMessage $message): \Generator
 {
-    public function __construct(
-        private readonly MessageBag $messages,
-        private readonly MessageStoreInterface $store,
-    );
+    $messages = $this->store->load();
+    $messages->add($message);
 
-    public function onDelta(DeltaEvent $event): void;
-    public function onComplete(CompleteEvent $event): void;
+    $execution = $this->agent->call($messages, ['stream' => true]);
+
+    yield from $execution->asStream();
+
+    $assistantMessage = Message::ofAssistant($execution->getResult());
+    $assistantMessage->getMetadata()->merge($execution->getMetadata());
+    $messages->add($assistantMessage);
+
+    $this->store->save($messages);
 }
 ```
 
-`onDelta()` concatenates `TextDelta` into a private buffer. `onComplete()` builds an `AssistantMessage` from the buffer, merges the result metadata, appends it to the bag, and calls `store->save()`.
+The final `Message::ofAssistant($execution->getResult())` call preserves every content part the result carries — including a `Thinking` part when the model streamed one. Persisted history is no longer guaranteed to be plain text: `MessageNormalizer` stores an ordered `parts` array (`Text`, `Thinking`, `ToolCall`), so code reading history back must expect structured content, not a single string.
 
 ## `TraceableChat`
 
@@ -211,7 +240,13 @@ Serialises and deserialises `MessageInterface` (and its concrete subclasses: `Sy
 
 Every bridge ships a `MessageStore` (or `DoctrineDbalMessageStore` for Doctrine) that implements both `MessageStoreInterface` and `ManagedStoreInterface`.
 
-**The `$serializer` parameter is never nullable.** Each bridge declares it with a default `new Serializer([...], [new JsonEncoder()])`, so passing `null` is a `TypeError`. Five of them (`MongoDb`, `Meilisearch`, `Cloudflare`, `SurrealDb`, `Pogocache`) additionally require the intersection type `SerializerInterface&NormalizerInterface&DenormalizerInterface`; `Doctrine` and `Redis` accept a plain `SerializerInterface`. `Cache` and `Session` take no serializer at all. Detailed method signatures:
+**The `$serializer` parameter is never nullable.** Seven bridges (all but `Cache` and `Session`) declare it with the identical default, shown below once and referenced as `<default serializer>` in each signature:
+
+```php
+new Serializer([new ArrayDenormalizer(), new ToolCallNormalizer(), new MessageNormalizer()], [new JsonEncoder()])
+```
+
+So passing `null` is a `TypeError`. Five of them (`MongoDb`, `Meilisearch`, `Cloudflare`, `SurrealDb`, `Pogocache`) additionally require the intersection type `SerializerInterface&NormalizerInterface&DenormalizerInterface`; `Doctrine` and `Redis` accept a plain `SerializerInterface`. `Cache` and `Session` take no serializer at all. Detailed method signatures:
 
 ### `Bridge\Doctrine\DoctrineDbalMessageStore`
 
@@ -219,10 +254,7 @@ Every bridge ships a `MessageStore` (or `DoctrineDbalMessageStore` for Doctrine)
 public function __construct(
     string $tableName,                          // first positional argument
     Doctrine\DBAL\Connection $dbalConnection,
-    SerializerInterface $serializer = new Serializer(
-        [new ArrayDenormalizer(), new ToolCallNormalizer(), new MessageNormalizer()],
-        [new JsonEncoder()],
-    ),
+    SerializerInterface $serializer = <default serializer>,
     Psr\Clock\ClockInterface $clock = new MonotonicClock(),
 );
 
@@ -240,10 +272,7 @@ Uses `Doctrine\DBAL\Connection` only. The default table name is not provided : c
 public function __construct(
     \Redis $redis,
     string $indexName,
-    SerializerInterface $serializer = new Serializer(
-        [new ArrayDenormalizer(), new ToolCallNormalizer(), new MessageNormalizer()],
-        [new JsonEncoder()],
-    ),
+    SerializerInterface $serializer = <default serializer>,
 );
 ```
 
@@ -256,10 +285,7 @@ public function __construct(
     MongoDB\Client $client,
     string $databaseName,
     string $collectionName,
-    SerializerInterface&NormalizerInterface&DenormalizerInterface $serializer = new Serializer(
-        [new ArrayDenormalizer(), new ToolCallNormalizer(), new MessageNormalizer()],
-        [new JsonEncoder()],
-    ),
+    SerializerInterface&NormalizerInterface&DenormalizerInterface $serializer = <default serializer>,
 );
 ```
 
@@ -297,10 +323,7 @@ public function __construct(
     #[\SensitiveParameter] string $apiKey,
     ClockInterface $clock,
     string $indexName = '_message_store_meilisearch',
-    SerializerInterface&NormalizerInterface&DenormalizerInterface $serializer = new Serializer(
-        [new ArrayDenormalizer(), new ToolCallNormalizer(), new MessageNormalizer()],
-        [new JsonEncoder()],
-    ),
+    SerializerInterface&NormalizerInterface&DenormalizerInterface $serializer = <default serializer>,
 );
 ```
 
@@ -314,10 +337,7 @@ public function __construct(
     string $namespace,
     #[\SensitiveParameter] string $accountId,
     #[\SensitiveParameter] string $apiKey,
-    SerializerInterface&NormalizerInterface&DenormalizerInterface $serializer = new Serializer(
-        [new ArrayDenormalizer(), new ToolCallNormalizer(), new MessageNormalizer()],
-        [new JsonEncoder()],
-    ),
+    SerializerInterface&NormalizerInterface&DenormalizerInterface $serializer = <default serializer>,
     string $endpointUrl = 'https://api.cloudflare.com/client/v4/accounts',
 );
 ```
@@ -334,10 +354,7 @@ public function __construct(
     #[\SensitiveParameter] string $password,
     string $namespace,
     string $database,
-    SerializerInterface&NormalizerInterface&DenormalizerInterface $serializer = new Serializer(
-        [new ArrayDenormalizer(), new ToolCallNormalizer(), new MessageNormalizer()],
-        [new JsonEncoder()],
-    ),
+    SerializerInterface&NormalizerInterface&DenormalizerInterface $serializer = <default serializer>,
     string $table = '_message_store_surrealdb',
     bool $isNamespacedUser = false,
 );
@@ -353,10 +370,7 @@ public function __construct(
     string $host,
     #[\SensitiveParameter] string $password,
     string $key = '_message_store_pogocache',
-    SerializerInterface&NormalizerInterface&DenormalizerInterface $serializer = new Serializer(
-        [new ArrayDenormalizer(), new ToolCallNormalizer(), new MessageNormalizer()],
-        [new JsonEncoder()],
-    ),
+    SerializerInterface&NormalizerInterface&DenormalizerInterface $serializer = <default serializer>,
 );
 ```
 
