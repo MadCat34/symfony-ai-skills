@@ -2,6 +2,24 @@
 
 > **Source of truth**: `https://github.com/symfony/ai/tree/main/src/ai-bundle/config/options.php` is the canonical config tree. Per-platform and per-store schemas live in `config/platform/<provider>.php` and `config/store/<provider>.php`. Service wiring lives in `config/services.php`. This document only describes what actually exists in source.
 
+## Contents
+
+- Root tree (from `config/options.php`)
+- `ai.platform`
+  - Singleton providers (one platform per YAML key)
+  - Named providers (multiple instances under one key)
+- `ai.model`
+- `ai.agent`
+- `ai.multi_agent`
+- `ai.store`
+- `ai.vectorizer`
+- `ai.retriever`
+- `ai.indexer`
+- `ai.chat`
+- `ai.message_store`
+- Aliases auto-created by the bundle
+- Removed when optional packages are missing
+
 ## Root tree (from `config/options.php`)
 
 ```text

@@ -2,6 +2,21 @@
 
 Exhaustive list, every item grounded in the source (`https://github.com/symfony/ai/tree/main/src/ai-bundle/`).
 
+## Contents
+
+- 1. Autoconfiguration must be enabled
+- 2. Service tag duplicates
+- 3. Env var interpolation
+- 4. Profiler in production
+- 5. Security context in async / Messenger handlers
+- 6. Processor order overriding
+- 7. Processor scope (per-agent vs global)
+- 8. `IsGrantedTool` always throws
+- 9. Cache clearing after schema change
+- 10. Service IDs vs class names in `tools.services`
+- 11. Missing optional package fails the build
+- 12. Compiler-pass ordering
+
 ## 1. Autoconfiguration must be enabled
 
 ```yaml

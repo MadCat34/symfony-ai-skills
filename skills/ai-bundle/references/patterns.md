@@ -2,6 +2,15 @@
 
 > All snippets below compile against the **real** config tree (`https://github.com/symfony/ai/tree/main/src/ai-bundle/config/options.php`) and the **real** namespaces. Run them inside a Symfony app with `symfony/ai-bundle` installed and `_defaults: { autoconfigure: true }` in `services.yaml`.
 
+## Contents
+
+- 1. Multi-platform config
+- 2. Dev profiler (no setup)
+- 3. Security-gated tool
+- 4. Custom processor auto-tagging
+- 5. RAG: indexer + retriever
+- 6. Persistent chat
+
 ## 1. Multi-platform config
 
 Define multiple providers and route agents per use case. Each provider is a top-level child of `ai.platform`.

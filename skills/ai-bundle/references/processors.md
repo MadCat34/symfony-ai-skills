@@ -7,6 +7,15 @@ Processors transform `MessageBag` (input) and `ResultInterface` (output). They a
 1. A service implements `Symfony\AI\Agent\InputProcessorInterface` (or `OutputProcessorInterface`); OR
 2. A class is annotated with `#[AsInputProcessor]` (or `#[AsOutputProcessor]`).
 
+## Contents
+
+- Built-in processors (registered by the bundle)
+- Attributes (REAL namespaces : `Symfony\AI\Agent\Attribute`)
+- Global custom processor (PHP)
+- Scoped custom processor (PHP)
+- Interface-only registration (no attribute)
+- Disabling a processor
+
 ## Built-in processors (registered by the bundle)
 
 The bundle registers these processors itself, not via attributes (see `AiBundle::processAgentConfig()`). Both are scoped to the agent they belong to (the `agent` tag on the processor matches `ai.agent.<name>`).
