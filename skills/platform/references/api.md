@@ -4,6 +4,26 @@ Strict source-of-truth dump of the namespaces and method signatures that exist
 under `https://github.com/symfony/ai/tree/main/src/platform/src/`. Anything not in this tree
 is not documented here.
 
+## Contents
+
+- Core namespaces
+- `PlatformInterface`
+- `Platform` (concrete)
+- `Provider` (one inference backend)
+- `DeferredResult` (the real one)
+- `Result\Stream\ListenerInterface`
+- `TokenUsage`
+- `FinishReason` (final class wrapping an enum)
+- `Vector`
+- `Message` named constructors
+- `MessageBag`
+- Content parts
+- `Tool` (raw Platform : not Agent)
+- `Model`
+- `Contract`
+- `TraceablePlatform`
+- Bridge factory pattern
+
 ## Core namespaces
 
 ```php
