@@ -2,27 +2,35 @@
 
 Three common patterns grounded in the actual `src/mate/` source.
 
+## Contents
+
+- 1. Initial setup
+- 2. Custom extension with `extra.ai-mate.skills`
+- 3. Bootstrap check
+- 4. Reading skill files via a resource
+
 ## 1. Initial setup {#initial-setup}
 
 ```bash
 composer require --dev symfony/ai-mate
-vendor/bin/mate init
-composer dump-autoload        # registers the Mate\ autoloader
-vendor/bin/mate discover      # also runs automatically via the Composer plugin on install/update
+vendor/bin/mate init          # asks how the agent should invoke Mate, then scaffolds mate/
+composer dump-autoload         # registers the Mate\ autoloader
+vendor/bin/mate discover       # also runs automatically via the Composer plugin on install/update
 vendor/bin/mate skills:install # also runs inside `discover`; explicit re-sync only
 ```
 
-`init` writes `mcp.json` (with PHP-binary placeholders resolved) and a `.mcp.json` symlink to `mcp.json`. The agent should pick this up automatically : verify with:
+`init` writes `mate/AGENT_INSTRUCTIONS.md` and updates the managed block in `AGENTS.md` (plus a `CLAUDE.md` import for Claude Code). There is no MCP config file to wire up — point the coding agent at these two files, or let it read them itself. Verify the tool surface with:
 
 ```bash
+vendor/bin/mate tools:list
 vendor/bin/mate debug:capabilities --extension=_custom
 ```
 
-For Claude Code, point it at `mcp.json` (or rely on the symlink). The MCP server is STDIO-only (`StdioTransport` in `ServeCommand::execute()`), and the recommended args are `["./vendor/bin/mate", "serve", "--force-keep-alive"]` : `bin/mate` wraps the actual call so the child is restarted after a **clean** exit (`bin/mate:49` restarts only when `0 === $exitCode`, and propagates any non-zero code instead).
+If the project runs inside a container (DDEV, Docker, Symfony CLI), answer `init`'s invocation prompt with the wrapper (`ddev exec vendor/bin/mate`, `symfony php vendor/bin/mate`, …) so the agent — and the interpreter-version check, once `mate.php_version` is set — runs Mate against the *application's* PHP, not the host's.
 
 ## 2. Custom extension with `extra.ai-mate.skills` {#custom-extension}
 
-Build a vendor Composer package that ships MCP capabilities plus skills. The skeleton below mirrors what `src/Bridge/Symfony/` and `src/Bridge/Monolog/` look like.
+Build a vendor Composer package that ships tools plus skills. The skeleton below mirrors what `src/Bridge/Symfony/` and `src/Bridge/Monolog/` look like.
 
 ```text
 acme/mate-myext/
@@ -41,7 +49,7 @@ acme/mate-myext/
     "type": "symfony-ai-mate",
     "require": {
         "php": ">=8.2",
-        "symfony/ai-mate": "^0.12"
+        "symfony/ai-mate": "^0.13"
     },
     "autoload": {
         "psr-4": {
@@ -59,31 +67,30 @@ acme/mate-myext/
 }
 ```
 
-`Capability/MyTools.php`:
+`Capability/MyTools.php` — the native `#[MateTool]` attribute, not an `mcp/sdk` one, and `name` is required:
 
 ```php
 <?php
 
 namespace Acme\MateMyext;
 
-use Mcp\Capability\Attribute\McpTool;
-use Symfony\AI\Mate\Encoding\ResponseEncoder;
+use Symfony\AI\Mate\Attribute\MateTool;
 
 class MyTools
 {
-    #[McpTool(
+    #[MateTool(
         name: 'my-symfony-version',
         title: 'My Symfony Version',
         description: 'Return the running Symfony Kernel::VERSION constant',
     )]
     public function getSymfonyVersion(): string
     {
-        return ResponseEncoder::encode([
-            'symfony_version' => \Symfony\Component\HttpKernel\Kernel::VERSION,
-        ]);
+        return \Symfony\Component\HttpKernel\Kernel::VERSION;
     }
 }
 ```
+
+A tool returning data captured from the inspected application (not the case here — this one returns a constant) should wrap it with `ResponseEncoder::encodeUntrusted()` instead of `encode()`, so the agent knows to treat it as untrusted data rather than instructions (see `references/api.md`).
 
 `config/config.php` (optional : only needed if you want to register extra services):
 
@@ -119,7 +126,7 @@ Workflow:
 ```bash
 composer require acme/mate-myext       # the plugin auto-runs vendor/bin/mate discover --composer
 vendor/bin/mate skills:install          # explicit re-sync of extension skills
-vendor/bin/mate debug:capabilities      # confirm my-symfony-version is listed
+vendor/bin/mate tools:list              # confirm my-symfony-version is listed
 ```
 
 On `discover` the new package is added to `mate/extensions.php` as `'acme/mate-myext' => ['enabled' => true]`, and each `skills/<name>/` directory becomes `mate-<name>`, copied into `.agents/skills/` (a real copy, safe to commit) and mirrored as a relative symlink under `.claude/skills/` (`SkillInstaller::install()` / `linkMirror()`). Stale `mate-*` entries in either directory are pruned on every install.
@@ -131,7 +138,7 @@ When the assistant cannot see Mate tools:
 ```bash
 # 1. Verify Mate is installed and on PATH
 vendor/bin/mate --version
-# Symfony AI Mate 0.12.0
+# Symfony AI Mate 0.13.0
 
 # 2. Verify the DI container builds and discover runs
 vendor/bin/mate discover
@@ -143,8 +150,8 @@ vendor/bin/mate debug:extensions --show-all
 vendor/bin/mate debug:capabilities --format=json | jq '.summary'
 
 # 5. Verify a specific tool is reachable
-vendor/bin/mate mcp:tools:inspect server-info --format=json
-vendor/bin/mate mcp:tools:call server-info '{}' --format=pretty
+vendor/bin/mate tools:inspect server-info --format=json
+vendor/bin/mate tools:call server-info --format=pretty
 
 # 6. If the cache is stale, blow it away
 vendor/bin/mate clear-cache
@@ -161,19 +168,21 @@ vendor/bin/mate debug:capabilities --extension=acme/mate-myext --type=tool
 
 If the package shows `enabled: true` but `loaded: false`, the `extra.ai-mate.scan-dirs` or `extra.ai-mate.includes` paths are wrong relative to `vendor/<package>/`.
 
-## 4. Reading skill files via `mcp:resources:read` {#reading-skills-via-mcp}
+If a custom `#[MateTool]` method silently doesn't show up despite the extension loading, check for the two attribute mistakes discovery skips with only a log line : a missing `name` argument, or the attribute placed on the class instead of the method.
 
-When the assistant needs the full text of an extension's `SKILL.md` (rather than relying on the symlinked copy under `.agents/skills/`), use the MCP resources URI registered by the bundled `system-information` skill or your extension's own resources.
+## 4. Reading skill files via a resource {#reading-skills-via-resource}
+
+When the assistant needs the full text of an extension's `SKILL.md` (rather than relying on the copy under `.agents/skills/`), use a resource URI registered by the extension (the bundled `system-information` skill and the bridges ship their own).
 
 ```bash
 # Inspect what resources are available
 vendor/bin/mate debug:capabilities --type=resource --format=json
 
 # Read one
-vendor/bin/mate mcp:resources:read <uri> --format=pretty
+vendor/bin/mate resources:read <uri> --format=pretty
 ```
 
-For the bundled `system-information` skill shipped at `src/mate/skills/system-information/SKILL.md`, prefer reading it directly from disk (`cat .agents/skills/mate-system-information/SKILL.md`) : it is symlinked into your project by `discover` and tracks the `vendor/` copy.
+For the bundled `system-information` skill shipped at `src/mate/skills/system-information/SKILL.md`, prefer reading it directly from disk (`cat .agents/skills/mate-system-information/SKILL.md`) : `discover` installs it as a real copy in your project, kept in sync with the `vendor/` source.
 
 ## See also
 
