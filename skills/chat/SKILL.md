@@ -1,12 +1,12 @@
 ---
 name: chat
-description: Use when building a stateful chat session that wraps an Agent and persists the conversation via a `MessageStoreInterface`. Triggers on `Chat`, `ChatInterface`, `MessageStoreInterface`, `MessageStore`, `ManagedStoreInterface`, `MessageNormalizer`, `InMemory\Store`, `ChatStreamListener`, `setup()` / `drop()` console commands, or messages persisting across requests. Do NOT trigger for raw LLM invocation (use `platform`), a stateless tool-calling agent (use `agent`), or vector storage (use `store`).
+description: Use when building a stateful chat session that wraps an Agent and persists the conversation via a `MessageStoreInterface`. Triggers on `Chat`, `ChatInterface`, `MessageStoreInterface`, `MessageStore`, `ManagedStoreInterface`, `MessageNormalizer`, `InMemory\Store`, `setup()` / `drop()` console commands, or messages persisting across requests. Do NOT trigger for raw LLM invocation (use `platform`), a stateless tool-calling agent (use `agent`), or vector storage (use `store`).
 license: MIT
 metadata:
   author: MadCat34
   email: madcat34@gmail.com
   url: https://github.com/MadCat34
-  version: "0.13.0-dev"
+  version: "0.13.0"
 ---
 
 # Chat
@@ -71,7 +71,7 @@ UserMessage  --->  Chat::submit(UserMessage)
                   return AssistantMessage
 ```
 
-`Chat::stream()` follows the same shape but attaches a `ChatStreamListener` to the `StreamResult` so the assembled assistant message is appended and persisted on `CompleteEvent`.
+`Chat::stream()` follows the same shape but yields from the agent's lazy `Execution::asStream()` directly — there is no `ChatStreamListener` (removed in 0.13). Once the stream is drained, `stream()` builds the assistant message from `$execution->getResult()`, merges `$execution->getMetadata()`, appends it, and persists it itself. A `Thinking` part now survives in persisted history where only plain text was stored before.
 
 ## Quick reference: in-memory chat
 
@@ -149,12 +149,12 @@ Both are useful for tests and profiler wiring.
 
 - **The method is `submit()`, not `send()`.** `ChatInterface::submit(UserMessage)` returns an `AssistantMessage`.
 - **There is no `chatId` concept.** `MessageStoreInterface::save()` and `load()` take no identifier. Each conversation gets its own store instance; if you want parallel sessions, instantiate one `Store` per session.
-- **`MessageBag` IS mutated.** `Chat::submit()` calls `$messages->add(...)` before delegating and `ChatStreamListener` appends the assembled assistant message. Do not rely on the bag being immutable.
+- **`MessageBag` IS mutated.** `Chat::submit()` calls `$messages->add(...)` before delegating and `Chat::stream()` appends the assembled assistant message once its execution is drained. Do not rely on the bag being immutable.
 - **Constructor is an intersection type.** `Chat::__construct(AgentInterface $agent, MessageStoreInterface&ManagedStoreInterface $store)`. The store must implement both interfaces.
 - **Doctrine means DBAL, not ORM.** The bridge takes a `Doctrine\DBAL\Connection` and creates the table via `Schema::createTable` : no entity manager, no `ChatMessage` class.
 - **Per-instance state.** Channels like Redis, MongoDB, Cache, and Session are singletons keyed by `$indexName` / `$cacheKey` / `$sessionKey` / `$tableName`. The default keys are not random : override them per session to avoid collisions.
 - **Every bridge implements `setup()`.** Including `Cache` and `Session`. The current assumption that "in-memory and cache need no setup" is wrong.
-- **Streaming persists on completion.** If the consumer breaks out of the `foreach` early, `ChatStreamListener::onComplete()` never fires and the partial message is lost.
+- **Streaming persists on completion.** If the consumer breaks out of the `foreach` early, the persistence code inside `Chat::stream()` (which sits after the `yield from`) never runs and the partial message is lost.
 - **Meilisearch bridge requires `symfony/clock`.** The constructor throws `RuntimeException` at instantiation if `Psr\Clock\ClockInterface` is missing.
 
 ## Common tasks
@@ -167,7 +167,7 @@ Both are useful for tests and profiler wiring.
 
 ## References
 
-- **Full API surface** (Chat, ChatInterface, MessageStoreInterface, ManagedStoreInterface, InMemory\Store, ChatStreamListener, TraceableChat, TraceableMessageStore, MessageNormalizer, every bridge): [references/api.md](references/api.md)
+- **Full API surface** (Chat, ChatInterface, MessageStoreInterface, ManagedStoreInterface, InMemory\Store, TraceableChat, TraceableMessageStore, MessageNormalizer, every bridge): [references/api.md](references/api.md)
 - **Patterns** (in-memory, DBAL, agent-with-tools, streaming, traceable): [references/patterns.md](references/patterns.md)
 - **Gotchas** (submit vs send, intersection type, DBAL not ORM, mutated MessageBag, per-instance state): [references/gotchas.md](references/gotchas.md)
 

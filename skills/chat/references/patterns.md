@@ -2,6 +2,15 @@
 
 Six common, compile-ready patterns. Every snippet is grounded in the source files under `src/chat/src/`.
 
+## Contents
+
+- In-memory
+- Doctrine DBAL
+- Chat wrapping an Agent with tools
+- Streaming
+- Traceable
+- MessageStore vs MemoryProvider vs Vector Store
+
 ## In-memory
 
 The simplest path. Useful for tests, single-process scripts, and quick experiments.
@@ -123,7 +132,7 @@ See the `agent` skill for full `#[AsTool]` patterns and tool-calling caveats.
 
 ## Streaming
 
-Use `Chat::stream()` to receive `DeltaInterface` events. The final message is persisted automatically by `ChatStreamListener` once iteration completes.
+Use `Chat::stream()` to receive `DeltaInterface` events. The final message is persisted automatically by `stream()` itself once iteration completes.
 
 ```php
 use Symfony\AI\Chat\Chat;
@@ -150,7 +159,7 @@ foreach ($chat->stream(Message::ofUser('Tell me a story.')) as $delta) {
 // A subsequent submit() will see it in the history.
 ```
 
-**Gotcha**: if you `break` out of the loop early, `ChatStreamListener::onComplete()` never fires and the partial buffer is lost. The next `submit()` will not see a partial assistant message.
+**Gotcha**: if you `break` out of the loop early, the persistence code after `yield from $execution->asStream()` inside `Chat::stream()` never runs and the partial buffer is lost. The next `submit()` will not see a partial assistant message.
 
 ## Traceable
 

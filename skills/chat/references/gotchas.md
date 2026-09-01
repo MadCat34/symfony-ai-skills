@@ -2,6 +2,24 @@
 
 Exhaustive list, grounded in the source files under `src/chat/src/`.
 
+## Contents
+
+- `submit()`, not `send()`
+- No `chatId`, no `getMessages()`, no `clear()`
+- `MessageBag` IS mutated
+- Constructor intersection type
+- Doctrine = DBAL, not ORM
+- `setup()` per managed store
+- `drop()` is non-destructive on Doctrine
+- Per-instance state
+- Streaming persists on completion
+- Meilisearch requires `symfony/clock`
+- Console commands require `ManagedStoreInterface`
+- Race conditions on shared stores
+- `MessageNormalizer` identifier per bridge
+- Streaming is not recommended with the Session message store
+- `initiate()` drops existing content
+
 ## `submit()`, not `send()`
 
 `ChatInterface` exposes `submit(UserMessage)`, not `send()`. `submit()` returns an `AssistantMessage`. There is no `send()` overload accepting a `string` either : build a `UserMessage` via `Message::ofUser(...)` (or `Message::forSystem(...)`, etc.) and pass it in.
@@ -34,7 +52,7 @@ If you need parallel sessions, override the store's identifier (`$cacheKey`, `$s
 
 ## `MessageBag` IS mutated
 
-`Chat::submit()` calls `$messages->add(...)` on the bag returned by `store->load()`. `ChatStreamListener::onComplete()` also appends. The bag is not immutable.
+`Chat::submit()` calls `$messages->add(...)` on the bag returned by `store->load()`. `Chat::stream()` also appends, after draining the execution. The bag is not immutable.
 
 ```php
 $bag = $store->load(); // same reference held by Chat
@@ -95,7 +113,7 @@ $store = new Session\MessageStore($requestStack, 'chat_' . $sessionId);
 
 ## Streaming persists on completion
 
-`ChatStreamListener::onComplete()` is the only place that appends the assembled assistant message during a streaming call. If you break out of the `foreach` loop early, the listener never fires and the partial message is lost.
+`Chat::stream()` itself appends and persists the assembled assistant message, but only after the `\Generator` it returns runs to completion — the persistence code sits after the `yield from`. If you break out of the `foreach` loop early, that code never runs and the partial message is lost.
 
 ```php
 foreach ($chat->stream(Message::ofUser('...')) as $delta) {
