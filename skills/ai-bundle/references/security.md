@@ -4,6 +4,16 @@
 
 The bundle ships **one** security hook: `#[IsGrantedTool]`. It is a PHP attribute on tool methods (or classes) that consults Symfony's `AuthorizationCheckerInterface` just before the tool is invoked.
 
+## Contents
+
+- Real namespace : `Symfony\AI\AiBundle\Security\Attribute`
+- `throwOnDenied` does NOT exist
+- Example
+- Symfony Security voter integration
+- Required dependency
+- Async / Messenger context
+- Audit trail
+
 ## Real namespace : `Symfony\AI\AiBundle\Security\Attribute`
 
 ```php
