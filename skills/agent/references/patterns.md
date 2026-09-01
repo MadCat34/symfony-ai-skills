@@ -2,6 +2,16 @@
 
 Five end-to-end recipes, each one a complete, syntactically-valid PHP snippet. Source-of-truth: `src/agent/src/`.
 
+## Contents
+
+- 1. Tool-calling agent (pass a `toolbox` to `Agent`)
+- 2. Static, retrieval-only memory (pre-seeded)
+- 3. Embedding-based memory (vector store)
+- Conversation history vs semantic memory
+- 4. Multi-agent routing with `MultiAgent`
+- 5. Speech + chat with `SpeechAgent`
+- 6. Shared lifecycle dispatcher and source propagation
+
 ## 1. Tool-calling agent (pass a `toolbox` to `Agent`)
 
 The `Toolbox` is passed directly to `Agent` via the named `toolbox` constructor argument; `Agent` drives the tool-calling loop itself. Tools are objects with a `#[AsTool]` attribute on the **class**.
@@ -45,6 +55,28 @@ final class Filesystem
 {
     public function read(string $path): string  { return file_get_contents($path); }
     public function write(string $path, string $content): string { file_put_contents($path, $content); return 'ok'; }
+}
+```
+
+Streaming, or observing the run, via the `Execution` that `call()` returns:
+
+```php
+use Symfony\AI\Platform\Result\Stream\Delta\TextDelta;
+
+// Eager, unchanged — drives the execution and returns the final answer.
+$text = $agent->call('What is the weather in Paris?')->getContent();
+
+// Streamed — getContent() yields deltas as they arrive; only TextDelta carries text.
+$result = $agent->call('What is the weather in Paris?', ['stream' => true]);
+foreach ($result->getContent() as $delta) {
+    if ($delta instanceof TextDelta) {
+        echo $delta->getText();
+    }
+}
+
+// Observe every update (model requests, tool calls, deltas) without caring about streaming.
+foreach ($agent->call('What is the weather in Paris?') as $update) {
+    // $update is an Execution\Update\Progress or the terminal Execution\Update\Result
 }
 ```
 

@@ -2,6 +2,33 @@
 
 Read this when the user asks for the full signature catalogue of the Agent framework. Every signature below is taken verbatim from `src/agent/src/` : re-verify against the source if you change anything.
 
+## Contents
+
+- Namespace tree
+- `Agent`
+- `AgentInterface`
+- `Input` / `Output` / `InputNormalizer`
+- `AgentAwareInterface` / `AgentAwareTrait`
+- Processor attributes
+- Built-in input processors
+- `Toolbox`
+- `ToolExecutorInterface` / `SequentialToolExecutor`
+- `FaultTolerantToolbox`
+- `TraceableToolbox`
+- `#[AsTool]`
+- `Tool` factory chain
+- `ToolResult`, `ToolResultConverter`
+- `Execution`
+- `ToolCallArgumentResolver`
+- `Subagent`
+- Toolbox exceptions
+- Memory
+- `MultiAgent`
+- `SpeechAgent` + `SpeechConfiguration`
+- Testing & observability agents
+- Tool bridges (13)
+- Tool-call lifecycle events
+
 ## Namespace tree
 
 ```text
@@ -12,8 +39,12 @@ Symfony\AI\Agent\
   Input                                  (final, mutable)
   Output                                 (final)
   InputNormalizer                        (@internal, static toMessageBag)
-  Execution\Runner                       (@internal, drives the tool-calling loop; exposeTools() applies the per-call `tools` option)
-  Execution\ToolCallBudget                (@internal, enforces maxToolCalls / throws MaxIterationsExceededException)
+  Execution\Execution                    (final, lazy, returned by AgentInterface::call())
+  Execution\UpdateInterface              (getType(): UpdateType)
+  Execution\UpdateType                   (enum: Progress, Result)
+  Execution\Update\Progress              (final, non-blocking progress update)
+  Execution\Update\Result                (final, terminal update wrapping the ResultInterface)
+  Execution\Runner                       (@internal, drives the tool-calling loop and enforces maxToolCalls; exposeTools() applies the per-call `tools` option)
   InputProcessorInterface                (processInput(Input): void)
   OutputProcessorInterface               (processOutput(Output): void)
   Attribute\AsInputProcessor             (TARGET_CLASS | IS_REPEATABLE)
@@ -40,7 +71,6 @@ Symfony\AI\Agent\
   Toolbox\ToolFactory\ChainFactory
   Toolbox\ToolFactory\ReflectionToolFactory
   Toolbox\ToolFactory\MemoryToolFactory
-  Toolbox\StreamListener
   Toolbox\Exception\ToolException              (config error)
   Toolbox\Exception\ToolConfigurationException
   Toolbox\Exception\ToolExecutionException
@@ -97,7 +127,7 @@ final class Agent implements AgentInterface
     /**
      * @param array<string, mixed> $options
      */
-    public function call(string|MessageBag|UserMessage $input, array $options = []): ResultInterface;
+    public function call(string|MessageBag|UserMessage $input, array $options = []): Execution;
 }
 ```
 
@@ -110,12 +140,15 @@ namespace Symfony\AI\Agent;
 
 interface AgentInterface
 {
-    public function call(string|MessageBag|UserMessage $input, array $options = []): ResultInterface;
+    /**
+     * Starts the agent and returns a lazy {@see Execution} : nothing runs until it is consumed.
+     */
+    public function call(string|MessageBag|UserMessage $input, array $options = []): Execution;
     public function getName(): string;
 }
 ```
 
-Implemented by `Agent`, `MultiAgent`, `SpeechAgent`, `MockAgent`, `TraceableAgent`.
+Implemented by `Agent`, `MultiAgent`, `SpeechAgent`, `MockAgent`, `TraceableAgent` : all return `Execution`, not `ResultInterface`, directly.
 
 ## `Input` / `Output` / `InputNormalizer`
 
@@ -198,16 +231,16 @@ namespace Symfony\AI\Agent\InputProcessor;
 final class SystemPromptInputProcessor implements InputProcessorInterface
 {
     /**
-     * @param \Stringable|TranslatableInterface|string|File $systemPrompt
+     * @param \Stringable|TranslatableInterface|string|File|Template $systemPrompt
      */
     public function __construct(
-        \Stringable|TranslatableInterface|string|File $systemPrompt,
+        \Stringable|TranslatableInterface|string|File|Template $systemPrompt,
         ?ToolboxInterface $toolbox = null,
         ?TranslatorInterface $translator = null,
         LoggerInterface $logger = new NullLogger(),
     );
 
-    public function getSystemPrompt(): \Stringable|TranslatableInterface|string|File;
+    public function getSystemPrompt(): \Stringable|TranslatableInterface|string|File|Template;
     public function processInput(Input $input): void;
 }
 
@@ -260,9 +293,10 @@ interface ToolExecutorInterface
     /**
      * @param ToolCall[] $toolCalls
      *
-     * @return ToolResult[] one result per tool call, in the same order as the given calls
+     * @return \Generator<int, UpdateInterface, mixed, ToolResult[]> yields progress updates while the calls run,
+     *                                                                returns one result per call, same order as given
      */
-    public function execute(array $toolCalls): array;
+    public function execute(array $toolCalls): \Generator;
 }
 
 final class SequentialToolExecutor implements ToolExecutorInterface
@@ -271,11 +305,11 @@ final class SequentialToolExecutor implements ToolExecutorInterface
         private readonly ToolboxInterface $toolbox,
     );
 
-    public function execute(array $toolCalls): array;
+    public function execute(array $toolCalls): \Generator;
 }
 ```
 
-There is no more `AgentProcessor` : tool calling is driven by `Agent` itself, delegating to `Symfony\AI\Agent\Execution\Runner` (`@internal`) and `Symfony\AI\Agent\Execution\ToolCallBudget` (`@internal`, the class actually enforcing `maxToolCalls` and throwing `MaxIterationsExceededException`). `Agent::__construct()` injects the tool list into the platform options, `Runner` executes the loop via `ToolExecutorInterface` (default `SequentialToolExecutor`, one call after another), and recurses until a non-`ToolCallResult` is returned. Default `maxToolCalls` is **50**. A custom `ToolExecutorInterface` (e.g. concurrent execution) can be passed via the `toolExecutor` constructor argument. `Runner::exposeTools()` also honors a per-call `tools` option (see `references/gotchas.md` #13) to restrict, for one `Agent::call()` only, which tools are exposed.
+There is no more `AgentProcessor` : tool calling is driven by `Agent` itself, delegating to `Symfony\AI\Agent\Execution\Runner` (`@internal`), which enforces `maxToolCalls` directly (a counter incremented per iteration, throwing `MaxIterationsExceededException` once it exceeds the limit) and drives the loop via `ToolExecutorInterface` (default `SequentialToolExecutor`, one call after another) until a non-`ToolCallResult` is returned. Default `maxToolCalls` is **50**. A custom `ToolExecutorInterface` (e.g. concurrent execution) can be passed via the `toolExecutor` constructor argument. `Runner::exposeTools()` also honors a per-call `tools` option (see `references/gotchas.md` #13) to restrict, for one `Agent::call()` only, which tools are exposed.
 
 ## `FaultTolerantToolbox`
 
@@ -350,12 +384,14 @@ interface ToolFactoryInterface
     public function getTool(object|string $reference): iterable;
 }
 
+namespace Symfony\AI\Agent\Toolbox\ToolFactory;
+
 final class ReflectionToolFactory implements ToolFactoryInterface;   // default — reads #[AsTool]
 final class MemoryToolFactory   implements ToolFactoryInterface;   // pre-registered tools
 final class ChainFactory        implements ToolFactoryInterface;   // first-factory wins
 ```
 
-## `ToolResult`, `ToolResultConverter`, `StreamListener`
+## `ToolResult`, `ToolResultConverter`
 
 ```php
 namespace Symfony\AI\Agent\Toolbox;
@@ -374,12 +410,40 @@ final class ToolResultConverter
     /** @throws RuntimeException */
     public function convert(ToolResult $toolResult): ?string;
 }
+```
 
-final class StreamListener extends AbstractStreamListener
+There is no more `Toolbox\StreamListener` : it was removed. `Execution` (below) now handles streaming and observation natively.
+
+## `Execution`
+
+```php
+namespace Symfony\AI\Agent\Execution;
+
+/**
+ * @implements \IteratorAggregate<int, UpdateInterface>
+ */
+final class Execution implements \IteratorAggregate, ResultInterface
 {
-    public function __construct(\Closure $handleToolCallsCallback);
+    public function getIterator(): \Generator;                 // yields UpdateInterface (Update\Progress | Update\Result)
+    public function onProgress(callable $callback): self;      // callback(Update\Progress): void
+    public function onResult(callable $callback): self;        // callback(Update\Result): void
+    public function getResult(): ResultInterface;               // drives the execution to completion
+    public function getContent(): string|iterable|object|null;  // getResult()->getContent(), or the delta stream when streamed
+    public function getMetadata(): Metadata;
+    public function getRawResult(): ?RawResultInterface;
+    public function asStream(): \Generator;                     // yields DeltaInterface; throws LogicException when not streamed
 }
 ```
+
+`Execution` is what `AgentInterface::call()` returns : a lazy execution that is also the `ResultInterface` it produces. Nothing runs until it is consumed, three ways:
+
+- **As a result** : `$execution->getContent()` (or `->getResult()`) drives the agent to completion and returns the answer.
+- **As a process** : `foreach ($execution as $update) { ... }` observes every `Update\Progress` (model requests, tool calls, streamed deltas) and the terminal `Update\Result`.
+- **With callbacks** : `$execution->onProgress($cb)->onResult($cb)->getResult()`.
+
+Consuming drives the agent, **including its side effects** : exceptions and side effects surface on `getContent()`/`getResult()`/iteration, not on the `call()` line itself. The final result is cached (`getContent()`/`getResult()`/`getMetadata()` are idempotent afterward), but **re-iterating an already-consumed execution throws `LogicException`** : call the agent again for a fresh execution. Code that type-checks the result (e.g. `... instanceof TextResult`) must call `->getResult()` first : `Execution` itself is not the typed result, it produces one.
+
+With `['stream' => true]`, `getContent()` returns the same generator as `asStream()`, yielding `Result\Stream\Delta\DeltaInterface` deltas as they arrive; `getMetadata()` returns a `Metadata` populated progressively while the deltas are consumed. Because the tool-calling loop no longer recurses through `call()`, output processors now see the final, fully assembled result, and input processors run once per `Agent::call()` instead of once per tool-calling round.
 
 ## `ToolCallArgumentResolver`
 
@@ -526,7 +590,7 @@ final class MultiAgent implements AgentInterface
     );
 
     public function getName(): string;
-    public function call(string|MessageBag|UserMessage $input, array $options = []): ResultInterface;
+    public function call(string|MessageBag|UserMessage $input, array $options = []): Execution;
 }
 
 final class Handoff
@@ -537,6 +601,8 @@ final class Handoff
     /** @return string[] */
     public function getWhen(): array;
 }
+
+namespace Symfony\AI\Agent\MultiAgent\Handoff;
 
 /** @internal */
 final class Decision
@@ -564,7 +630,7 @@ final class SpeechAgent implements AgentInterface
         private readonly ?PlatformInterface $textToSpeechPlatform = null,
     );
 
-    public function call(string|MessageBag|UserMessage $input, array $options = []): ResultInterface;
+    public function call(string|MessageBag|UserMessage $input, array $options = []): Execution;
     public function getName(): string;
 }
 
@@ -600,7 +666,7 @@ final class MockAgent implements AgentInterface
 {
     /** @param array<string, string|MockResponse|StreamResult|\Closure> $responses */
     public function __construct(array $responses = [], string $name = 'mock');
-    public function call(string|MessageBag|UserMessage $input, array $options = []): ResultInterface;
+    public function call(string|MessageBag|UserMessage $input, array $options = []): Execution;
     public function addResponse(string $input, string|MockResponse|\Closure $response): self;
     public function clearResponses(): self;
     public function getResponses(): array;
@@ -608,7 +674,7 @@ final class MockAgent implements AgentInterface
     public function getCalls(): array;
     public function getCall(int $index): array;
     public function getLastCall(): array;
-    public function assertCallCount(int $expected): void;
+    public function assertCallCount(int $expectedCount): void;
     public function assertCalled(): void;
     public function assertNotCalled(): void;
     public function assertCalledWith(string $expectedInput): void;
@@ -637,7 +703,7 @@ final class TraceableAgent implements AgentInterface, ResetInterface
         private readonly ClockInterface $clock = new MonotonicClock(),
     );
 
-    public function call(string|MessageBag|UserMessage $input, array $options = []): ResultInterface;
+    public function call(string|MessageBag|UserMessage $input, array $options = []): Execution;
     public function getName(): string;
     /** @return AgentData[] */
     public function getCalls(): array;
@@ -680,4 +746,4 @@ Each is a class in `src/agent/src/Bridge/<Name>/` exposing one or more `#[AsTool
 
 `#[IsGrantedTool]` is Symfony authorization applied to a tool. It is distinct from the runtime `ToolCallRequested::deny()`, which is an event-listener decision for one call. `ToolCallRequested::setResult()` is result substitution without execution. Use `ToolCallArgumentsResolved` when validating the denormalized, typed arguments; the request event still sees the original `ToolCall` payload.
 
-The event dispatcher is optional in both `Toolbox` and `Agent`; to observe one complete lifecycle, pass the same dispatcher instance to both constructors. Symfony AI is experimental; verify these contracts against the current source and `UPGRADE.md` before upgrading.
+The event dispatcher is optional in both `Toolbox` and `Agent`; to observe one complete lifecycle, pass the same dispatcher instance to both constructors.

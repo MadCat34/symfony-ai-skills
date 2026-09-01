@@ -2,6 +2,23 @@
 
 Cross-checked against `src/agent/src/`. The top 5 are in `SKILL.md`; this is the rest.
 
+## Contents
+
+- 1. Tools are wired via the `toolbox` named argument, not `$inputProcessors`/`$outputProcessors`
+- 2. `Toolbox` is not variadic : `iterable` only
+- 3. `#[AsTool]` is class-targeted, not method-targeted
+- 4. `Memory` is read-only retrieval; no `save()` API
+- 5. `FaultTolerantToolbox` does NOT retry or open a circuit
+- 6. `MultiAgent` requires orchestrator + handoffs + fallback
+- 7. Processors run in registration order (NOT reverse for output)
+- 8. `Agent`'s `maxToolCalls` guards the tool-calling loop
+- 9. `ToolException` (config) ≠ `ToolExecutionExceptionInterface` (runtime)
+- 10. `SpeechAgent` requires the wrapped agent to exist
+- 11. `EmbeddingProvider` needs a `Model`, not a string
+- 12. Lifecycle, `Execution` laziness, and streaming boundaries
+- 13. `tools` is a per-call option, not just a construction-time toolbox
+- 14. `use_memory: false` disables memory for one call
+
 ## 1. Tools are wired via the `toolbox` named argument, not `$inputProcessors`/`$outputProcessors`
 
 Read `src/Agent.php` : the signature is `(PlatformInterface $platform, string $model, iterable $inputProcessors = [], iterable $outputProcessors = [], string $name = 'agent', ?ToolboxInterface $toolbox = null, ?ToolExecutorInterface $toolExecutor = null, ?int $maxToolCalls = 50, bool $excludeToolMessages = false, bool $includeSources = false, ?EventDispatcherInterface $eventDispatcher = null)`. `toolbox` is the 6th parameter, so pass it by name; the agent drives the tool-calling loop itself instead of wiring it through a processor.
@@ -95,11 +112,16 @@ $router = new MultiAgent($orchestrator, [new Handoff($target, ['when', 'keywords
 
 `src/Memory/EmbeddingProvider.php`: `__construct(PlatformInterface $platform, Model $model, StoreInterface $vectorStore)`. The `$model` argument is `Symfony\AI\Platform\Model` : instantiate with `new Model('text-embedding-3-small')`. Passing the model name as a plain string is a type error.
 
-## 12. Lifecycle and streaming boundaries
+## 12. Lifecycle, `Execution` laziness, and streaming boundaries
 
+- **`Agent::call()` does not run the agent.** It returns a lazy `Execution` (`src/Execution/Execution.php`) : nothing happens until you consume it via `getContent()`, `getResult()`, a `foreach`, or `onProgress()`/`onResult()` callbacks. Side effects and exceptions therefore surface at the consumption point, not on the `call()` line. There is no more `Toolbox\StreamListener` : `Execution` handles streaming and observation natively.
+- **`instanceof` checks need `->getResult()` first.** `Execution` is not the typed result itself; `$agent->call($input) instanceof TextResult` is always false. Call `->getResult()` (or `->getContent()`) before type-checking.
+- **An `Execution` cannot be re-iterated.** It caches its final result once consumed, but consuming it a second time (a second `foreach`, or calling `getResult()` after the generator was already drained by iteration) throws `LogicException`. Call the agent again for a fresh execution.
+- **Exhaust streams before reading final metadata.** With `['stream' => true]`, `getContent()`/`asStream()` yield deltas as they arrive; source collections and result metadata (via `getMetadata()`) are populated progressively while they are consumed. Do not assume the `sources` metadata entry is final before stream exhaustion.
+- **Input processors now run once per `Agent::call()`, not once per tool-calling round.** The loop no longer recurses through `call()`, so output processors only ever see the final, fully assembled result.
+- **A tool-calling round adds one assistant message per turn.** Text, thinking blocks, and tool calls are appended together as a single `AssistantMessage`, not split across several. Code asserting on the message bag's shape needs to account for this.
 - **Use one dispatcher for the whole lifecycle.** Passing different `EventDispatcherInterface` instances to `Toolbox` and `Agent` splits request/resolution/success/failure events from the batch event. Pass the same instance to both.
 - **Do not validate typed arguments in `ToolCallRequested`.** That event fires before `ToolCallArgumentResolverInterface::resolveArguments()` runs. Validate denormalized arguments in `ToolCallArgumentsResolved`, whose `getArguments()` contains the resolved array.
-- **Exhaust streams before reading final metadata.** `Agent` attaches a `StreamListener` internally when tool calling is active; source collections and result metadata can be updated while tool calls are consumed. Do not assume the `sources` metadata entry is final before stream exhaustion.
 - **Provenance is not citation.** `Source` and `SourceCollection` preserve tool-reported metadata. They do not prove phrase-level attribution or that the source or generated claim is true.
 - **`maxToolCalls` is constructor-only.** It bounds `Agent`'s internal tool-calling loop, not an individual `Agent::call()` option. Configure it when constructing the agent, for example `new Agent($platform, $model, toolbox: $toolbox, maxToolCalls: 8)`; use `null` to disable the guard.
 
