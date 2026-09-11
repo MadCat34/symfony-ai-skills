@@ -66,7 +66,7 @@ One deliberate remaining asymmetry: GitLab jobs use `rules: changes:` to run onl
 Enforced by CI or by convention; breaking one silently breaks skill loading in the consuming agent.
 
 - **`name:` in SKILL.md frontmatter == directory name.** Hard CI failure otherwise.
-- **`SKILL.md` stays under 500 lines** (currently 85–239). References carry the bulk; the SKILL.md is a router.
+- **`SKILL.md` stays under 500 lines** (currently 80–317). References carry the bulk; the SKILL.md is a router.
 - **Reference filenames come from a closed whitelist**: `api`, `patterns`, `gotchas`, `bridges`, `embeddings`, `config`, `processors`, `security`. Adding a ninth name means editing *three* places: the `case` statement in `.gitlab-ci.yml`, the same statement in `.github/workflows/ci.yml`, and the justification table in `README.md` ("Reference naming convention").
 - **`symfony-ai` is excluded** from `lint:references` and from `skills-ref validate` — it is a meta-skill with no references.
 - **Every `symfony/ai-*` and `symfony/mcp-*` package name appearing anywhere under `skills/` must resolve on Packagist.** A typo in a bridge package name fails `check:composer`.
