@@ -69,18 +69,7 @@ the original string. Compare via `FinishReason::is(FinishReasonCase::LENGTH)`.
 
 ## 3. `Vector` has no public fields
 
-```text
-final class Vector implements VectorInterface
-{
-    public function __construct(array $data, ?int $dimensions = null);
-    public function getData(): array;      // list<float>
-    public function getDimensions(): int;
-}
-```
-
-`$data` must be non-empty (`InvalidArgumentException` otherwise).
-`$dimensions` must match `count($data)` when supplied. Use `NullVector` if
-you need a stand-in for an empty embedding.
+Access embedding data via `getData()`/`getDimensions()`, not public properties. `$data` must be non-empty and `$dimensions` (if supplied) must match `count($data)`, or the constructor throws. See `references/api.md` § `Vector` for the full signature.
 
 ## 4. `ResultInterface` has only three methods : not `asText()`
 

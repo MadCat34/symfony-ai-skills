@@ -53,9 +53,7 @@ If you want metrics in production, write a custom output processor (see `referen
 
 ## 5. Security context in async / Messenger handlers
 
-The `IsGrantedToolAttributeListener` (lines 73-83) calls `AuthorizationCheckerInterface::isGranted()`. Outside an HTTP request (Messenger handler, CLI command), the default token storage has no token and `isGranted('ROLE_ADMIN')` returns `false`. The bundle does not propagate the HTTP token into Messenger envelopes; you must set it in your own middleware.
-
-Injecting `#[Target] Security $security` into a tool method does not help : the listener runs **before** the tool body, so by the time your method executes, authorization has already been decided.
+`#[IsGrantedTool]` denies by default outside an HTTP request (Messenger handler, CLI command) : the token storage has no token there, and the bundle does not propagate one into Messenger envelopes. See `references/security.md` § "Async / Messenger context" for the full explanation and why injecting `Security` into the tool method does not help.
 
 ## 6. Processor order overriding
 
@@ -71,9 +69,7 @@ Built-in `SystemPromptInputProcessor` and `MemoryInputProcessor` are tagged with
 
 ## 8. `IsGrantedTool` always throws
 
-The listener unconditionally throws `AccessDeniedException` on `isGranted() === false` (`IsGrantedToolAttributeListener::__invoke()` lines 73-83). There is no `throwOnDenied` parameter on the attribute and no `throw_on_tool_denied` key on `ai.agent.*`. To allow graceful denial, do not put `#[IsGrantedTool]` on the method : the toolbox will still expose it, or write a custom voter that always returns `true`.
-
-Note: `fault_tolerant_toolbox: true` (default, `config/options.php` line 333) wraps **runtime** tool failures, not `AccessDeniedException`. The decorator (`FaultTolerantToolbox`) catches exceptions from the tool body; an `AccessDeniedException` thrown before the body runs propagates unchanged.
+There is no `throwOnDenied` parameter and no `throw_on_tool_denied` key : denial always throws `AccessDeniedException`, and `fault_tolerant_toolbox` does not catch it (that wrapper only covers runtime tool-body failures). See `references/security.md` § "`throwOnDenied` does NOT exist" for the full explanation and workarounds.
 
 ## 9. Cache clearing after schema change
 
