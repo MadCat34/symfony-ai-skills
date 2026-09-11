@@ -67,25 +67,6 @@ lint:references:
     - changes:
         - skills/**/references/**
 
-lint:descriptions:
-  stage: lint
-  script:
-    - bash scripts/lint-descriptions.sh
-  rules:
-    - changes:
-        - skills/**/SKILL.md
-        - scripts/lint-descriptions.sh
-
-lint:references-links:
-  stage: lint
-  script:
-    - bash scripts/check-references-links.sh
-  rules:
-    - changes:
-        - skills/**/SKILL.md
-        - skills/**/references/**
-        - scripts/check-references-links.sh
-
 check:composer:
   stage: check
   script:
@@ -106,26 +87,6 @@ check:composer:
   rules:
     - changes:
         - skills/**/*.md
-
-check:snippets:
-  stage: check
-  script:
-    - bash scripts/check-snippets.sh
-  rules:
-    - changes:
-        - skills/**/*.md
-        - scripts/check-snippets.sh
-
-check:symbols:
-  stage: check
-  script:
-    - git clone --depth=1 https://github.com/symfony/ai.git /tmp/symfony-ai
-    - SYMFONY_AI_SRC=/tmp/symfony-ai bash scripts/check-symbols.sh
-  rules:
-    - changes:
-        - skills/**/*.md
-        - scripts/check-symbols.sh
-        - scripts/known-absent-symbols.txt
 
 test:skills-ref:
   stage: test

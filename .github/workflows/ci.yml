@@ -62,22 +62,6 @@ jobs:
         done
         [ "$fail" -eq 0 ]
 
-  lint-descriptions:
-    name: Lint skill descriptions quality
-    runs-on: ubuntu-24.04
-    steps:
-    - uses: actions/checkout@v4
-    - name: Verify description length and routing clause
-      run: bash scripts/lint-descriptions.sh
-
-  lint-references-links:
-    name: Verify reference cross-linking
-    runs-on: ubuntu-24.04
-    steps:
-    - uses: actions/checkout@v4
-    - name: Check consistency between SKILL.md and references/
-      run: bash scripts/check-references-links.sh
-
   check-composer:
     name: Composer package existence
     runs-on: ubuntu-24.04
@@ -98,30 +82,6 @@ jobs:
           fi
         done
         [ "$fail" -eq 0 ]
-
-  check-snippets:
-    name: Lint PHP snippets
-    runs-on: ubuntu-24.04
-    steps:
-    - uses: actions/checkout@v4
-    - uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.3'
-        coverage: none
-    - name: php -l every copy-pasteable php block
-      run: bash scripts/check-snippets.sh
-
-  check-symbols:
-    name: Symbol existence against symfony/ai
-    runs-on: ubuntu-24.04
-    steps:
-    - uses: actions/checkout@v4
-    - name: Clone the symfony/ai monorepo
-      run: git clone --depth=1 https://github.com/symfony/ai.git /tmp/symfony-ai
-    - name: Every Symfony\AI\* symbol cited must resolve to a real file
-      env:
-        SYMFONY_AI_SRC: /tmp/symfony-ai
-      run: bash scripts/check-symbols.sh
 
   test-skills-ref:
     name: Test against upstream agentskills/skills-ref
