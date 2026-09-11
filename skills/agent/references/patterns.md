@@ -58,6 +58,8 @@ final class Filesystem
 }
 ```
 
+A `write`/`delete`/`move` tool like this lets the model overwrite or remove arbitrary files with no confirmation — this is illustrative, not production-ready. The bundled `Filesystem\Filesystem` bridge (`references/api.md`) exposes the same destructive operations; pair it with `Filesystem\PathValidator` to restrict writable paths, and/or deny the call from a `ToolCallRequested` listener (`ToolCallRequested::deny()`) before enabling it against a real filesystem.
+
 Streaming, or observing the run, via the `Execution` that `call()` returns:
 
 ```php

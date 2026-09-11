@@ -732,6 +732,8 @@ Each is a class in `src/agent/src/Bridge/<Name>/` exposing one or more `#[AsTool
 | `Wikipedia\Wikipedia`               | `wikipedia_search`, `wikipedia_article`                                     | yes                       |
 | `Youtube\YoutubeTranscriber`        | `youtube_transcript`                                                        | no                        |
 
+`Filesystem\Filesystem`'s `write/append/copy/move/delete/mkdir` operations let the model mutate or remove files with no built-in confirmation — restrict writable paths with `Filesystem\PathValidator` and/or gate the call in a `ToolCallRequested` listener (`deny()`) before exposing it against a real filesystem.
+
 ## Tool-call lifecycle events
 
 `Toolbox::execute()` dispatches the request event before argument resolution; argument resolution is then attempted via `ToolCallArgumentResolverInterface::resolveArguments()`, and on successful resolution the `ToolCallArgumentsResolved` event is dispatched before invocation runs. Any throwable : resolution or invocation : dispatches `ToolCallFailed`. `Agent`'s internal `Runner` dispatches the batch event after each batch of calls.
