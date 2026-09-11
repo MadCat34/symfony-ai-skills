@@ -3,8 +3,7 @@ name: store
 description: Use when storing or querying documents in a vector database for RAG, semantic search, similarity, or long-term retrieval. Covers indexing pipelines (load → transform → vectorize → store), query types (VectorQuery / TextQuery / HybridQuery), the 24 supported bridge adapters, distance metrics, hybrid retrieval via Reciprocal Rank Fusion, and reranking. Triggers on `StoreInterface`, `VectorQuery`, `TextQuery`, `HybridQuery`, `VectorDocument`, `TextDocument`, `Vectorizer`, `DocumentIndexer`, `DocumentProcessor`, `Retriever`, `CombinedStore`, `Metadata`. Do NOT trigger for raw embeddings generation (use `platform`).
 license: MIT
 metadata:
-  author: MadCat34
-  email: madcat34@gmail.com
+  author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
   version: "0.13.0"
 ---

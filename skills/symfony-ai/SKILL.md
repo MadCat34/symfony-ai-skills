@@ -3,8 +3,7 @@ name: symfony-ai
 description: "Use this skill when the user is unsure which Symfony AI package to reach for, when a task spans several Symfony AI components, or when the user asks a general \"how do I add AI to my Symfony app\" question. Also trigger when the user asks \"which Symfony AI package should I use\", \"how do I combine RAG with a chat session\", or \"what's the difference between platform and agent\". Routes to platform, agent, chat, store, ai-bundle, mcp-bundle, or mate via a decision tree. Do NOT trigger when the user already names a specific component, symbol, or file (e.g. `Agent`, `PlatformInterface`, `config/packages/ai.yaml`, an MCP server) — defer directly to that skill's own description instead of routing through here."
 license: MIT
 metadata:
-  author: MadCat34
-  email: madcat34@gmail.com
+  author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
   version: "0.13.0"
 ---

@@ -3,8 +3,7 @@ name: platform
 description: 'Use when invoking any LLM through Symfony AI''s unified abstraction : chat, completions, structured output, tool/function calling, embeddings, or multi-provider failover. Also trigger when the user asks "how do I call OpenAI / Anthropic / Gemini from PHP", "how to switch LLM providers without rewriting code", "how to get structured JSON out of an LLM", "how to call an LLM tool/function", "how to embed text with an AI model", or "how to build an embeddings pipeline". Triggers on `PlatformInterface`, `Platform`, `Model`, `Message`, `MessageBag`, `Tool`, `FailoverPlatform`, `embeddings`. Do NOT trigger when the user is asking specifically about Chat sessions, Agent orchestration, or vector DBs : those have their own skills (`chat`, `agent`, `store`).'
 license: MIT
 metadata:
-  author: MadCat34
-  email: madcat34@gmail.com
+  author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
   version: "0.13.0"
 ---

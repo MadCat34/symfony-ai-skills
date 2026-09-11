@@ -3,8 +3,7 @@ name: mcp-bundle
 description: 'Use when building an MCP (Model Context Protocol) server inside a Symfony application : registering tools, prompts, or resources via the official MCP SDK, serving over HTTP or STDIO, or consuming remote MCP servers as a client. Do NOT trigger when the goal is to expose a running Symfony app to an external AI assistant for inspection/debugging : use the `mate` skill for that. Triggers on `#[McpTool]`, `#[McpPrompt]`, `#[McpResource]`, `#[McpResourceTemplate]`, `#[AsMcpApp]`, `#[AsMcpAppTool]`, `mcp:server`, `debug:mcp`, `McpClientInterface`, `Symfony\AI\McpBundle\`.'
 license: MIT
 metadata:
-  author: MadCat34
-  email: madcat34@gmail.com
+  author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
   version: "0.13.0"
 ---

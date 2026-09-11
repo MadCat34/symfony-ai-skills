@@ -3,8 +3,7 @@ name: agent
 description: Use when building autonomous AI agents that call tools, hold memory, orchestrate sub-agents, or process input/output through a typed pipeline. Triggers on `Agent`, `#[AsTool]`, `MemoryInputProcessor`, `MultiAgent`, `SpeechAgent`, `InputProcessor`, `OutputProcessor`, `Toolbox`. Do NOT trigger for raw LLM invocation (use `platform`) or a vector DB (use `store`).
 license: MIT
 metadata:
-  author: MadCat34
-  email: madcat34@gmail.com
+  author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
   version: "0.13.0"
 ---

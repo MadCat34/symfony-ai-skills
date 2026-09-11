@@ -3,8 +3,7 @@ name: ai-bundle
 description: Use when configuring Symfony AI components via YAML, registering tools with PHP attributes, or wiring Symfony Security (`#[IsGrantedTool]`) or Profiler integration. Triggers on `config/packages/ai.yaml`, `#[AsTool]`, `#[AsInputProcessor]`, `#[AsOutputProcessor]`, `#[IsGrantedTool]`. Do NOT trigger for raw library use without Symfony (use `platform` / `agent` / `store` / `chat` directly).
 license: MIT
 metadata:
-  author: MadCat34
-  email: madcat34@gmail.com
+  author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
   version: "0.13.0"
 ---

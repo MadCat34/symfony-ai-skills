@@ -4,8 +4,7 @@ description: "Use when you need the AI assistant to introspect or debug a runnin
 license: MIT
 compatibility: Requires vendor/bin/mate installed in the target Symfony app. Dev environment only, never production.
 metadata:
-  author: MadCat34
-  email: madcat34@gmail.com
+  author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
   version: "0.13.0"
 ---
