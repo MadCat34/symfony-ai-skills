@@ -24,7 +24,7 @@ Use **MCP Bundle** when:
 
 - You want to expose YOUR app's domain to external agents (Claude Code, Cursor, MCP-compatible editors) as MCP tools, prompts, or resources.
 - You are building a product with an MCP integration.
-- You need HTTP transport (`/_mcp`) and/or STDIO transport (`mcp:server`).
+- You need HTTP transport (`/mcp/<name>`) and/or STDIO transport (`mcp:server`).
 
 Use **Mate** (see `mate` skill) when:
 
@@ -218,82 +218,15 @@ final class TheOtherWay
 
 When exactly **one** client is configured, a plain `McpClientInterface` type hint (no name match needed) also resolves to it. `transport: stdio` requires `command`; `transport: http` requires `url`; mixing stdio-only and http-only options on the wrong transport is a compile-time error. `debug:mcp --client=research` connects and lists what the remote server(s) advertise; `debug:mcp --clients` lists configured clients without connecting.
 
-## Attribute catalogue (from the SDK)
+## Attribute catalogue and capability discovery
 
-| Attribute | Namespace | Target | Required args |
-|---|---|---|---|
-| `#[McpTool]` | `Mcp\Capability\Attribute\McpTool` | method or class (`__invoke`) | none : all parameters optional, schema derived from method signature |
-| `#[McpPrompt]` | `Mcp\Capability\Attribute\McpPrompt` | method or class (`__invoke`) | none |
-| `#[McpResource]` | `Mcp\Capability\Attribute\McpResource` | method or class (`__invoke`) | `string $uri` (only required arg) |
-| `#[McpResourceTemplate]` | `Mcp\Capability\Attribute\McpResourceTemplate` | method or class (`__invoke`) | `string $uriTemplate` (only required arg) |
+The four SDK capability attributes (`#[McpTool]`, `#[McpPrompt]`, `#[McpResource]`, `#[McpResourceTemplate]`) plus the bundle's own `#[AsMcpApp]` / `#[AsMcpAppTool]` : full signatures, required args, and a runnable example : are in **[references/api.md](references/api.md)**. Read it when writing a new capability class or checking whether an argument name (`parameters:`, `arguments:`) actually exists.
 
-Plus the bundle's own UI-resource attributes:
-
-| Attribute | Namespace | Target | Purpose |
-|---|---|---|---|
-| `#[AsMcpApp]` | `Symfony\AI\McpBundle\Attribute\AsMcpApp` | class | Register an MCP App (UI resource + linked tool) |
-| `#[AsMcpAppTool]` | `Symfony\AI\McpBundle\Attribute\AsMcpAppTool` | method | Register an additional tool on an `#[AsMcpApp]` class |
-
-The bundle's autoconfiguration `registerMcpAttributes()` (in `McpBundle.php`) tags every method that carries an SDK attribute with `mcp.tool` / `mcp.prompt` / `mcp.resource` / `mcp.resource_template`, then `McpPass` (compiler pass) reflects the tagged methods and calls `addTool()` / `addPrompt()` / `addResource()` / `addResourceTemplate()` on the SDK `Mcp\Server\Builder`.
-
-Real signatures (taken from `Mcp\Capability\Attribute\`):
-
-```php
-use Mcp\Capability\Attribute\McpTool;
-use Mcp\Capability\Attribute\McpPrompt;
-use Mcp\Capability\Attribute\McpResource;
-use Mcp\Capability\Attribute\McpResourceTemplate;
-
-final class HandbookMcpElements
-{
-    #[McpTool(name: 'greet', description: 'Greet a user.')]
-    public function greet(string $name): string { /* ... */ }
-
-    #[McpPrompt(name: 'code_review', description: 'Prompt the agent to review code.')]
-    public function codeReview(string $language): array { /* ... */ }
-
-    #[McpResource(uri: 'docs://readme', mimeType: 'text/markdown')]
-    public function readme(): string { /* ... */ }
-
-    #[McpResourceTemplate(uriTemplate: 'docs://{slug}', mimeType: 'text/markdown')]
-    public function doc(string $slug): string { /* ... */ }
-}
-```
-
-Note: `McpTool` has no `parameters:` argument; `McpPrompt` has no `arguments:` argument. Both are derived from the method signature. `McpResource` requires only `uri`; `McpResourceTemplate` requires only `uriTemplate`.
-
-## Capability discovery
-
-List what is actually registered : useful to verify a class was picked up:
-
-```bash
-php bin/console debug:mcp
-php bin/console debug:mcp get_weather        # details (input/output schema, handler, ...)
-php bin/console debug:mcp --server=weather   # restrict to one server
-php bin/console debug:mcp --client=research  # connect a configured client, list what it reaches
-php bin/console debug:mcp --clients          # list configured clients without connecting
-```
-
-`debug:mcp` (in `Command\DebugCommand`) triggers each server's `Mcp\Server\Builder::build()` to populate its registry, then prints Tools / Prompts / Resources / Resource Templates tables with their handlers, plus a "Not exposed by any server" section for attributed services no registry pattern matches. An empty result prints a warning pointing you at "make sure the classes are registered as services with autoconfiguration enabled".
-
-The `Symfony\AI\McpBundle\Profiler\DataCollector` provides the same server-side view in the Web Profiler panel. It is registered only when `kernel.debug = true` AND at least one server has `transports.{stdio,http}` enabled. It implements `LateDataCollectorInterface` so each registry is built on every profiled request, not only on requests actually serving an MCP endpoint.
+To verify what got picked up, `php bin/console debug:mcp` (optionally `--server=<name>`, `--client=<name>`, `--clients`) lists every registered tool/prompt/resource with its handler, plus a "Not exposed by any server" section — see `references/api.md` for the full command reference and the Profiler data collector it shares a data path with.
 
 ## Key gotchas
 
-- **Root namespace is `Symfony\AI\McpBundle\`, not `Symfony\Mcp\Bundle\`.** Anything `use Symfony\Mcp\Bundle\...` is wrong : that namespace does not exist.
-- **The four capability attributes come from the SDK (`Mcp\Capability\Attribute\`), not the bundle.** Their constructors are permissive: `McpTool`/`McpPrompt` take all-optional parameters; `McpResource`/`McpResourceTemplate` only require `uri` / `uriTemplate`. There is no `parameters:` or `arguments:` argument.
-- **The bundle does NOT define `McpServer`, `HttpTransport`, or `StdioTransport` classes.** `Mcp\Server` is built via `Mcp\Server::builder()` and the bundle uses the SDK's `StreamableHttpTransport` / `StdioTransport`.
-- **Capabilities are opt-in, not automatic.** Each server needs an explicit `registry:` — there is no implicit "every attributed service belongs to every server" fallback. A service whose registry pattern matches nothing on its server fails the container build; a service matched by no server's registry is silently unexposed (visible in `debug:mcp` under "Not exposed by any server").
-- **Default HTTP path is `/mcp/<name>`, not `/_mcp`.** Always derived from the server's name; set `http.path` explicitly to keep a pre-existing URL when adding a server.
-- **STDIO command is `mcp:server [name]`, not `mcp:serve`.** The name argument is required once more than one server enables STDIO.
-- **Two servers cannot share the same session storage, nor the same HTTP path.** Session ids are not namespaced by server, and two servers on the same `http.path` would be ambiguous to route; the container compiler rejects both.
-- **A configured client autowires under its own name, not `<name>Client`.** `mcp.clients.research` → `#[Target('research')] McpClientInterface $client` or an argument literally named `$research`. A single configured client also answers a plain `McpClientInterface` type hint.
-- **`servers`/`clients` are unrelated axes.** `mcp.servers` exposes your app; `mcp.clients` reaches other servers. Configuring one does not imply or require the other.
-- **No bundle-level `McpException` class.** The bundle exposes `Symfony\AI\McpBundle\Exception\ExceptionInterface` (interface) and `Symfony\AI\McpBundle\Exception\LogicException` (extends `\LogicException`). JSON-RPC errors are SDK types at `Mcp\Schema\JsonRpc\Error` with constants like `INVALID_PARAMS = -32602`.
-- **Class-level attribute without `__invoke()` throws `LogicException`.** The `registerMcpAttributes` autoconfig requires `__invoke()` when the attribute is on a class. Move the attribute to a method or add `__invoke()`.
-- **Service registration is mandatory.** A class carrying `#[McpTool]` must also be a registered (autoconfigured) service AND matched by some server's `registry`, otherwise it never reaches a `Builder` and `debug:mcp` shows it as unexposed or missing entirely.
-- **Resource templates** are still informational (the SDK's `addResourceTemplate` is for `resources/templates/list`). Treat them as discovery-only.
-- **DNS-rebinding protection is ON by default** (localhost only), per server. Set `mcp.servers.<name>.http.allowed_hosts` to a list or to `false` for a public HTTP server; otherwise requests from a public host will be rejected at the middleware layer.
+The 17 gotchas below have real fixes with source citations in **[references/gotchas.md](references/gotchas.md)** — read it whenever a recipe misbehaves or before touching transports, sessions, or the registry. Headline list, in order: transport mismatch (STDIO vs HTTP), default HTTP path is always `/mcp/<name>`, STDIO command is `mcp:server` not `mcp:serve`, capability negotiation is automatic (don't hand-roll `initialize`), JSON-RPC errors not Symfony HTTP exceptions, STDIO stdout pollution, DNS-rebinding protection defaults, auth via reverse proxy, resource-template discovery-only limitation, STDIO lifecycle/SIGTERM, class-level attribute needs `__invoke()`, service registration + registry match are both mandatory, default session store is `file`, MCP Apps need the `apps` registry kind, the 2026-07-28 revision drops server-initiated requests, resource-subscription notifications need an explicit `subscriptions.bus`, and the bundle is experimental.
 
 ## Common tasks
 

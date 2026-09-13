@@ -134,8 +134,6 @@ See `references/gotchas.md` for the full list (processor order, idempotence, rec
 
 - **Gotchas** (10 common mistakes): [references/gotchas.md](references/gotchas.md)
 
-- **Validation**: run `bash scripts/check-snippets.sh` to lint every PHP code block.
-
 ## See also
 
 - `platform` skill : for raw LLM invocation (Agent wraps it).

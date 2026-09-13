@@ -1,6 +1,6 @@
 ---
 name: store
-description: Use when storing or querying documents in a vector database for RAG, semantic search, similarity, or long-term retrieval. Covers indexing pipelines (load → transform → vectorize → store), query types (VectorQuery / TextQuery / HybridQuery), the 24 supported bridge adapters, distance metrics, hybrid retrieval via Reciprocal Rank Fusion, and reranking. Triggers on `StoreInterface`, `VectorQuery`, `TextQuery`, `HybridQuery`, `VectorDocument`, `TextDocument`, `Vectorizer`, `DocumentIndexer`, `DocumentProcessor`, `Retriever`, `CombinedStore`, `Metadata`. Do NOT trigger for raw embeddings generation (use `platform`).
+description: 'Use when storing or querying documents in a vector database for RAG, semantic search, similarity, or long-term retrieval. Covers indexing pipelines (load → transform → vectorize → store), query types (VectorQuery / TextQuery / HybridQuery), the 24 supported bridge adapters (pinecone, qdrant, postgres/pgvector, meilisearch, redis, mongodb, and more), distance metrics, hybrid retrieval via Reciprocal Rank Fusion, and reranking. Also trigger on "add RAG", "chunk documents before embedding", "rerank results", "in-memory store for tests". Triggers on `StoreInterface`, `VectorQuery`, `TextQuery`, `HybridQuery`, `VectorDocument`, `TextDocument`, `Vectorizer`, `DocumentIndexer`, `DocumentProcessor`, `Retriever`, `CombinedStore`, `Metadata`. Note: a full RAG pipeline needs `platform` too, for generating the embeddings this skill''s `Vectorizer` step consumes. Do NOT trigger for raw embeddings generation alone (use `platform`).'
 license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
@@ -177,10 +177,6 @@ For the full list (empty result sets, drop semantics, query-time `limit`, transf
 - `references/bridges.md` : the 24 bridge packages, grouped by category. Read this when picking a backend.
 - `references/patterns.md` : InMemory, Postgres+pgvector, Pinecone, and hybrid retrieval patterns with copy-pasteable code.
 - `references/gotchas.md` : embedding-model match, chunking, batch indexing, distance metrics, rerankers, drop semantics, query-time `limit`, and more.
-
-Triggers: "add RAG", "store vectors", "vector database", "semantic search", "find similar docs", "chunk documents before embedding", "pinecone / qdrant / milvus / weaviate / chroma / pgvector / meilisearch / redis / mongodb vector / typesense / supabase / s3 vectors", "rerank results", "hybrid search", "in-memory store for tests".
-
-Validation: run `bash skills/store/scripts/check-snippets.sh` to lint every PHP code block in this skill.
 
 ## See also
 

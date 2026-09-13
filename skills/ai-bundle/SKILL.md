@@ -153,7 +153,7 @@ See `references/config.md` for the full tree.
 - **Profiling is on `kernel.debug`, not a YAML key.** When `kernel.debug` is false, `ai.data_collector` and `ai.traceable_toolbox` are removed. Do not try to enable the profiler via YAML.
 - **`tools: enabled` is opt-in.** Default is no tools. Set `tools: true` (or `enabled: true`) to auto-register every `#[AsTool]` service, or pass an explicit `services:` list to constrain which tools an agent sees (`config/options.php` lines 267-313).
 - **`fault_tolerant_toolbox` defaults to `true`.** A failing tool call becomes a structured denial that the LLM sees : disable only if you want uncaught exceptions.
-- **No `ai.profiler.*` config, no `ai.agent.*.system_prompt`, no `ai.store.*.bridge`.** The current audited skill previously documented hallucinated keys; see `references/config.md` for the real tree.
+- **No `ai.profiler.*` config, no `ai.agent.*.system_prompt`, no `ai.store.*.bridge`.** These keys do not exist in `config/options.php`; see `references/config.md` for the real tree.
 
 ## Common tasks
 

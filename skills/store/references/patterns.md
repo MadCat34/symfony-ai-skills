@@ -2,8 +2,6 @@
 
 Source of truth: `https://github.com/symfony/ai/tree/main/src/store/src/`. Each pattern below uses only real classes and signatures verified against the source.
 
-> Always confirm with `bash scripts/check-snippets.sh` after editing.
-
 ## Contents
 
 - Pattern 1 : InMemory (tests, prototyping)

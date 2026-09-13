@@ -162,8 +162,6 @@ pick the one that fits the question.
 - **Provider quirks, edge cases, exception classes, finish-reason cases:
   read [`references/gotchas.md`](references/gotchas.md) when something is
   misbehaving and you need the trap list.**
-- **Validation**: run `bash skills/platform/scripts/check-snippets.sh` to
-  lint every PHP code block in this skill with `php -l`.
 
 ## See also
 
