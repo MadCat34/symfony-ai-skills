@@ -1,6 +1,6 @@
 ---
 name: ai-bundle
-description: Use when configuring Symfony AI components via YAML, registering tools with PHP attributes, or wiring Symfony Security (`#[IsGrantedTool]`) or Profiler integration. Triggers on `config/packages/ai.yaml`, `#[AsTool]`, `#[AsInputProcessor]`, `#[AsOutputProcessor]`, `#[IsGrantedTool]`. Do NOT trigger for raw library use without Symfony (use `platform` / `agent` / `store` / `chat` directly).
+description: 'Use when configuring Symfony AI components via YAML, registering tools with PHP attributes, or wiring Symfony Security (`#[IsGrantedTool]`) or Profiler integration. Also trigger when the user asks "how do I configure an agent in ai.yaml", "how to restrict a tool to admins", or "how to give an agent a remote MCP server''s tools in YAML". Triggers on `config/packages/ai.yaml`, `#[AsTool]`, `#[AsInputProcessor]`, `#[AsOutputProcessor]`, `#[IsGrantedTool]`, `mcp_server`, `execution_strategy`, `ai.platform.job_runner`. Do NOT trigger for raw library use without Symfony (use `platform` / `agent` / `store` / `chat` directly).'
 license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>

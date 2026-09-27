@@ -1,6 +1,6 @@
 ---
 name: agent
-description: Use when building autonomous AI agents that call tools, hold memory, orchestrate sub-agents, or process input/output through a typed pipeline. Triggers on `Agent`, `#[AsTool]`, `MemoryInputProcessor`, `MultiAgent`, `SpeechAgent`, `InputProcessor`, `OutputProcessor`, `Toolbox`. Do NOT trigger for raw LLM invocation (use `platform`) or a vector DB (use `store`).
+description: 'Use when building autonomous AI agents that call tools, hold memory, orchestrate sub-agents, or process input/output through a typed pipeline. Also trigger when the user asks "how do I let an LLM call my PHP code", "how to run tool calls concurrently", "how to stop a running agent", "how to map tool arguments onto a DTO", or "how to plug a remote MCP server''s tools into an agent without the bundle". Triggers on `Agent`, `Execution`, `#[AsTool]` (without the bundle), `#[MapToolArguments]`, `Toolbox`, `ChainToolbox`, `FiberToolExecutor`, `McpToolbox`, `MemoryInputProcessor`, `MultiAgent`, `SpeechAgent`, `InputProcessor`, `OutputProcessor`. Do NOT trigger for raw LLM invocation (use `platform`), a vector DB (use `store`), or `ai.yaml` wiring (use `ai-bundle`).'
 license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
@@ -132,9 +132,9 @@ See `references/gotchas.md` for the full list (processor order, idempotence, rec
 
 - **Full API surface** (namespaces, classes, methods, exceptions): [references/api.md](references/api.md)
 
-- **Patterns** (5 copy-paste recipes): [references/patterns.md](references/patterns.md)
+- **Patterns** (6 copy-paste recipes): [references/patterns.md](references/patterns.md)
 
-- **Gotchas** (10 common mistakes): [references/gotchas.md](references/gotchas.md)
+- **Gotchas** (14 common mistakes): [references/gotchas.md](references/gotchas.md)
 
 ## See also
 

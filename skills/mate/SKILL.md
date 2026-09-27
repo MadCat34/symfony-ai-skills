@@ -1,6 +1,6 @@
 ---
 name: mate
-description: "Use when you need the AI assistant to introspect or debug a running Symfony application : reading logs, the container, the profiler, query results : through the Mate CLI, invoked directly by the coding agent. Do NOT trigger when building an MCP server inside your own Symfony app : use the `mcp-bundle` skill for that. Dev tool only, never in production. Triggers on `vendor/bin/mate`, `MatePlugin`, `extra.ai-mate`, `mate/extensions.php`, `tools:list`, `debug:capabilities`."
+description: 'Use when the AI assistant needs to introspect or debug a running Symfony application : reading logs, the container, the profiler, query results : through the Mate CLI, invoked directly by the coding agent. Also trigger when the user asks "how can my coding assistant read my app''s logs", "how to let the assistant inspect the Symfony profiler", or "how to call a Mate tool from the command line". Dev tool only, never in production. Triggers on `vendor/bin/mate`, `MatePlugin`, `extra.ai-mate`, `mate/extensions.php`, `tools:list`, `debug:capabilities`. Do NOT trigger when building an MCP server inside your own Symfony app : use the `mcp-bundle` skill for that.'
 license: MIT
 compatibility: Requires vendor/bin/mate installed in the target Symfony app. Dev environment only, never production.
 metadata:

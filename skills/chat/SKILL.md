@@ -1,6 +1,6 @@
 ---
 name: chat
-description: Use when building a stateful chat session that wraps an Agent and persists the conversation via a `MessageStoreInterface`. Triggers on `Chat`, `ChatInterface`, `MessageStoreInterface`, `MessageStore`, `ManagedStoreInterface`, `MessageNormalizer`, `InMemory\Store`, `setup()` / `drop()` console commands, or messages persisting across requests. Do NOT trigger for raw LLM invocation (use `platform`), a stateless tool-calling agent (use `agent`), or vector storage (use `store`).
+description: 'Use when building a stateful chat session that wraps an Agent and persists the conversation via a `MessageStoreInterface`. Also trigger when the user asks "how do I keep conversation history between requests", "how to store chat messages in Doctrine or Redis", or "how to stream a chat reply and still save it". Triggers on `Chat`, `ChatInterface`, `MessageStoreInterface`, `Chat\ManagedStoreInterface`, `Chat\InMemory\Store`, `MessageNormalizer`, message-store `setup()` / `drop()` console commands. Do NOT trigger for raw LLM invocation (use `platform`), a stateless tool-calling agent (use `agent`), or vector storage (use `store`).'
 license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>

@@ -1,6 +1,6 @@
 ---
 name: mcp-bundle
-description: 'Use when building an MCP (Model Context Protocol) server inside a Symfony application : registering tools, prompts, or resources via the official MCP SDK, serving over HTTP or STDIO, or consuming remote MCP servers as a client. Do NOT trigger when the goal is to expose a running Symfony app to an external AI assistant for inspection/debugging : use the `mate` skill for that. Triggers on `#[McpTool]`, `#[McpPrompt]`, `#[McpResource]`, `#[McpResourceTemplate]`, `#[AsMcpApp]`, `#[AsMcpAppTool]`, `mcp:server`, `debug:mcp`, `McpClientInterface`, `Symfony\AI\McpBundle\`.'
+description: 'Use when building an MCP (Model Context Protocol) server inside a Symfony application : registering tools, prompts, or resources via the official MCP SDK, serving over HTTP or STDIO, or calling remote MCP servers yourself as a client. Also trigger when the user asks "how do I expose my Symfony app''s features as MCP tools", "how to serve an MCP server over HTTP in Symfony", or "how to call a remote MCP server from a Symfony service". Triggers on `#[McpTool]`, `#[McpPrompt]`, `#[McpResource]`, `#[McpResourceTemplate]`, `#[AsMcpApp]`, `#[AsMcpAppTool]`, `mcp:server`, `debug:mcp`, `McpClientInterface`, `Symfony\AI\McpBundle\`. Do NOT trigger when the goal is to expose a running Symfony app to an external AI assistant for inspection/debugging (use `mate`), or to hand a remote MCP server''s tools to an agent (use `ai-bundle`''s `mcp_server`).'
 license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
