@@ -55,8 +55,8 @@ The `--format` flag is supported on inspection/call commands. Values:
 | `text` | `debug:capabilities`, `debug:extensions` (default), `tools:inspect` (default) | Human-readable SymfonyStyle output |
 | `json` | `debug:capabilities`, `debug:extensions`, `tools:list`, `tools:inspect`, `tools:call`, `resources:read` | Pretty JSON |
 | `toon` | `debug:capabilities`, `debug:extensions`, `tools:list`, `tools:inspect`, `tools:call`, `resources:read` | TOON (Token-Oriented Object Notation); requires `composer require helgesverre/toon` (else `EnsuresToonFormatAvailabilityTrait::ensureToonFormatAvailable()` aborts with `Command::FAILURE`) |
-| `table` | `tools:list` (default) | Console table (Tool Name / Description / Handler / Extension) |
-| `pretty` | `tools:call` (default), `resources:read` (default) | SymfonyStyle definition list |
+| `table` | `tools:list` (default), `skills:list` (default), `skills:install` (default, since 0.14) | Console table (`tools:list`: Tool Name / Description / Arguments / Handler / Extension) |
+| `pretty` | `tools:call` (default), `resources:read` (default) | `resources:read`: SymfonyStyle definition list. `tools:call`: one unpadded `key: value` line per result field (since 0.14; was a padded definition list), and it switches to `json` with a note when the compact JSON result exceeds 8 KB, even with an explicit `--format=pretty` |
 
 An unsupported value (e.g. `--format=csv`) is **rejected**, never silently downgraded : `EnsuresToonFormatAvailabilityTrait::ensureFormatSupported()` prints `Unknown output format "<value>". Supported: "<list>".` and returns `Command::FAILURE`. This is deliberate — falling back to a human table for a machine-readable request would look like success to a script that cannot parse it.
 
@@ -187,6 +187,8 @@ Source: `src/Command/ToolsListCommand.php` (renamed from `mcp:tools:list`).
 
 JSON/TOON shape: `tools` (map `toolName → {name, description, handler, input_schema, extension}`) + `summary.total`. An empty result after filtering raises `InvalidArgumentException` naming the pattern/extension.
 
+Since 0.14 the table has an `Arguments` column summarising each tool's parameters and no longer truncates descriptions to 50 characters, so the call shape is visible without a separate `tools:inspect`.
+
 ### `tools:inspect`
 
 Source: `src/Command/ToolsInspectCommand.php` (renamed from `mcp:tools:inspect`).
@@ -219,7 +221,9 @@ vendor/bin/mate tools:call some-tool --json='{"tags": ["a", "b"]}'       # array
 
 Because tool parameters are not known ahead of time, `ToolsCallCommand::configure()` calls `ignoreValidationErrors()` and, for real CLI usage (`ArgvInput`), re-parses the raw tokens itself (`parseRawTokens()`) rather than relying on Console's declared-option validation. A bare JSON-looking positional token (starting with `{`) is still accepted as a backwards-friendly alias for `--json`, but the `--<param>=<value>` form is the documented one.
 
-Behaviour: resolves the tool via `CapabilityRegistry::findTool()`, invokes it through `ToolInvoker`, and decodes a string result with `ResponseEncoder::tryDecode()` before rendering. Missing tool, invalid JSON, or a thrown exception all yield `Command::FAILURE`.
+Behaviour: resolves the tool via `CapabilityRegistry::findTool()`, invokes it through `ToolInvoker`, and decodes a string result with `ResponseEncoder::tryDecode()` before rendering. Missing tool, invalid JSON, or a thrown exception all yield `Command::FAILURE`. Since 0.14 an unknown or missing required parameter also prints a `tools:inspect <tool-name>` hint.
+
+Size fallback (since 0.14): when the effective format is `pretty` and the result's compact JSON encoding exceeds 8 KB (`PRETTY_RENDER_SIZE_THRESHOLD = 8192`), the command prints a note and renders pretty-printed JSON instead, since a large nested value would fold onto one unreadable line. `--format=json` / `--format=toon` are unaffected; prefer `toon` for large results fed back to an assistant.
 
 ### `resources:read`
 
@@ -234,7 +238,7 @@ Behaviour: resolves the URI against the registry via `ResourceReader` (static or
 
 ### `skills:install`
 
-Source: `src/Command/SkillsInstallCommand.php`. Supports `--dry-run` (reports what would change without touching the filesystem). Calls `SkillManager::reinstall()` — the facade every `skills:*` command goes through — which re-runs `SkillInstaller::install()` for all enabled extensions plus the root project. Already-installed skills whose source is unchanged are left untouched; stale `mate-*` entries — copies under `.agents/skills/`, symlinks under `.claude/skills/` — are pruned (`SkillManager::pruneStrays()` → `SkillInstaller::pruneStrays()`).
+Source: `src/Command/SkillsInstallCommand.php`. Supports `--dry-run` (reports what would change without touching the filesystem) and, since 0.14, `--format=table|json|toon` (default `table`). The output is a per-skill status table with the same columns as `skills:list` plus an `action` column (`installed` / `rebuilt` / `skipped` / `unchanged`, or `would install` / `would rebuild` / `would skip` under `--dry-run`). Calls `SkillManager::reinstall()` — the facade every `skills:*` command goes through — which re-runs `SkillInstaller::install()` for all enabled extensions plus the root project. Already-installed skills whose source is unchanged are left untouched; stale `mate-*` entries — copies under `.agents/skills/`, symlinks under `.claude/skills/` — are pruned (`SkillManager::pruneStrays()` → `SkillInstaller::pruneStrays()`).
 
 ### `skills:list`
 

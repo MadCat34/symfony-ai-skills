@@ -6,12 +6,10 @@ compatibility: Requires vendor/bin/mate installed in the target Symfony app. Dev
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.13.0"
+  version: "0.14.1"
 ---
 
 # Mate
-
-> ⚠️ **Symfony AI is experimental** : APIs may break between releases. Always check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading.
 
 > ⚠️ **DEV TOOL ONLY : never deploy Mate to production.** Mate exposes your application internals (logs, container, profiler, environment) to the AI assistant. That is fine in dev; catastrophic in prod.
 
@@ -71,11 +69,11 @@ Verified against `src/App.php` (every command below is registered there) and the
 | `vendor/bin/mate clear-cache`                | Wipe `sys_get_temp_dir()/mate/<user>_<hash>/`                                                                |
 | `vendor/bin/mate debug:capabilities`         | Show all tools/resources/resource templates grouped by extension                                             |
 | `vendor/bin/mate debug:extensions`           | Show discovery status (enabled/disabled/loaded)                                                              |
-| `vendor/bin/mate tools:list`                 | List tools with `--filter`, `--extension`, `--format table\|json\|toon`                                     |
+| `vendor/bin/mate tools:list`                 | List tools (with an `Arguments` column) with `--filter`, `--extension`, `--format table\|json\|toon`        |
 | `vendor/bin/mate tools:inspect <name>`       | Show tool schema (positional arg, `--format text\|json\|toon`)                                               |
-| `vendor/bin/mate tools:call <name> [opts]`   | Execute a tool (parameters as `--<param>=<value>` long options, `--format pretty\|json\|toon`)               |
+| `vendor/bin/mate tools:call <name> [opts]`   | Execute a tool (parameters as `--<param>=<value>` long options, `--format pretty\|json\|toon`; pretty falls back to JSON above 8 KB) |
 | `vendor/bin/mate resources:read <uri>`       | Read a resource (positional URI, `--format pretty\|json\|toon`)                                              |
-| `vendor/bin/mate skills:install [--dry-run]` | Re-sync extension skills into `.agents/skills/` + `.claude/skills/`                                          |
+| `vendor/bin/mate skills:install [--dry-run]` | Re-sync extension skills into `.agents/skills/` + `.claude/skills/`; per-skill `action` table, `--format table\|json\|toon` |
 | `vendor/bin/mate skills:list [--format=...]` | List declared/installed skills and their status (read-only)                                                  |
 | `vendor/bin/mate skills:validate [name] [--strict]` | Check generated folders against `extensions.php` (read-only)                                          |
 | `vendor/bin/mate skills:prune [--dry-run]`   | Remove leftover `mate-*` folders `skills:install` missed                                                     |

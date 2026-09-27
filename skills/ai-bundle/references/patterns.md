@@ -61,11 +61,11 @@ final class AgentRouter
 }
 ```
 
-The single-agent shortcut (`ai.agent.default` and no other agents) still aliases `AgentInterface::class` automatically (`AiBundle::loadExtension()` lines 219-221).
+The single-agent shortcut (`ai.agent.default` and no other agents) still aliases `AgentInterface::class` automatically (`AiBundle::loadExtension()`).
 
 ## 2. Dev profiler (no setup)
 
-The `ai.data_collector` is registered by `config/services.php` line 275 and removed only when `kernel.debug` is false (`AiBundle::loadExtension()` lines 381-384). When `kernel.debug` is true, the `DebugCompilerPass` decorates every `ai.platform`, `ai.message_store`, `ai.chat`, `ai.toolbox`, `ai.agent`, `ai.store` with the matching `Traceable*` decorator (`DebugCompilerPass::process()` lines 36-101), and the data collector harvests them in `lateCollect()`.
+The `ai.data_collector` is registered in `config/services.php` and removed only when `kernel.debug` is false (`AiBundle::loadExtension()`). When `kernel.debug` is true, the `DebugCompilerPass` decorates every `ai.platform`, `ai.message_store`, `ai.chat`, `ai.toolbox`, `ai.agent`, `ai.store` with the matching `Traceable*` decorator (`DebugCompilerPass::process()`), and the data collector harvests them in `lateCollect()`.
 
 In dev, open the Web Debug Toolbar, click "AI" : you will see:
 
@@ -139,7 +139,7 @@ final class SupportContextProcessor implements InputProcessorInterface
 }
 ```
 
-The `agent` tag binds to a specific service id; leave it `null` to apply to all agents. The compiler pass (`ProcessorCompilerPass::process()` lines 36-62) iterates over `ai.agent` services and assigns processors whose `agent` tag matches the service id or is null. Sorted by priority descending.
+The `agent` tag binds to a specific service id; leave it `null` to apply to all agents. The compiler pass (`ProcessorCompilerPass::process()`) iterates over `ai.agent` services and assigns processors whose `agent` tag matches the service id or is null. Sorted by priority descending.
 
 ## 5. RAG: indexer + retriever
 
@@ -176,7 +176,7 @@ ai:
             store: 'ai.store.pinecone.default'
 ```
 
-Then run `bin/console ai:store:index docs` to populate the store (the `ai.command.index` service is wired in `config/services.php` lines 312-316).
+Then run `bin/console ai:store:index docs` to populate the store (the `ai.command.index` service is wired in `config/services.php`).
 
 ## 6. Persistent chat
 
@@ -201,7 +201,7 @@ ai:
         support:
             agent: 'ai.agent.support'
             # The Doctrine branch inserts a `dbal` segment into the service id
-            # (AiBundle.php:2329). The shorter ai.message_store.doctrine.support
+            # (AiBundle::processMessageStoreConfig(), Doctrine branch). The shorter ai.message_store.doctrine.support
             # is only a named-argument alias, not a service.
             message_store: 'ai.message_store.doctrine.dbal.support'
 ```

@@ -40,7 +40,7 @@ There is **no** `ai.profiler.*` key. Profiling is gated by `kernel.debug`.
 
 ## `ai.platform`
 
-Defined in `config/platform/*.php`. Each provider key is a top-level child of `ai.platform`. The 31 files under `config/platform/` are the exhaustive list. Singleton providers (one platform per YAML key): `albert`, `amazeeai`, `anthropic`, `cartesia`, `cerebras`, `cohere`, `decart`, `deepgram`, `deepseek`, `dockermodelrunner`, `elevenlabs`, `gemini`, `huggingface`, `lmstudio`, `minimax`, `mistral`, `ollama`, `openai`, `openrouter`, `ovh`, `perplexity`, `scaleway`, `transformersphp`, `vertexai`, `voyage`. Named instances: `azure`, `bedrock`, `cache`, `failover`, `generic`, `openresponses`.
+Defined in `config/platform/*.php`. Each provider key is a top-level child of `ai.platform`. The 37 files under `config/platform/` are the exhaustive list. Singleton providers (one platform per YAML key): `albert`, `amazeeai`, `anthropic`, `cartesia`, `cerebras`, `cohere`, `decart`, `deepgram`, `deepseek`, `dockermodelrunner`, `edenai`, `elevenlabs`, `fireworks`, `gemini`, `higgsfield`, `huggingface`, `lmstudio`, `minimax`, `mistral`, `ollama`, `openai`, `openrouter`, `ovh`, `perplexity`, `scaleway`, `together`, `transformersphp`, `typesafe`, `venice`, `vertexai`, `voyage`. Named instances: `azure`, `bedrock`, `cache`, `failover`, `generic`, `openresponses`.
 
 ### Singleton providers (one platform per YAML key)
 
@@ -81,6 +81,14 @@ ai:
         voyage:
             api_key: '%env(VOYAGE_API_KEY)%'
             http_client: 'http_client'
+
+        # since 0.14 — each takes api_key + http_client; extra keys noted
+        edenai:     { api_key: '%env(EDENAI_API_KEY)%' }
+        fireworks:  { api_key: '%env(FIREWORKS_API_KEY)%' }
+        together:   { api_key: '%env(TOGETHER_API_KEY)%', endpoint: null }   # null => https://api.together.xyz
+        typesafe:   { api_key: '%env(TYPESAFE_API_KEY)%' }
+        venice:     { api_key: '%env(VENICE_API_KEY)%', endpoint: 'https://api.venice.ai/api/v1/' }
+        higgsfield: { api_key: '%env(HIGGSFIELD_API_KEY)%', api_secret: '%env(HIGGSFIELD_API_SECRET)%', base_url: null, model_catalog: null }
 ```
 
 `config/platform/openai.php` exposes `api_key`, `region`, `http_client` only : there is **no `base_url`**. Same goes for `anthropic` (`api_key`, `version`, `http_client`, `cache_retention`) and most hosted providers.
@@ -133,18 +141,27 @@ ai:
 
         bedrock:
             prod:
-                bedrock_runtime_client: null   # service id (null => SDK default)
+                api: invoke_model              # since 0.14: invoke_model (default, AWS SDK) | completions | responses | messages
+                bedrock_runtime_client: null   # service id (null => SDK default); only with api: invoke_model
                 model_catalog: null           # service id or default
+            mantle:
+                api: messages                  # a Bedrock Mantle route (Anthropic Messages here)
+                api_key: '%env(BEDROCK_API_KEY)%'   # omit to sign with AWS SigV4 (credential_provider)
+                region: 'us-west-2'            # default; Mantle base URL is derived from it
+                cache_retention: 'short'       # only with api: messages
+                # also: credential_provider, http_client, path, workspace (messages only)
 ```
 
 Notes:
 
 - The `cache` provider requires `symfony/ai-cache-platform`. The `failover` provider requires `symfony/ai-failover-platform`. Missing packages throw a `RuntimeException` with `composer require …` hint (`AiBundle::processPlatformConfig()`).
 - VertexAI becomes project-scoped when both `location` and `project_id` are set, requiring `google/auth`.
+- Bedrock: the Mantle options (`api_key`, `region`, `credential_provider`, `http_client`, `path`) and `bedrock_runtime_client` belong to different engines; mixing them fails at compile time, as does `cache_retention`/`workspace` outside `api: messages`.
+- Asynchronous jobs (since 0.14): the bundle registers `ai.platform.job_runner` (autowired as `Symfony\AI\Platform\Job\JobRunner`, using the application clock) and, for every platform that runs async jobs (`openai` batches, `minimax`, `venice`, `higgsfield`, `edenai`), an `ai.platform.job_client.<name>` service tagged `ai.platform.job_client` and autowirable by argument name (`JobClientInterface $openai`, or `#[Target('openai')]`). Replicate has no bundle configuration: build its job client with `Replicate\Factory::createJobClient()`. Store the `JobHandle` in a Messenger message and resolve it from a worker with both services.
 
 ## `ai.model`
 
-Adds custom `Model` subclasses (with capabilities) to a platform's `ModelCatalog` (see `AiBundle::processModelConfig()` lines 2688-2715). Structure: `<platform_name>: { <model_name>: { class, capabilities } }`. `class` must extend `Symfony\AI\Platform\Model`; `capabilities` is a non-empty list of `Symfony\AI\Platform\Capability` enum values (`config/options.php` lines 64-106).
+Adds custom `Model` subclasses (with capabilities) to a platform's `ModelCatalog` (see `AiBundle::processModelConfig()`). Structure: `<platform_name>: { <model_name>: { class, capabilities } }`. `class` must extend `Symfony\AI\Platform\Model`; `capabilities` is a non-empty list of `Symfony\AI\Platform\Capability` enum values (the `ai.model` node of `config/options.php`).
 
 ```yaml
 ai:
@@ -157,7 +174,7 @@ ai:
 
 ## `ai.agent`
 
-Defined in `config/options.php` lines 107-378. The agent key is the agent's name; each agent has:
+Defined by the `ai.agent` node of `config/options.php`. The agent key is the agent's name; each agent has:
 
 ```yaml
 ai:
@@ -175,6 +192,9 @@ ai:
                 #     - agent: 'default'           # wrap another agent as a sub-tool
                 #       name: 'delegate'
                 #       description: 'Delegate to the default agent.'
+                #     - mcp_server: 'docs.readme'  # since 0.14: tools of a remote MCP server, "<client>.<server>" from mcp.clients
+                #       prefix: 'readme_'          # optional, only with mcp_server; default "<server>_"
+                # execution_strategy: fiber      # since 0.14: sequential (default) | fiber | custom ToolExecutorInterface service id
             exclude_tool_messages: false
             include_sources: false
             max_tool_calls: 50               # int or null
@@ -191,17 +211,19 @@ ai:
 
 Notes:
 
-- `prompt:` accepts a **string** (normalized to `{ text: '…' }`) **or** an array with `text`/`file` (mutually exclusive) plus `include_tools` (requires `tools.enabled: true`), `enable_translation` (requires `symfony/translation`), and `translation_domain`. See `config/options.php` lines 203-266.
+- `prompt:` accepts a **string** (normalized to `{ text: '…' }`) **or** an array with `text`/`file` (mutually exclusive) plus `include_tools` (requires `tools.enabled: true`), `enable_translation` (requires `symfony/translation`), and `translation_domain`. See the `ai.agent.<name>.prompt` node of `config/options.php`.
 - `model:` accepts a string (with optional query string of options, e.g. `gpt-4o?temperature=0.7`) or `{ name, options }`. Both forms cannot be combined.
-- `tools:` has four acceptable YAML shapes: `true`, `false`, a bare list, or `{ enabled, services }` (see `config/options.php` lines 267-313) : `$services = $v['services'] ?? $v` normalizes both list forms identically. The bare list is **not legacy** — it's the form the official `demo/` application uses for every one of its agents (`config/packages/ai.yaml`), e.g. `tools: ['App\AI\WeatherService', { service: clock, name: clock, description: '...', method: now }]`. Reach for `{ enabled, services }` only when you also need `enabled: true` to auto-pick every `ai.tool`-tagged service instead of listing them explicitly.
+- `tools:` has four acceptable YAML shapes: `true`, `false`, a bare list, or `{ enabled, services }` (see the `ai.agent.<name>.tools` node of `config/options.php`) : `$services = $v['services'] ?? $v` normalizes both list forms identically. The bare list is **not legacy** — it's the form the official `demo/` application uses for every one of its agents (`config/packages/ai.yaml`), e.g. `tools: ['App\AI\WeatherService', { service: clock, name: clock, description: '...', method: now }]`. Reach for `{ enabled, services }` only when you also need `enabled: true` to auto-pick every `ai.tool`-tagged service instead of listing them explicitly.
+- Each `tools.services` entry needs **exactly one** of `service`, `agent` or `mcp_server`. `mcp_server` (since 0.14) requires `symfony/ai-mcp-tool` and `symfony/mcp-bundle`, and references a connection declared under `mcp.clients.<client>.servers.<server>` (see the `mcp-bundle` skill); the bundle reuses that connection instead of opening a second one. `prefix` is only accepted with `mcp_server`.
+- `tools.execution_strategy` (since 0.14): `fiber` swaps the default `SequentialToolExecutor` for `FiberToolExecutor`, which only helps when tools cooperate via `SuspendableTrait` (see the `agent` skill).
 - `speech:` requires at least one of `text_to_speech_platform`/`speech_to_text_platform` and one of `tts_model`/`stt_model`.
 - **`system_prompt` is NOT a valid key** : use `prompt:`.
 - **`input_processors` / `output_processors` are NOT valid keys** : processors are auto-tagged via attributes/interfaces (see `references/processors.md`).
-- **`max_tool_calls` IS a valid key** (`config/options.php` lines 323-330): int or `null` to disable, default `50`. `circuit_breaker_threshold` and similar names are **not** valid — the only other fault-tolerance key is `fault_tolerant_toolbox: bool`.
+- **`max_tool_calls` IS a valid key** (the `ai.agent.<name>.max_tool_calls` node of `config/options.php`): int or `null` to disable, default `50`. `circuit_breaker_threshold` and similar names are **not** valid — the only other fault-tolerance key is `fault_tolerant_toolbox: bool`.
 
 ## `ai.multi_agent`
 
-`config/options.php` lines 379-405. Requires `ai.agent.*` to exist with the same names referenced in `orchestrator`, `fallback`, and `handoffs`.
+The `ai.multi_agent` node of `config/options.php`. Requires `ai.agent.*` to exist with the same names referenced in `orchestrator`, `fallback`, and `handoffs`.
 
 ```yaml
 ai:
@@ -213,7 +235,7 @@ ai:
                 'specialist': ['specialist keyword', 'fallback phrase']
 ```
 
-Validation (lines 606-654 of `options.php`): duplicate agent/multi_agent names throw `InvalidArgumentException`. References to non-existent agents throw.
+Validation (the root-level `validate()` rules at the end of `config/options.php`): duplicate agent/multi_agent names throw `InvalidArgumentException`. References to non-existent agents throw.
 
 ## `ai.store`
 
@@ -272,13 +294,30 @@ ai:
 
 `dsn` and `dbal_connection` are mutually exclusive and one of them is required (validated at compile time). `username`/`password` are only meaningful with `dsn`.
 
+Scoped-client stores (since 0.14): `clickhouse`, `elasticsearch`, `manticoresearch`, `milvus`, `neo4j`, `opensearch` and `supabase` are built through their bridge `StoreFactory`. Configure **either** the connection (`endpoint`; `dsn` for ClickHouse; `url` for Supabase) with its credentials, **or** an `http_client` service already scoped to the instance (e.g. from `framework.http_client.scoped_clients`). Credentials (`api_key`, `username`/`password`) require the endpoint; when both are set, the custom client is scoped to the endpoint.
+
+```yaml
+ai:
+    store:
+        elasticsearch:
+            movies:
+                http_client: 'elasticsearch.client'   # scoped client, no endpoint needed
+                index_name: 'movies'
+        milvus:
+            docs:
+                endpoint: 'http://localhost:19530'
+                api_key: '%env(MILVUS_API_KEY)%'
+                database: 'default'
+                collection: 'docs'
+```
+
 Other supported providers (schemas in `config/store/<provider>.php`, not individually detailed here): `azuresearch`, `chromadb`, `clickhouse`, `cloudflare`, `elasticsearch`, `manticoresearch`, `mariadb`, `meilisearch`, `milvus`, `mongodb`, `neo4j`, `opensearch`, `redis`, `s3vectors`, `sqlite`, `supabase`, `surrealdb`, `typesense`, `vektor`, `weaviate`. Read the corresponding `config/store/<provider>.php` file directly when configuring one of these — the shape follows the same pattern (provider name as parent key, named instances under it) but options differ per backend.
 
 **There is no `bridge:` sub-key.** The provider name (`pinecone`, `mongodb`, `postgres`, …) is the parent key in YAML. There is no `embedding_model:` or `transformers:` sub-key : embedding is configured via `ai.vectorizer.<name>` and used by indexer/retriever.
 
 ## `ai.vectorizer`
 
-`config/options.php` lines 458-535. Wraps `Symfony\AI\Store\Document\Vectorizer` over a platform and a model.
+The `ai.vectorizer` node of `config/options.php`. Wraps `Symfony\AI\Store\Document\Vectorizer` over a platform and a model.
 
 ```yaml
 ai:
@@ -290,7 +329,7 @@ ai:
 
 ## `ai.retriever`
 
-`config/options.php` lines 569-584.
+The `ai.retriever` node of `config/options.php`.
 
 ```yaml
 ai:
@@ -302,7 +341,7 @@ ai:
 
 ## `ai.indexer`
 
-`config/options.php` lines 536-568. Builds either a `DocumentIndexer`, a `SourceIndexer`, or a `ConfiguredSourceIndexer` depending on which of `loader` / `source` are present (`AiBundle::processIndexerConfig()` lines 2561-2618).
+The `ai.indexer` node of `config/options.php`. Builds either a `DocumentIndexer`, a `SourceIndexer`, or a `ConfiguredSourceIndexer` depending on which of `loader` / `source` are present (`AiBundle::processIndexerConfig()`).
 
 ```yaml
 ai:
@@ -322,7 +361,7 @@ There is **no `delay_ms` / `batch_size` / `chunk_size`** : indexing semantics ar
 
 ## `ai.chat`
 
-`config/options.php` lines 449-457. Persisted chat session wrapping one agent and one message store.
+The `ai.chat` node of `config/options.php`. Persisted chat session wrapping one agent and one message store.
 
 ```yaml
 ai:
@@ -401,11 +440,11 @@ ai:
 
 ## Aliases auto-created by the bundle
 
-For each singleton platform, the bundle auto-aliases `PlatformInterface::class` when only one platform is configured (`AiBundle::loadExtension()` lines 206-209). Same for `AgentInterface::class` (line 219-221), `StoreInterface::class` (lines 247-251), `MessageStoreInterface::class` (lines 269-273), `ChatInterface::class` (lines 290-294), `IndexerInterface::class` (lines 314-316), `RetrieverInterface::class` (lines 327-329). When several are configured, you must type-hint the named service (`ai.agent.default`, `ai.store.pinecone.default`, …) or use `#[Target('default')]`.
+For each singleton platform, the bundle auto-aliases `PlatformInterface::class` when only one platform is configured (`AiBundle::loadExtension()`, `setAlias()` calls). Same for `AgentInterface::class`, `StoreInterface::class`, `MessageStoreInterface::class`, `ChatInterface::class`, `IndexerInterface::class`, `RetrieverInterface::class`. When several are configured, you must type-hint the named service (`ai.agent.default`, `ai.store.pinecone.default`, …) or use `#[Target('default')]`.
 
 ## Removed when optional packages are missing
 
-`AiBundle::loadExtension()` lines 368-413 removes services for missing optional packages:
+`AiBundle::loadExtension()` removes services for missing optional packages:
 
 | Missing package         | Removed                                                                                                                                              |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -416,4 +455,4 @@ For each singleton platform, the bundle auto-aliases `PlatformInterface::class` 
 | `symfony/ai-chat`       | message-store commands, `ai.chat.message_bag.normalizer`                                                                                             |
 | `kernel.debug == false` | `ai.data_collector`, `ai.traceable_toolbox`                                                                                                          |
 
-Compiler passes (registered in `AiBundle::build()` lines 180-182): `DebugCompilerPass`, `ProcessorCompilerPass`, `SchemaProviderValidationPass`.
+Compiler passes (registered in `AiBundle::build()`): `DebugCompilerPass`, `ProcessorCompilerPass`, `SchemaProviderValidationPass`.

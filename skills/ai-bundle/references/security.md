@@ -1,6 +1,6 @@
 # AI Bundle : Security Reference
 
-> **Source of truth**: `https://github.com/symfony/ai/tree/main/src/ai-bundle/src/Security/Attribute/IsGrantedTool.php` and `…/EventListener/IsGrantedToolAttributeListener.php`. Autoconfiguration registered in `AiBundle::loadExtension()` lines 368-374. Listener is wired in `config/services.php` lines 267-272 (`ai.security.is_granted_attribute_listener`).
+> **Source of truth**: `https://github.com/symfony/ai/tree/main/src/ai-bundle/src/Security/Attribute/IsGrantedTool.php` and `…/EventListener/IsGrantedToolAttributeListener.php`. `AiBundle::loadExtension()` removes the listener (and makes the attribute throw) when `symfony/security-core` is missing. Listener is wired in `config/services.php` (`ai.security.is_granted_attribute_listener`).
 
 The bundle ships **one** security hook: `#[IsGrantedTool]`. It is a PHP attribute on tool methods (or classes) that consults Symfony's `AuthorizationCheckerInterface` just before the tool is invoked.
 
@@ -40,11 +40,11 @@ Real parameters (no `throwOnDenied` : see below):
 | `$message` | `string\|null` | Custom denial message |
 | `$exceptionCode` | `int\|null` | Exception code; defaults to `403` |
 
-The attribute is repeatable (`IS_REPEATABLE`) and can target both the tool class (`TARGET_CLASS`) and its invocable method (`TARGET_METHOD`). The listener merges class + method attributes and runs them all (lines 41-86).
+The attribute is repeatable (`IS_REPEATABLE`) and can target both the tool class (`TARGET_CLASS`) and its invocable method (`TARGET_METHOD`). The listener merges class + method attributes and runs them all (`IsGrantedToolAttributeListener::__invoke()`).
 
 ## `throwOnDenied` does NOT exist
 
-The audited previous skill mentioned `throwOnDenied: true`. The actual listener (`IsGrantedToolAttributeListener::__invoke()` lines 73-83) **always** throws `AccessDeniedException` on denial : there is no soft path. If you need the agent to receive a denial as a tool result, write a custom listener or wrap `AuthorizationCheckerInterface` instead.
+The audited previous skill mentioned `throwOnDenied: true`. The actual listener (`IsGrantedToolAttributeListener::__invoke()`) **always** throws `AccessDeniedException` on denial : there is no soft path. If you need the agent to receive a denial as a tool result, write a custom listener or wrap `AuthorizationCheckerInterface` instead.
 
 There is also **no `throw_on_tool_denied` key** in `ai.agent.<name>` : `fault_tolerant_toolbox: true` (default) controls whether the agent keeps running when a tool call itself raises (not authorization), but `IsGrantedTool` denial throws before that wrapper engages.
 
@@ -83,7 +83,7 @@ final class AdminService
 }
 ```
 
-When `$subject` is a string (`'userId'`), the listener requires the tool method to have a parameter named `userId`; the value of that argument becomes the subject. Missing keys throw `RuntimeException` (line 107). Closures receive `($arguments, $tool)` and may return any subject.
+When `$subject` is a string (`'userId'`), the listener requires the tool method to have a parameter named `userId`; the value of that argument becomes the subject. Missing keys throw `RuntimeException` ("Could not find the subject …"). Closures receive `($arguments, $tool)` and may return any subject.
 
 ## Symfony Security voter integration
 
@@ -116,7 +116,7 @@ public function deleteUser(int $userId): string { ... }
 
 ## Required dependency
 
-The listener requires `symfony/security-core`. If it is not installed, `AiBundle::loadExtension()` lines 368-374 remove `ai.security.is_granted_attribute_listener` and replace `#[IsGrantedTool]` autoconfiguration with a closure that throws `InvalidArgumentException('Using #[IsGrantedTool] attribute requires additional dependencies. Try running "composer install symfony/security-core".')`. Add the package to your composer.json to enable gating.
+The listener requires `symfony/security-core`. If it is not installed, `AiBundle::loadExtension()` removes `ai.security.is_granted_attribute_listener` and replace `#[IsGrantedTool]` autoconfiguration with a closure that throws `InvalidArgumentException('Using #[IsGrantedTool] attribute requires additional dependencies. Try running "composer install symfony/security-core".')`. Add the package to your composer.json to enable gating.
 
 ## Async / Messenger context
 

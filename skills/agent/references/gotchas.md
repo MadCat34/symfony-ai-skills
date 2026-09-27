@@ -104,6 +104,8 @@ $router = new MultiAgent($orchestrator, [new Handoff($target, ['when', 'keywords
 
 `ToolException` (`src/Toolbox/Exception/ToolException.php`) extends `InvalidArgumentException` : it is raised during tool **metadata extraction** (e.g. missing `#[AsTool]` attribute, invalid reference). `ToolExecutionExceptionInterface` (`src/Toolbox/Exception/ToolExecutionExceptionInterface.php`) is the runtime contract for failures inside tool bodies. `Toolbox::execute()` wraps any `Throwable` from a tool body in `ToolExecutionException`. `FaultTolerantToolbox` only catches the runtime interface : config errors still propagate.
 
+Argument resolution failures (missing mandatory parameter, value that cannot be denormalized) throw `InvalidToolCallArgumentsException` since 0.14 : a runtime `ToolExecutionExceptionInterface`, no longer a `ToolException`. A `catch (ToolException)` written for 0.13 around `ToolCallArgumentResolver` no longer fires.
+
 ## 10. `SpeechAgent` requires the wrapped agent to exist
 
 `src/SpeechAgent.php`: the first constructor argument is the wrapped `AgentInterface` (chat). The STT and TTS platforms are optional but the speech configuration has no effect without them. If you pass neither, `SpeechAgent` is just a passthrough wrapper.

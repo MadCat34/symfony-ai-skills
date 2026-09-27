@@ -146,7 +146,7 @@ Composer package** `symfony/ai-failover-platform` — the monorepo directory
 `Bridge/Failover/` is split out at release time and is not part of
 `symfony/ai-platform`. Install it explicitly. Its constructor is
 `(iterable $platforms, RateLimiterFactoryInterface $rateLimiterFactory, ClockInterface $clock = new MonotonicClock(), LoggerInterface $logger = new NullLogger())`
-(`Bridge/Failover/FailoverPlatform.php:38`) : `$rateLimiterFactory` is the
+(`FailoverPlatform::__construct()`) : `$rateLimiterFactory` is the
 only argument required beyond the platform list; `$clock` and `$logger`
 default to a monotonic clock and a no-op logger, and the optional
 `$logger` is what backs the per-platform-failure logging described below.
@@ -390,7 +390,7 @@ What it **does**:
 - forwards the **same `$model` argument** (string or `Model`) to every
   underlying platform;
 - creates a rate limiter per platform class, but **never skips a platform
-  because of it**: `FailoverPlatform.php:68-72` uses
+  because of it**: `FailoverPlatform::do()` uses
   `$limiter->consume()->isAccepted()` only as one half of the condition that
   *clears* an entry from the failed map, and calls the platform unconditionally
   afterwards. A saturated platform is still invoked;
@@ -430,7 +430,7 @@ component, which exposes its own loop / fault-tolerance machinery).
 
 - `references/api.md` : full signature catalogue (`DeferredResult`,
   `TokenUsage`, `FinishReason`, `Vector`, `MessageBag`)
-- `references/bridges.md` : all 37 bridges with Composer package names
+- `references/bridges.md` : all 43 bridges with Composer package names
 - `references/embeddings.md` : embeddings contract (different from text
   generation)
 - `references/gotchas.md` : provider quirks and exception catalogue

@@ -11,6 +11,8 @@ is not documented here.
 - `Platform` (concrete)
 - `Provider` (one inference backend)
 - `DeferredResult` (the real one)
+- Asynchronous jobs (`Job\`)
+- Batches (`BatchResult`)
 - `Result\Stream\ListenerInterface`
 - `TokenUsage`
 - `FinishReason` (final class wrapping an enum)
@@ -41,12 +43,14 @@ Symfony\AI\Platform\
 ├── ProviderInterface
 ├── ResultConverterInterface
 ├── TraceablePlatform               (decorator; records calls)
-├── Bridge\…                        (37 provider packages — see bridges.md)
+├── Bridge\…                        (43 provider packages — see bridges.md)
 │
 ├── Event\                          (InvocationEvent, ResultEvent, …)
 ├── EventListener\                  (StringToMessageBagListener, TemplateRendererListener)
 ├── Exception\                      (18 exceptions + ExceptionInterface — see gotchas.md)
 ├── FinishReason\                   (FinishReason class + FinishReasonCase enum)
+├── Job\                            (JobHandle, JobRunner, JobClientInterface, JobStatus,
+│                                   JobStateCase — asynchronous provider jobs, since 0.14)
 ├── Message\
 │   ├── Message                     (named constructors)
 │   ├── MessageBag                  (mutable + immutable helpers)
@@ -74,6 +78,7 @@ Symfony\AI\Platform\
 │   │     ExecutableCodeResult, FileSearchResult, LocalShellCallResult,
 │   │     McpCallResult, McpApprovalRequestResult, McpListToolsResult,
 │   │     WebSearchResult)
+│   ├── JobResult, BatchResult, BatchItem, BatchItemCase, RealtimeSessionResult  (0.14)
 │   ├── Stream\                     (NdjsonStream, RawSseStream, SseStream, ListenerInterface,
 │   │   StartEvent, DeltaEvent, CompleteEvent, ErrorEvent, AbstractStreamListener, HttpStreamInterface)
 │   ├── Stream\Delta\               (TextDelta, PartialObjectDelta, ToolInputDelta,
@@ -120,7 +125,7 @@ one `UserMessage`, but it is **not** intrinsic to `invoke()`: it is an event
 listener on `InvocationEvent`, so it runs only when a dispatcher was passed to
 `Platform` (third constructor argument, `null` by default) *and* the listener is
 registered on it. In the monorepo, only `ai-bundle` does that
-(`config/services.php:169`). Standalone snippets built with
+(service `ai.platform.string_to_message_bag_listener` in `config/services.php`). Standalone snippets built with
 `Factory::createPlatform($apiKey)` pass no dispatcher and get no upcasting.
 
 ## `Platform` (concrete)
@@ -191,12 +196,21 @@ final class DeferredResult
     public function onConvert(\Closure(ResultInterface): ResultInterface $cb): void;
     public function onError(\Closure(\Throwable): void $cb): void;
 
+    // Asynchronous job (JobResult) — see "Asynchronous jobs" below
+    public function asJob(): JobHandle;
+
     // Typed accessors — each throws UnexpectedResultTypeException on mismatch
     public function asText(): string;
     public function asObject(): object;
     public function asBinary(): string;
     public function asFile(string $path): void;
     public function asDataUri(?string $mimeType = null): string;
+
+    /** @return ResultInterface[] parts of a MultiPartResult */
+    public function asMultiPart(): array;
+
+    /** @return iterable<BatchItem> */
+    public function asBatch(): iterable;
 
     /** @return Vector[] */
     public function asVectors(): array;
@@ -247,6 +261,129 @@ There is no `asText()` / `asObject()` on the interface : those are on
 | `ChoiceResult`         | `ResultInterface[]` (≥ 2 required)           |
 | `MultiPartResult`      | non-empty `ResultInterface[]`, iterable      |
 | `ThinkingResult`       | `?string` (text content only, nullable)      |
+| `JobResult`            | `Job\JobHandle` (read it with `asJob()`)     |
+| `BatchResult`          | `iterable<BatchItem>` (read it with `asBatch()`) |
+| `RealtimeSessionResult`| `array` (+ `getId()`, `getClientSecret()`, `getExpiresAt()`, `getModel()`, `getVoice()`, `getModalities()`) |
+| `WebSearchResult`      | `?string` (+ `getQuery()`, `getQueries()`, `getId()`, `getStatus()`) |
+
+`RealtimeSessionResult` is returned for models with `Capability::REALTIME_SESSION`
+(OpenAI `gpt-realtime`): the platform creates the session server side and hands
+back an **ephemeral client secret** for a browser/mobile client to open the
+WebRTC/WebSocket connection itself. Never log `getClientSecret()`.
+
+## Asynchronous jobs (`Job\`)
+
+Since 0.14, a provider that answers with a job identifier instead of a result
+(video/image generation, async speech, batches, every Replicate prediction)
+returns a `Result\JobResult`. **The platform never waits**: read the handle with
+`asJob()` and resolve it explicitly. Calling `asText()` / `asBinary()` /
+`asFile()` on it throws `UnexpectedResultTypeException`.
+
+```php
+namespace Symfony\AI\Platform\Job;
+
+final class JobHandle implements \JsonSerializable   // serializable: store it, send it via Messenger
+{
+    public function __construct(string $id, array $data = [], ?string $provider = null,
+        ?int $maxDuration = null, ?float $pollInterval = null);
+    public function getId(): string;
+    public function getProvider(): ?string;          // set by the bridge that started the job
+    public function getMaxDuration(): ?int;          // how long this kind of job may take (s)
+    public function getPollInterval(): ?float;       // how often it is worth polling (s)
+    public function toString(): string;
+    public static function fromString(string $handle): self;
+    public function toArray(): array;
+    public static function fromArray(array $handle): self;
+}
+
+interface JobClientInterface
+{
+    public function supports(JobHandle $handle): bool;
+    public function getStatus(JobHandle $handle): JobStatus;
+    public function getResult(JobHandle $handle): ResultInterface;
+}
+
+final class JobStatus implements \JsonSerializable, \Stringable
+{
+    public function getCase(): JobStateCase;
+    public function getRaw(): string;               // provider's own status string
+    public function getError(): ?string;
+    public function is(JobStateCase ...$cases): bool;
+    public function isTerminal(): bool;
+}
+
+enum JobStateCase: string
+{
+    case QUEUED = 'queued';
+    case RUNNING = 'running';
+    case SUCCEEDED = 'succeeded';
+    case FAILED = 'failed';
+    case EXPIRED = 'expired';
+    case CANCELED = 'canceled';
+    case UNKNOWN = 'unknown';
+}
+
+final class JobRunner
+{
+    public function __construct(ClockInterface $clock = new MonotonicClock(),
+        ?float $pollInterval = null, ?int $maxDuration = null, ?int $maxPolls = null);
+
+    // Polls until SUCCEEDED, returns a DeferredResult with the usual as*() accessors
+    public function wait(JobClientInterface $jobClient, JobHandle $handle,
+        ?int $maxDuration = null, ?float $pollInterval = null, ?int $maxPolls = null): DeferredResult;
+}
+```
+
+Job clients come from the bridge factory (`Factory::createJobClient($apiKey, $httpClient)`):
+`MiniMax`, `Replicate`, `OpenAi` (batches), `EdenAi`, `Higgsfield`, `Venice`.
+
+```php
+use Symfony\AI\Platform\Bridge\Replicate\Factory;
+use Symfony\AI\Platform\Job\JobRunner;
+
+$platform = Factory::createPlatform($apiKey);
+$handle = $platform->invoke('llama-3-8b-instruct', $messages)->asJob();
+
+$result = (new JobRunner())->wait(Factory::createJobClient($apiKey), $handle);
+echo $result->asText();
+```
+
+- Timing precedence: `wait()` argument → `JobRunner` constructor → handle hint → default (120 s budget).
+- `wait()` throws `Exception\JobFailedException` when the job ends FAILED/EXPIRED/CANCELED,
+  `Exception\JobTimeoutException` when the duration or `maxPolls` budget runs out
+  (the job may still be running : keep the handle and wait again later), and
+  `InvalidArgumentException` when the client does not `supports()` the handle.
+- Long jobs belong in a worker: persist `$handle->toString()`, rebuild with
+  `JobHandle::fromString()`, check `$jobClient->getStatus($handle)`, then `wait()`.
+  In a Symfony app, `ai-bundle` registers `ai.platform.job_runner` (autowired as
+  `JobRunner`) and one `ai.platform.job_client.<platform>` per async-capable platform.
+
+## Batches (`BatchResult`)
+
+The OpenAI bridge submits a batch when `$input` is an array of inputs keyed by id
+and `['batch' => true]` is passed. It returns a job; the job client exposes
+`getProgress($handle)` (`status`, `completed`, `total`, `failed`) and its result
+is a `BatchResult`:
+
+```php
+$handle = $platform->invoke('gpt-4o-mini', ['q1' => $bag1, 'q2' => $bag2], ['batch' => true])->asJob();
+
+// OpenAI may take up to 24 h: persist $handle->toString() and resume in a worker.
+$jobClient = OpenAi\Factory::createJobClient($apiKey);
+if ($jobClient->getStatus($handle)->isTerminal()) {
+    foreach ($jobClient->getResult($handle)->getContent() as $item) {   // BatchResult
+        echo $item->getId(), ': ', $item->isSuccess() ? $item->getResult()->getContent() : $item->getError();
+    }
+}
+```
+
+`JobRunner::wait()` works too and returns a `DeferredResult` whose `asBatch()`
+yields the items : only use it when the batch is known to be (almost) done.
+
+`BatchItem`: `getId()`, `getCase(): BatchItemCase` (`SUCCEEDED`, `ERRORED`,
+`CANCELED`, `EXPIRED`, `UNKNOWN`), `is(...)`, `isSuccess()`, `getResult()`
+(the result the request would have produced synchronously), `getError()`,
+`getRaw()`. A canceled or expired batch still yields the items it got through.
 
 ## `Result\Stream\ListenerInterface`
 
@@ -292,6 +429,7 @@ final class TokenUsage implements MergeableMetadataInterface, TokenUsageInterfac
         ?int $remainingTokensMinute = null,
         ?int $remainingTokensMonth = null,
         ?int $totalTokens = null,
+        ?string $model = null,          // since 0.14
     );
 
     public function getPromptTokens(): ?int;
@@ -305,6 +443,7 @@ final class TokenUsage implements MergeableMetadataInterface, TokenUsageInterfac
     public function getRemainingTokensMinute(): ?int;
     public function getRemainingTokensMonth(): ?int;
     public function getTotalTokens(): ?int;
+    public function getModel(): ?string;   // model the provider reports as consuming the tokens
     public function merge(MergeableMetadataInterface $metadata): TokenUsageAggregation;
 }
 ```
@@ -312,6 +451,12 @@ final class TokenUsage implements MergeableMetadataInterface, TokenUsageInterfac
 `TokenUsageAggregation` (also final) implements the same `TokenUsageInterface`
 and sums numeric fields; `remaining*` are min()ed across sources. Use
 `TokenUsageInterface` when accepting either.
+
+`getModel()` (on `TokenUsageInterface` since 0.14) is `null` when the provider
+does not name a model. `TokenUsageAggregation::getModel()` answers only when
+every usage it sums agrees on one model and returns `null` otherwise : to price
+a run that mixed models (chat + embeddings, say), iterate `getTokenUsages()`
+and price each usage by its own `getModel()`.
 
 ## `FinishReason` (final class wrapping an enum)
 
@@ -579,7 +724,7 @@ serializable objects into the wire format the bridge's `ModelClient` expects.
 ```php
 final class TraceablePlatform implements PlatformInterface, ResetInterface
 {
-    public function __construct(PlatformInterface $platform);
+    public function __construct(PlatformInterface $platform, ?Stopwatch $stopwatch = null);
 
     public function invoke(string|Model $model, array|string|object $input, array $options = []): DeferredResult;
     public function getModelCatalog(): ModelCatalogInterface;
@@ -595,7 +740,10 @@ final class TraceablePlatform implements PlatformInterface, ResetInterface
 
 If `$options['stream']` is true, `TraceablePlatform` wraps the resulting
 `StreamResult` so each `TextDelta` is accumulated into a per-result string
-buffer in `getResultCache()`.
+buffer in `getResultCache()`. With a `Stopwatch` (since 0.14) each invocation
+is timed until its result is converted or its stream consumed : this is what
+feeds the profiler's performance timeline. Since 0.14.1 a stream consumed
+across a `reset()` keeps writing to the cache it started with.
 
 ## Bridge factory pattern
 

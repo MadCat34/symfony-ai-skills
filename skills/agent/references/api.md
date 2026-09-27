@@ -12,21 +12,22 @@ Read this when the user asks for the full signature catalogue of the Agent frame
 - Processor attributes
 - Built-in input processors
 - `Toolbox`
-- `ToolExecutorInterface` / `SequentialToolExecutor`
+- `ToolExecutorInterface` / `SequentialToolExecutor` / `FiberToolExecutor`
 - `FaultTolerantToolbox`
+- `ChainToolbox` / `AbstractToolbox`
 - `TraceableToolbox`
 - `#[AsTool]`
 - `Tool` factory chain
 - `ToolResult`, `ToolResultConverter`
 - `Execution`
-- `ToolCallArgumentResolver`
+- `ToolCallArgumentResolver` (+ `#[MapToolArguments]`)
 - `Subagent`
 - Toolbox exceptions
 - Memory
 - `MultiAgent`
 - `SpeechAgent` + `SpeechConfiguration`
 - Testing & observability agents
-- Tool bridges (13)
+- Tool bridges (14)
 - Tool-call lifecycle events
 
 ## Namespace tree
@@ -56,13 +57,18 @@ Symfony\AI\Agent\
   Memory\MemoryInputProcessor
   Memory\StaticMemoryProvider
   Memory\EmbeddingProvider
-  Toolbox\Toolbox                        (final)
+  Toolbox\Toolbox                        (final, extends AbstractToolbox)
   Toolbox\ToolboxInterface
+  Toolbox\AbstractToolbox                (0.14: shared lookup/events/error handling)
+  Toolbox\ChainToolbox                   (0.14: several toolboxes as one)
   Toolbox\ToolExecutorInterface
   Toolbox\SequentialToolExecutor         (default ToolExecutorInterface)
+  Toolbox\FiberToolExecutor              (0.14: concurrent tool calls via Fibers)
+  Toolbox\SuspendableTrait               (0.14: cooperative yield point for tools)
   Toolbox\FaultTolerantToolbox
   Toolbox\TraceableToolbox
   Toolbox\Attribute\AsTool               (TARGET_CLASS | IS_REPEATABLE)
+  Toolbox\Attribute\MapToolArguments     (0.14: TARGET_PARAMETER, flat payload → DTO)
   Toolbox\Tool\Subagent                  (wraps an Agent as a tool)
   Toolbox\ToolResult
   Toolbox\ToolResultConverter
@@ -255,7 +261,7 @@ final class ModelOverrideInputProcessor implements InputProcessorInterface
 ```php
 namespace Symfony\AI\Agent\Toolbox;
 
-final class Toolbox implements ToolboxInterface
+final class Toolbox extends AbstractToolbox   // AbstractToolbox implements ToolboxInterface
 {
     /**
      * @param iterable<object> $tools
@@ -283,7 +289,7 @@ interface ToolboxInterface
 }
 ```
 
-## `ToolExecutorInterface` / `SequentialToolExecutor`
+## `ToolExecutorInterface` / `SequentialToolExecutor` / `FiberToolExecutor`
 
 ```php
 namespace Symfony\AI\Agent\Toolbox;
@@ -307,7 +313,42 @@ final class SequentialToolExecutor implements ToolExecutorInterface
 
     public function execute(array $toolCalls): \Generator;
 }
+
+final class FiberToolExecutor implements ToolExecutorInterface   // since 0.14
+{
+    public function __construct(
+        private readonly ToolboxInterface $toolbox,
+    );
+
+    public function execute(array $toolCalls): \Generator;
+}
 ```
+
+`FiberToolExecutor` starts one PHP Fiber per tool call before collecting any result and round-robins the suspended fibers; results come back in the order of the calls. This is **cooperative concurrency, not parallelism**: a tool only yields when it calls `\Fiber::suspend()`, typically through `SuspendableTrait::suspend()` placed between sending an HTTP request and reading its response (a no-op outside a Fiber, so safe under `SequentialToolExecutor` and in tests):
+
+```php
+use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Symfony\AI\Agent\Toolbox\SuspendableTrait;
+
+#[AsTool('weather', 'Fetches current weather data')]
+final class WeatherTool
+{
+    use SuspendableTrait;
+
+    public function __construct(private HttpClientInterface $httpClient) {}
+
+    public function __invoke(string $city): string
+    {
+        $response = $this->httpClient->request('GET', 'https://api.example.com/weather', ['query' => ['q' => $city]]);
+        $this->suspend();                   // let the other tool calls send their requests
+        return $response->getContent();     // blocks, but every request is already on the wire
+    }
+}
+
+$agent = new Agent($platform, 'gpt-4o-mini', toolbox: $toolbox, toolExecutor: new FiberToolExecutor($toolbox));
+```
+
+In `ai-bundle`, pick it per agent with `tools: { execution_strategy: fiber }`.
 
 There is no more `AgentProcessor` : tool calling is driven by `Agent` itself, delegating to `Symfony\AI\Agent\Execution\Runner` (`@internal`), which enforces `maxToolCalls` directly (a counter incremented per iteration, throwing `MaxIterationsExceededException` once it exceeds the limit) and drives the loop via `ToolExecutorInterface` (default `SequentialToolExecutor`, one call after another) until a non-`ToolCallResult` is returned. Default `maxToolCalls` is **50**. A custom `ToolExecutorInterface` (e.g. concurrent execution) can be passed via the `toolExecutor` constructor argument. `Runner::exposeTools()` also honors a per-call `tools` option (see `references/gotchas.md` #13) to restrict, for one `Agent::call()` only, which tools are exposed.
 
@@ -329,6 +370,35 @@ final class FaultTolerantToolbox implements ToolboxInterface
 
 Catches `ToolExecutionExceptionInterface` and converts it to a `ToolResult` carrying the exception's `getToolCallResult()` message. Catches `ToolNotFoundException` and returns a `ToolResult` with the list of valid tool names. **It does NOT retry and does NOT open a circuit.**
 
+## `ChainToolbox` / `AbstractToolbox`
+
+```php
+namespace Symfony\AI\Agent\Toolbox;
+
+final class ChainToolbox implements ToolboxInterface   // since 0.14
+{
+    /** @param iterable<ToolboxInterface> $toolboxes */
+    public function __construct(private readonly iterable $toolboxes);
+
+    public function getTools(): array;
+    public function execute(ToolCall $toolCall): ToolResult;   // runs on the toolbox advertising the tool
+}
+
+abstract class AbstractToolbox implements ToolboxInterface      // since 0.14
+{
+    public function __construct(LoggerInterface $logger = new NullLogger(), ?EventDispatcherInterface $eventDispatcher = null);
+
+    final public function execute(ToolCall $toolCall): ToolResult;   // lookup + tool-call events + error handling
+
+    abstract protected function getExecutable(Tool $metadata): object;
+    abstract protected function resolveArguments(object $tool, Tool $metadata, ToolCall $toolCall): array;
+    abstract protected function invoke(object $tool, Tool $metadata, array $arguments): mixed;
+    protected function prepareSources(object $tool): ?SourceCollection;
+}
+```
+
+`ChainToolbox` offers the tools of several toolboxes (e.g. local `#[AsTool]` services plus a remote MCP server) to one agent. A tool name advertised by **more than one** toolbox throws `ToolConfigurationException` instead of silently picking one. Extend `AbstractToolbox` for a toolbox in front of a remote tool protocol: only say how a call becomes a value, the events and error handling stay identical to `Toolbox`.
+
 ## `TraceableToolbox`
 
 ```php
@@ -336,7 +406,7 @@ namespace Symfony\AI\Agent\Toolbox;
 
 final class TraceableToolbox implements ToolboxInterface, ResetInterface
 {
-    public function __construct(private readonly ToolboxInterface $toolbox);
+    public function __construct(private readonly ToolboxInterface $toolbox, private readonly ?Stopwatch $stopwatch = null);
 
     public function getTools(): array;
     public function execute(ToolCall $toolCall): ToolResult;
@@ -347,7 +417,7 @@ final class TraceableToolbox implements ToolboxInterface, ResetInterface
 }
 ```
 
-Records every `execute()` call. Useful for assertions in tests.
+Records every `execute()` call. Useful for assertions in tests. With a `Stopwatch` (since 0.14) each tool execution is timed : this feeds the profiler's performance timeline.
 
 ## `#[AsTool]`
 
@@ -432,6 +502,8 @@ final class Execution implements \IteratorAggregate, ResultInterface
     public function getMetadata(): Metadata;
     public function getRawResult(): ?RawResultInterface;
     public function asStream(): \Generator;                     // yields DeltaInterface; throws LogicException when not streamed
+    public function isStreamed(): bool;                         // since 0.14: getContent() yields deltas
+    public function cancel(): void;                             // since 0.14: stops it and cancels the active HTTP response
 }
 ```
 
@@ -443,6 +515,8 @@ final class Execution implements \IteratorAggregate, ResultInterface
 
 Consuming drives the agent, **including its side effects** : exceptions and side effects surface on `getContent()`/`getResult()`/iteration, not on the `call()` line itself. The final result is cached (`getContent()`/`getResult()`/`getMetadata()` are idempotent afterward), but **re-iterating an already-consumed execution throws `LogicException`** : call the agent again for a fresh execution. Code that type-checks the result (e.g. `... instanceof TextResult`) must call `->getResult()` first : `Execution` itself is not the typed result, it produces one.
 
+`cancel()` (since 0.14) is a no-op on a finished execution. Otherwise it stops the tool-calling loop and cancels the in-flight HTTP response; consuming the execution afterwards throws `Symfony\AI\Agent\Exception\RuntimeException` ("The agent execution was canceled."). Use it when a client disconnects mid-stream.
+
 With `['stream' => true]`, `getContent()` returns the same generator as `asStream()`, yielding `Result\Stream\Delta\DeltaInterface` deltas as they arrive; `getMetadata()` returns a `Metadata` populated progressively while the deltas are consumed. Because the tool-calling loop no longer recurses through `call()`, output processors now see the final, fully assembled result, and input processors run once per `Agent::call()` instead of once per tool-calling round.
 
 ## `ToolCallArgumentResolver`
@@ -453,7 +527,7 @@ namespace Symfony\AI\Agent\Toolbox;
 interface ToolCallArgumentResolverInterface
 {
     /** @return array<string, mixed>
-     *  @throws ToolException
+     *  @throws InvalidToolCallArgumentsException (since 0.14; was ToolException)
      */
     public function resolveArguments(Tool $metadata, ToolCall $toolCall): array;
 }
@@ -464,7 +538,25 @@ final class ToolCallArgumentResolver implements ToolCallArgumentResolverInterfac
 }
 ```
 
-Builds the default Symfony Serializer (DateTime / BackedEnum / Object / Array denormalizers) when none is provided. Resolves typed parameters and converts `?nullable` and `CollectionType` (array) dimensions.
+Builds the default Symfony Serializer (DateTime / BackedEnum / Object / Array denormalizers) when none is provided. Resolves typed parameters and converts `?nullable` and `CollectionType` (array) dimensions. A missing mandatory parameter or an undenormalizable value throws `InvalidToolCallArgumentsException`, which implements `ToolExecutionExceptionInterface` : `FaultTolerantToolbox` turns it into a tool result the model can react to. Code catching `ToolException` around argument resolution must switch (0.14 BC break).
+
+### `#[MapToolArguments]` (since 0.14)
+
+```php
+use Symfony\AI\Agent\Toolbox\Attribute\AsTool;
+use Symfony\AI\Agent\Toolbox\Attribute\MapToolArguments;
+
+#[AsTool('create_order', 'Creates an order')]
+final class CreateOrderTool
+{
+    public function __invoke(#[MapToolArguments] OrderRequest $request): string
+    {
+        // ...
+    }
+}
+```
+
+The DTO's properties become the **root** of the tool's JSON schema (not a nested `request` object), and the whole flat tool-call payload is denormalized into it. Only valid on a method with exactly one non-nullable concrete-class parameter; anything else throws `ToolConfigurationException` when the tool is described.
 
 ## `Subagent`
 
@@ -616,6 +708,8 @@ final class Decision
 
 Routing flow: orchestrator receives a `response_format: Decision::class` call, returns either a `Decision` with an empty `agentName` (fallback) or a `Decision` with one of the registered agent names. If `Decision` parse fails, the orchestrator is called directly with the original messages.
 
+Since 0.14 `MultiAgent` (and `SpeechAgent`) forward the `Update\Progress` updates of the executions they delegate to, so iterating a `MultiAgent` execution shows the chosen agent's model requests and tool calls. The routing itself is reported as a `Progress` with stage `handoff`, whose `getPayload()` is the `Decision`.
+
 ## `SpeechAgent` + `SpeechConfiguration`
 
 ```php
@@ -701,6 +795,7 @@ final class TraceableAgent implements AgentInterface, ResetInterface
     public function __construct(
         private readonly AgentInterface $agent,
         private readonly ClockInterface $clock = new MonotonicClock(),
+        private readonly ?Stopwatch $stopwatch = null,   // since 0.14: times each execution's consumption
     );
 
     public function call(string|MessageBag|UserMessage $input, array $options = []): Execution;
@@ -711,7 +806,7 @@ final class TraceableAgent implements AgentInterface, ResetInterface
 }
 ```
 
-## Tool bridges (13)
+## Tool bridges (14)
 
 Each is a class in `src/agent/src/Bridge/<Name>/` exposing one or more `#[AsTool]` methods. Listed alphabetically:
 
@@ -723,14 +818,17 @@ Each is a class in `src/agent/src/Bridge/<Name>/` exposing one or more `#[AsTool
 | `Filesystem\PathValidator`          | (utility, not a tool)                                                       | :                         |
 | `Firecrawl\Firecrawl`               | `firecrawl_scrape / crawl / map`                                            | no                        |
 | `Mapbox\Mapbox`                     | `geocode`, `reverse_geocode`                                                | no                        |
+| `Mcp\McpToolbox` (0.14)             | every tool of a remote MCP server, prefixed `<server>_` (a toolbox, not a tool) | :                     |
 | `Ollama\Ollama`                     | `web_search`, `fetch_webpage`                                               | yes                       |
 | `OpenMeteo\OpenMeteo`               | `weather_current`, `weather_forecast`                                       | no                        |
 | `Scraper\Scraper`                   | `scraper`                                                                   | yes                       |
 | `SerpApi\SerpApi`                   | `serpapi`                                                                   | yes                       |
-| `SimilaritySearch\SimilaritySearch` | `similarity_search` (also `getUsedDocuments()` accessor)                    | no                        |
+| `SimilaritySearch\SimilaritySearch` | `similarity_search` (also `getUsedDocuments(): VectorDocumentInterface[]`) | no                        |
 | `Tavily\Tavily`                     | `tavily_search`, `tavily_extract`                                           | yes                       |
 | `Wikipedia\Wikipedia`               | `wikipedia_search`, `wikipedia_article`                                     | yes                       |
 | `Youtube\YoutubeTranscriber`        | `youtube_transcript`                                                        | no                        |
+
+`Mcp\McpToolbox` (package `symfony/ai-mcp-tool`, since 0.14) extends `AbstractToolbox` and exposes the tools of a remote MCP server through a `ToolsetInterface` (`ClientToolset($name, Mcp\Client, TransportInterface)`): `new Agent($platform, $model, toolbox: new McpToolbox($toolset))`. Combine it with local tools via `ChainToolbox`. A server whose tool listing fails is skipped for `retryAfter` seconds (default 60) instead of breaking the agent. In a Symfony app use the `mcp_server:` tool entry of `ai-bundle` instead.
 
 `Filesystem\Filesystem`'s `write/append/copy/move/delete/mkdir` operations let the model mutate or remove files with no built-in confirmation — restrict writable paths with `Filesystem\PathValidator` and/or gate the call in a `ToolCallRequested` listener (`deny()`) before exposing it against a real filesystem.
 

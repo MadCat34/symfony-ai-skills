@@ -140,7 +140,7 @@ The `ai:message-store:setup` and `ai:message-store:drop` commands resolve a `<st
 
 ## Race conditions on shared stores
 
-Two PHP-FPM workers (or two Messenger consumers) handling the same `Chat`/`Store` instance can interleave `save()` calls. The Doctrine bridge inserts rows in order : two concurrent inserts may write out of order. The Redis bridge overwrites the whole bag atomically, so the last writer wins. **MongoDB does not**: `save()` calls `insertMany()` on the normalised messages (`Bridge/MongoDb/MessageStore.php:63`), so every save appends the full bag again and the collection accumulates duplicates. Call `drop()` first, or keep one collection per conversation. Serialize per session (`flock`, Redis mutex, Symfony Lock) if you need strict ordering.
+Two PHP-FPM workers (or two Messenger consumers) handling the same `Chat`/`Store` instance can interleave `save()` calls. The Doctrine bridge inserts rows in order : two concurrent inserts may write out of order. The Redis bridge overwrites the whole bag atomically, so the last writer wins. **MongoDB does not**: `save()` calls `insertMany()` on the normalised messages (`Bridge\MongoDb\MessageStore::save()`), so every save appends the full bag again and the collection accumulates duplicates. Call `drop()` first, or keep one collection per conversation. Serialize per session (`flock`, Redis mutex, Symfony Lock) if you need strict ordering.
 
 ## `MessageNormalizer` identifier per bridge
 

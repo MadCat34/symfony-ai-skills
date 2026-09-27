@@ -2,6 +2,19 @@
 
 Versions of this documentation suite are tagged against the [symfony/ai](https://github.com/symfony/ai) monorepo. See README § Maintenance for the refresh policy.
 
+## [0.14.1] - 2026-09-28
+
+Tracks `symfony/ai`'s 0.14.1 release (UPGRADE 0.13 → 0.14; 0.14.1 itself only ships bug fixes).
+
+- `store` : `StoreInterface` extends `\Countable` (`count(): int`); stores, retrievers, rerankers, vectorizers and `DistanceCalculator` are typed against the new `Document\VectorDocumentInterface`; `VectorQuery`/`HybridQuery` take and return `VectorInterface`. Elasticsearch, ManticoreSearch, Milvus, Neo4j, OpenSearch and Supabase stores take a scoped HTTP client, with endpoint/credentials moved to each bridge's new `StoreFactory` : documented the seven new factories (ClickHouse included), their signatures, and the silent positional-argument shift when upgrading. `SourceIndexer` now forwards its options to the loader. New gotchas: scoped-client migration, and Elasticsearch/OpenSearch `_bulk` partial failures now throwing (0.14.1).
+- `platform` : `TokenUsageInterface::getModel()` (and `TokenUsageAggregation`'s `null`-on-disagreement rule); `convertStreamUsage()`'s new `?string $model` argument. New `Job\` subsystem (`JobHandle`, `JobRunner`, `JobClientInterface`, `JobStatus`, `JobStateCase`, `JobResult`, `DeferredResult::asJob()`): Replicate and MiniMax (async) no longer wait and return a job. Documented batches (`BatchResult`, `BatchItem`, `asBatch()`), `RealtimeSessionResult`/`Capability::REALTIME_SESSION`, Anthropic `server_tools` + `WebSearchResult`, `TraceablePlatform`'s optional `Stopwatch`. Six new bridges (Eden AI, Fireworks, Higgsfield, Together, TypeSafe, Venice) : catalogue goes from 37 to 43.
+- `agent` : `ToolCallArgumentResolver` throws `InvalidToolCallArgumentsException` (was `ToolException`); `SimilaritySearch::getUsedDocuments()` returns `VectorDocumentInterface[]`. Documented `Execution::cancel()`/`isStreamed()`, `FiberToolExecutor` + `SuspendableTrait`, `AbstractToolbox`, `ChainToolbox`, `#[MapToolArguments]`, `Stopwatch` on `TraceableToolbox`/`TraceableAgent`, `MultiAgent`/`SpeechAgent` progress forwarding (`handoff` stage), and the new `Mcp\McpToolbox` tool bridge (`symfony/ai-mcp-tool`).
+- `ai-bundle` : replaced every source line-number reference (`AiBundle.php`, `options.php`, `services.php`, compiler passes, security listener; several were already off in 0.13.0) with stable anchors : method names, service ids, config node paths. Removed a leftover claim about a `ToolProcessor` tagged as input and output processor (gone since 0.13). Six new platform keys, Bedrock `api` option (InvokeModel vs Mantle routes), `ai.platform.job_runner` and `ai.platform.job_client.<name>` services, `tools.execution_strategy` (`sequential`/`fiber`/service id), `mcp_server` tool entries (+ `prefix`), `http_client` as an alternative to the endpoint on the seven scoped-client stores, profiler performance timeline.
+- `mcp-bundle` : cross-link to `ai-bundle`'s `mcp_server` tool entry from the client pattern.
+- `mate` : `tools:list` `Arguments` column, `tools:call` 8 KB pretty→JSON fallback and `tools:inspect` hint, `skills:install` per-skill `action` table and `--format`.
+- `platform`, `store`, `chat`, `mcp-bundle` : same treatment for the remaining `File.php:NN`-style references (`FailoverPlatform::do()`, `RssFeedLoader::load()`, `MongoDb\MessageStore::save()`, …). No skill cites a source line number anymore; the convention is recorded in `README.md` § Maintenance and `CLAUDE.md`. `llms.txt` platform bridge count updated (37 → 43).
+- Every skill's `version:` frontmatter and the plugin/extension manifests bumped from `0.13.0` to `0.14.1`.
+
 ## [0.13.0] - 2026-09-01
 
 Tracks `symfony/ai`'s 0.13.0 release.

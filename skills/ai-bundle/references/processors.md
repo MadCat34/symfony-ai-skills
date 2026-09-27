@@ -1,6 +1,6 @@
 # AI Bundle : Processors Reference
 
-> **Source of truth**: `https://github.com/symfony/ai/tree/main/src/agent/src/Attribute/AsInputProcessor.php`, `…/AsOutputProcessor.php`. Autoconfiguration is registered in `AiBundle::loadExtension()` lines 341-358 and resolved at compile time by `ProcessorCompilerPass::process()`.
+> **Source of truth**: `https://github.com/symfony/ai/tree/main/src/agent/src/Attribute/AsInputProcessor.php`, `…/AsOutputProcessor.php`. Autoconfiguration is registered in `AiBundle::loadExtension()` and resolved at compile time by `ProcessorCompilerPass::process()`.
 
 Processors transform `MessageBag` (input) and `ResultInterface` (output). They are **never** listed in YAML under `ai.agent.<name>.input_processors` / `ai.agent.<name>.output_processors`. They are auto-registered when:
 
@@ -85,7 +85,7 @@ final class SupportContextProcessor implements InputProcessorInterface { ... }
 
 ## Interface-only registration (no attribute)
 
-If you only need a global processor and want the attribute namespace to stay clean, you can drop `#[AsInputProcessor]` and rely on the interface autoconfiguration (`AiBundle::loadExtension()` lines 355-358):
+If you only need a global processor and want the attribute namespace to stay clean, you can drop `#[AsInputProcessor]` and rely on the interface autoconfiguration (`registerForAutoconfiguration()` in `AiBundle::loadExtension()`):
 
 ```php
 use Symfony\AI\Agent\Input;
@@ -100,7 +100,7 @@ final class RateLimitProcessor implements InputProcessorInterface
 }
 ```
 
-Any class implementing `InputProcessorInterface` (or `OutputProcessorInterface`) is automatically tagged `ai.agent.input_processor` (or `…output_processor`) with `tagged_by: 'interface'` and `priority: 0`. The compiler pass dedupes interface-tagged services so a class with both an attribute and the interface gets a single tag (lines 38-40).
+Any class implementing `InputProcessorInterface` (or `OutputProcessorInterface`) is automatically tagged `ai.agent.input_processor` (or `…output_processor`) with `tagged_by: 'interface'` and `priority: 0`. The compiler pass dedupes interface-tagged services so a class with both an attribute and the interface gets a single tag (`ProcessorCompilerPass::process()`).
 
 ## Disabling a processor
 

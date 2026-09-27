@@ -16,7 +16,7 @@ Source of truth: `https://github.com/symfony/ai/tree/main/src/store/src/`. All n
 - Query types
 - Document types
   - TextDocument
-  - VectorDocument
+  - VectorDocumentInterface / VectorDocument
   - Metadata
   - EmbeddableDocumentInterface
 - Vectorizer
@@ -56,6 +56,7 @@ Symfony\AI\Store
 ├── Document\
 │   ├── EmbeddableDocumentInterface
 │   ├── TextDocument
+│   ├── VectorDocumentInterface
 │   ├── VectorDocument
 │   ├── Metadata
 │   ├── VectorizerInterface
@@ -123,19 +124,23 @@ There is **no** `Symfony\AI\Store\Indexer\Indexer` concrete class, no `Vectorize
 ```php
 namespace Symfony\AI\Store;
 
-interface StoreInterface
+interface StoreInterface extends \Countable
 {
-    public function add(VectorDocument|array $documents): void;
+    public function add(VectorDocumentInterface|array $documents): void;
     public function remove(string|array $ids, array $options = []): void;
     public function clear(array $options = []): void;
+    /** @return iterable<VectorDocumentInterface> */
     public function query(QueryInterface $query, array $options = []): iterable;
     public function supports(string $queryClass): bool;
+    public function count(): int;            // from \Countable (since 0.14)
 }
 ```
 
 Notes:
 
-- `add()` takes a single `VectorDocument` or an array of them : not variadic.
+- `add()` takes a single `VectorDocumentInterface` (e.g. `VectorDocument`) or an array of them : not variadic.
+- `count($store)` and `$store->count()` are the same call; `assertCount()` works on a store. Never count by iterating `query()` results.
+- Since 0.14 a custom store must type against `VectorDocumentInterface` (not the final `VectorDocument`) and implement `count(): int`.
 - `remove()` accepts a string id or an array of string ids; non-string ids (e.g. `int`) must be cast by the caller. The `InMemory\Store` casts via `(string) $document->getId()` internally.
 - `query()` requires a `QueryInterface` : pass `VectorQuery`, `TextQuery`, or `HybridQuery`. It never takes a raw `Vector`.
 - `supports()` takes the FQCN of a `QueryInterface` implementation.
@@ -224,6 +229,7 @@ namespace Symfony\AI\Store;
 
 interface RetrieverInterface
 {
+    /** @return iterable<Document\VectorDocumentInterface> */
     public function retrieve(string $query, array $options = []): iterable;
 }
 ```
@@ -250,8 +256,8 @@ interface QueryInterface {}
 
 final class VectorQuery implements QueryInterface
 {
-    public function __construct(Vector $vector);
-    public function getVector(): Vector;
+    public function __construct(VectorInterface $vector);
+    public function getVector(): VectorInterface;
 }
 
 final class TextQuery implements QueryInterface
@@ -263,8 +269,8 @@ final class TextQuery implements QueryInterface
 
 final class HybridQuery implements QueryInterface
 {
-    public function __construct(Vector $vector, string|array $text, float $semanticRatio = 0.5);
-    public function getVector(): Vector;
+    public function __construct(VectorInterface $vector, string|array $text, float $semanticRatio = 0.5);
+    public function getVector(): VectorInterface;
     public function getText(): string;
     public function getTexts(): array;
     public function getSemanticRatio(): float;
@@ -273,6 +279,8 @@ final class HybridQuery implements QueryInterface
 ```
 
 `HybridQuery` constructor throws `InvalidArgumentException` if `$semanticRatio` is outside `[0.0, 1.0]`.
+
+Both vector queries take `Platform\Vector\VectorInterface` (since 0.14), so a "more like this" query needs no cast: `new VectorQuery($document->getVector())` with a document returned by the store.
 
 ## Document types
 
@@ -296,12 +304,21 @@ final class TextDocument implements EmbeddableDocumentInterface
 }
 ```
 
-### VectorDocument
+### VectorDocumentInterface / VectorDocument
 
 ```php
 namespace Symfony\AI\Store\Document;
 
-final class VectorDocument
+interface VectorDocumentInterface
+{
+    public function getId(): int|string;
+    public function getVector(): VectorInterface;
+    public function getMetadata(): Metadata;
+    public function getScore(): ?float;
+    public function withScore(float $score): self;
+}
+
+final class VectorDocument implements VectorDocumentInterface
 {
     public function __construct(
         int|string $id,
@@ -317,6 +334,8 @@ final class VectorDocument
     public function getScore(): ?float;
 }
 ```
+
+Stores, retrievers, rerankers and vectorizers are typed against `VectorDocumentInterface` (since 0.14), so a store may hand back a richer document (e.g. carrying the entity it was built from). Do not narrow results to `VectorDocument` with `instanceof`.
 
 `VectorInterface` (from `Symfony\AI\Platform\Vector\VectorInterface`) exposes `getData(): list<float>` and `getDimensions(): int`.
 
@@ -386,11 +405,11 @@ interface VectorizerInterface
     public function vectorize(
         string|\Stringable|EmbeddableDocumentInterface|array $values,
         array $options = [],
-    ): Vector|VectorDocument|array;
+    ): Vector|VectorDocumentInterface|array;
 }
 ```
 
-A single method. The return type narrows by input shape : string in ⇒ `Vector` out; `EmbeddableDocumentInterface` in ⇒ `VectorDocument` out; array in ⇒ array out.
+A single method. The return type narrows by input shape : string in ⇒ `Vector` out; `EmbeddableDocumentInterface` in ⇒ `VectorDocumentInterface` out; array in ⇒ array out.
 
 ### `Vectorizer` (concrete)
 
@@ -539,6 +558,10 @@ namespace Symfony\AI\Store\Reranker;
 
 interface RerankerInterface
 {
+    /**
+     * @param list<VectorDocumentInterface> $documents
+     * @return list<VectorDocumentInterface>
+     */
     public function rerank(string $query, array $documents, int $topK = 5): array;
 }
 
@@ -552,7 +575,7 @@ final class Reranker implements RerankerInterface
 }
 ```
 
-`Reranker::rerank()` pulls text from `Metadata::KEY_TEXT` (or `KEY_SOURCE` as a fallback) and calls `$platform->invoke($model, ['query' => ..., 'texts' => [...]])->asReranking()`. It returns a `list<VectorDocument>` re-ordered by descending reranker score.
+`Reranker::rerank()` pulls text from `Metadata::KEY_TEXT` (or `KEY_SOURCE` as a fallback) and calls `$platform->invoke($model, ['query' => ..., 'texts' => [...]])->asReranking()`. It returns a `list<VectorDocumentInterface>` re-ordered by descending reranker score.
 
 ```php
 namespace Symfony\AI\Store\EventListener;
@@ -587,11 +610,11 @@ final class DistanceCalculator
         int $batchSize = 100,        // only used when maxItems is set
     );
 
-    public function calculate(array $documents, Vector $vector, ?int $maxItems = null): array;
+    public function calculate(array $documents, VectorInterface $vector, ?int $maxItems = null): array;
 }
 ```
 
-Used by `InMemory\Store` and `Bridge\Cache\Store` to score documents in-process. `calculate()` returns `VectorDocument[]` with `withScore()` applied.
+Used by `InMemory\Store` and `Bridge\Cache\Store` to score documents in-process. `calculate()` returns `VectorDocumentInterface[]` with `withScore()` applied.
 
 ## Events
 
@@ -684,13 +707,14 @@ final class Store implements ManagedStoreInterface, StoreInterface, ResetInterfa
     public function drop(array $options = []): void;
     public function reset(): void;
 
-    public function add(VectorDocument|array $documents): void;
+    public function add(VectorDocumentInterface|array $documents): void;
     public function remove(string|array $ids, array $options = []): void;
     public function clear(array $options = []): void;
     public function supports(string $queryClass): bool;
+    public function count(): int;
 
     /**
-     * @param array{maxItems?: positive-int, filter?: callable(VectorDocument): bool} $options
+     * @param array{maxItems?: positive-int, filter?: callable(VectorDocumentInterface): bool} $options
      */
     public function query(QueryInterface $query, array $options = []): iterable;
 }

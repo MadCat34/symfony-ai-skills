@@ -9,23 +9,23 @@ Each bridge exposes a concrete class : `Store`, `SearchStore` (AzureSearch), or 
 | 1 | AzureSearch | `Bridge\AzureSearch\SearchStore` | no | REST/HTTP. Class name is `SearchStore`, not `Store`. |
 | 2 | Cache | `Bridge\Cache\Store` | yes | PSR-6 + `Symfony\Contracts\Cache\CacheInterface`. |
 | 3 | ChromaDb | `Bridge\ChromaDb\Store` | yes | Requires `codewithkyrian/chromadb-php`. |
-| 4 | ClickHouse | `Bridge\ClickHouse\Store` | yes | HTTP API. |
+| 4 | ClickHouse | `Bridge\ClickHouse\Store` | yes | HTTP API; scoped client, build via `StoreFactory`. |
 | 5 | Cloudflare | `Bridge\Cloudflare\Store` | yes | HTTP API for Vectorize. |
-| 6 | Elasticsearch | `Bridge\Elasticsearch\Store` | yes | HTTP API. |
-| 7 | ManticoreSearch | `Bridge\ManticoreSearch\Store` | yes | HTTP API. |
+| 6 | Elasticsearch | `Bridge\Elasticsearch\Store` | yes | HTTP API; scoped client, build via `StoreFactory`. |
+| 7 | ManticoreSearch | `Bridge\ManticoreSearch\Store` | yes | HTTP API; scoped client, build via `StoreFactory`. |
 | 8 | MariaDb | `Bridge\MariaDb\Store` | yes | Uses its own `Distance` enum. |
 | 9 | Meilisearch | `Bridge\Meilisearch\Store` | yes | Native `semanticRatio` support (hybrid). |
-| 10 | Milvus | `Bridge\Milvus\Store` | yes | HTTP API. |
+| 10 | Milvus | `Bridge\Milvus\Store` | yes | HTTP API; scoped client, build via `StoreFactory`. |
 | 11 | MongoDb | `Bridge\MongoDb\Store` | yes | Atlas Vector Search index must be pre-created. |
-| 12 | Neo4j | `Bridge\Neo4j\Store` | yes | Vector indexes via Neo4j. |
-| 13 | OpenSearch | `Bridge\OpenSearch\Store` | yes | k-NN plugin. |
+| 12 | Neo4j | `Bridge\Neo4j\Store` | yes | Vector indexes via Neo4j; scoped client, build via `StoreFactory`. |
+| 13 | OpenSearch | `Bridge\OpenSearch\Store` | yes | k-NN plugin; scoped client, build via `StoreFactory`. |
 | 14 | Pinecone | `Bridge\Pinecone\Store` | yes | Serverless; `setup()` requires `dimension` option. |
 | 15 | Postgres | `Bridge\Postgres\Store` | yes | Requires `pgvector` extension. Uses its own `Distance` enum. |
 | 16 | Qdrant | `Bridge\Qdrant\Store` | yes | HTTP API. |
 | 17 | Redis | `Bridge\Redis\Store` | yes | Uses its own `Distance` enum (Redis-stack). |
 | 18 | S3Vectors | `Bridge\S3Vectors\Store` | yes | AWS S3 Vectors (preview). |
 | 19 | Sqlite | `Bridge\Sqlite\Store` and `Bridge\Sqlite\VecStore` | yes | Two stacks: pure SQLite (FTS5) or `sqlite-vec`. |
-| 20 | Supabase | `Bridge\Supabase\Store` | no | REST/HTTP against pgvector; table pre-created by user. |
+| 20 | Supabase | `Bridge\Supabase\Store` | no | REST/HTTP against pgvector; table pre-created by user; scoped client, build via `StoreFactory`. |
 | 21 | SurrealDb | `Bridge\SurrealDb\Store` | yes | HTTP/WebSocket. |
 | 22 | Typesense | `Bridge\Typesense\Store` | yes | HTTP API. |
 | 23 | Vektor | `Bridge\Vektor\Store` | yes | Local on-disk vector store (`centamiv/vektor`). |
@@ -93,16 +93,47 @@ Some bridges ship a `StoreFactory` class that builds the store from environment 
 - `Bridge\AzureSearch\StoreFactory`
 - `Bridge\Cache\StoreFactory`
 - `Bridge\ChromaDb\StoreFactory`
+- `Bridge\ClickHouse\StoreFactory`
 - `Bridge\Cloudflare\StoreFactory`
+- `Bridge\Elasticsearch\StoreFactory`
+- `Bridge\ManticoreSearch\StoreFactory`
 - `Bridge\Meilisearch\StoreFactory`
+- `Bridge\Milvus\StoreFactory`
+- `Bridge\Neo4j\StoreFactory`
+- `Bridge\OpenSearch\StoreFactory`
 - `Bridge\Postgres\StoreFactory`
 - `Bridge\Qdrant\StoreFactory`
 - `Bridge\Sqlite\StoreFactory`
+- `Bridge\Supabase\StoreFactory`
 - `Bridge\SurrealDb\StoreFactory`
 - `Bridge\Typesense\StoreFactory`
 - `Bridge\Weaviate\StoreFactory`
 
 Use them in `services.yaml` to keep credentials and DSNs in `.env`.
+
+### Scoped-client stores (since 0.14)
+
+The Elasticsearch, ManticoreSearch, Milvus, Neo4j, OpenSearch and Supabase `Store` constructors no longer take an endpoint or credentials: they take an `HttpClientInterface` **already scoped** to the instance as first argument (ClickHouse works the same way). Endpoint and credentials moved to `StoreFactory::create()`, which wraps the client in a `ScopingHttpClient` and applies the credentials:
+
+| Bridge          | `StoreFactory::create()` signature |
+|-----------------|------------------------------------------------------------------------|
+| ClickHouse      | `create(string $databaseName = 'default', string $tableName = 'embedding', ?string $dsn = null, ?HttpClientInterface $httpClient = null)` |
+| Elasticsearch   | `create(string $indexName, ?string $endpoint = null, ?HttpClientInterface $httpClient = null, string $vectorsField = '_vectors', int $dimensions = 1536, string $similarity = 'cosine')` |
+| ManticoreSearch | `create(string $table, ?string $endpoint = null, ?HttpClientInterface $httpClient = null, string $field = '_vectors', string $type = 'hnsw', string $similarity = 'cosine', int $dimensions = 1536, string $quantization = '8bit')` |
+| Milvus          | `create(string $database, string $collection, ?string $endpoint = null, ?string $apiKey = null, ?HttpClientInterface $httpClient = null, …)` : bearer token |
+| Neo4j           | `create(string $databaseName, string $vectorIndexName, string $nodeName, ?string $endpoint = null, ?string $username = null, ?string $password = null, ?HttpClientInterface $httpClient = null, …)` : basic auth |
+| OpenSearch      | `create(string $indexName, ?string $endpoint = null, ?HttpClientInterface $httpClient = null, string $vectorsField = '_vectors', int $dimensions = 1536, string $spaceType = 'l2')` |
+| Supabase        | `create(?string $endpoint = null, ?string $apiKey = null, ?HttpClientInterface $httpClient = null, string $table = 'documents', …)` : `apikey` header + bearer |
+
+```php
+use Symfony\AI\Store\Bridge\Milvus\StoreFactory;
+
+$store = StoreFactory::create('my_database', 'my_documents', 'http://localhost:19530', 'api-key', $httpClient);
+```
+
+Omit the endpoint and pass a pre-scoped `$httpClient` (e.g. a `scoped_clients` service from `framework.http_client`) to keep the connection details out of PHP. Credentials without an endpoint throw `InvalidArgumentException`.
+
+**Upgrading from 0.13:** do not keep positional arguments on `new Store(...)`. On several bridges the old call does not fail : the values shift into the wrong parameters (the endpoint becomes the index name, and so on). Switch to the factory or to named arguments.
 
 ## Picking a backend
 

@@ -5,12 +5,10 @@ license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.13.0"
+  version: "0.14.1"
 ---
 
 # Symfony AI (Orchestrator)
-
-> ⚠️ **Symfony AI is experimental** : APIs may break between releases. Always check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading. Last verified against `symfony/ai` **v0.13.0** on 2026-09-01.
 
 Decision tree that routes between the seven specialized Symfony AI skills.
 

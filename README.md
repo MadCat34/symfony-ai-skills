@@ -26,7 +26,7 @@ Symfony AI skills for Claude, Gemini, Codex, and any [agentskills.io](https://ag
 ## Version window
 
 - **PHP** 8.2+
-- **Symfony** 7.3+ / 8.0 (31 of the 43 `symfony/*` constraints in the monorepo are `^7.3|^8.0`; 6.4 is not installable)
+- **Symfony** 7.3+ / 8.0+
 
 Examples are tested against this version window. Older versions of Symfony AI may require command tweaks (see `UPGRADE.md` in the [monorepo](https://github.com/symfony/ai)).
 
@@ -65,7 +65,7 @@ We use the standard `{api,patterns,gotchas}.md` scheme by default. For skills wi
 
 | Skill       | Extra references                            | Justification                                                                                                                   |
 | ----------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `platform`  | `bridges.md`, `embeddings.md`               | 37-bridge catalogue + embedding-specific contract are too large to fold into `api.md`                                           |
+| `platform`  | `bridges.md`, `embeddings.md`               | 43-bridge catalogue + embedding-specific contract are too large to fold into `api.md`                                           |
 | `store`     | `bridges.md`                                | 24-store catalogue too large to fold into `api.md`                                                                              |
 | `ai-bundle` | `config.md`, `processors.md`, `security.md` | Three orthogonal subsystems; `config` covers YAML, `processors` covers the typed pipeline, `security` covers `#[IsGrantedTool]` |
 
@@ -78,6 +78,8 @@ These skills track the [symfony/ai](https://github.com/symfony/ai) monorepo, whi
 - After every Symfony AI minor release (check the [releases page](https://github.com/symfony/ai/releases)).
 - Quarterly, to catch undocumented API drift.
 - Whenever a new bridge is added to Platform or Store (regenerate the bridge catalogue via `ls ai/src/{platform,store}/src/Bridge/`).
+
+When citing the Symfony AI source, never use line numbers (`lines 361-367`, `File.php:55`) : they drift every release. Anchor to a stable symbol instead : `Class::method()`, a service id, or a config node path (the `ai.agent.<name>.tools` node of `config/options.php`). `grep -rnE '\blines? [0-9]+|\.php:[0-9]+' skills` must stay empty.
 
 ### Sources of truth
 

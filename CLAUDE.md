@@ -48,6 +48,7 @@ Enforced by CI or by convention; breaking one silently breaks skill loading in t
 - **Reference filenames come from a closed whitelist**: `api`, `patterns`, `gotchas`, `bridges`, `embeddings`, `config`, `processors`, `security`. Adding a ninth name means editing *three* places: the `case` statement in `.gitlab-ci.yml`'s `lint:references` job, the same statement in `.github/workflows/ci.yml`'s `lint-references` job, and the justification table in `README.md` ("Reference naming convention").
 - **`symfony-ai` is excluded** from `lint:references` and from `skills-ref validate` — it is a meta-skill with no references.
 - **Every `symfony/ai-*` and `symfony/mcp-*` package name appearing anywhere under `skills/` must resolve on Packagist.** A typo in a bridge package name fails `check:composer`.
+- **Never cite source line numbers** (`lines 361-367`, `File.php:55`). They drift every release. Anchor to a stable symbol instead: `Class::method()`, a service id (`ai.data_collector` in `config/services.php`), or a config node path (the `ai.agent.<name>.tools` node of `config/options.php`). By convention, not CI-enforced; `grep -rnE '\blines? [0-9]+|\.php:[0-9]+' skills` must stay empty.
 
 ## Architecture
 

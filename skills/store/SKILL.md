@@ -5,14 +5,12 @@ license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.13.0"
+  version: "0.14.1"
 ---
 
 # Store : Symfony AI
 
 > **Store requires a configured Platform for embeddings. In the `platform` skill, read `references/embeddings.md` first. No Platform → no embeddings → no store.**
-
-> **Symfony AI is experimental.** APIs may break between releases. Always check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading.
 
 The persistence + retrieval layer for Symfony AI. The embedding model lives in `platform`; the Store component borrows it to turn text into vectors and persist them in a backend you choose.
 
@@ -131,18 +129,20 @@ The interfaces never take a `PlatformInterface` directly : wiring goes through `
 
 - `TextDocument(int|string $id, string $content, Metadata $metadata = new Metadata())` : note the required `id`. Empty content throws `InvalidArgumentException`.
 - `Metadata` extends `\ArrayObject`. Reserved keys: `_parent_id`, `_text`, `_source`, `_summary`, `_title`, `_depth`.
-- `VectorDocument(int|string $id, VectorInterface $vector, Metadata $metadata = new Metadata(), ?float $score = null)` : `withScore()` returns a new instance with an updated score.
+- `VectorDocument(int|string $id, VectorInterface $vector, Metadata $metadata = new Metadata(), ?float $score = null)` : `withScore()` returns a new instance with an updated score. Stores, retrievers and rerankers are typed against `VectorDocumentInterface` (since 0.14); never narrow results to the final `VectorDocument`.
 - `Vector` (from `Symfony\AI\Platform\Vector`) exposes `getData(): list<float>` and `getDimensions(): int`.
 
 ### Query types
 
 `StoreInterface::query()` takes a `QueryInterface`:
 
-- `VectorQuery(Vector $vector)` : pure vector similarity.
+- `VectorQuery(VectorInterface $vector)` : pure vector similarity. Feed a returned document's `getVector()` straight back in for "more like this".
 - `TextQuery(string|array $text)` : keyword / full-text only. Internally uses `Metadata::KEY_TEXT`.
-- `HybridQuery(Vector $vector, string|array $text, float $semanticRatio = 0.5)` : combined; the ratio must be `0.0-1.0`.
+- `HybridQuery(VectorInterface $vector, string|array $text, float $semanticRatio = 0.5)` : combined; the ratio must be `0.0-1.0`.
 
 Always call `$store->supports(VectorQuery::class)` before issuing a vector query, since some bridges are text-only or FTS-only.
+
+`StoreInterface` extends `\Countable` (since 0.14): `count($store)` returns the number of stored documents.
 
 ### Lifecycle commands
 

@@ -318,6 +318,8 @@ final class DocsLookup
 
 The connection opens lazily on the first call (`callTool()`, `getTools()`, ...), not on `get()` or on service construction. With a single configured client, a plain `McpClientInterface $docs` type hint also works without matching by name.
 
+To hand a remote server's tools to an **agent** instead of calling them yourself, reference the same connection from `ai-bundle` (since 0.14): `ai.agent.<name>.tools: [{ mcp_server: 'docs.readme' }]` (requires `symfony/ai-mcp-tool`). The agent reuses this connection; no second one is opened. See the `ai-bundle` skill.
+
 ```bash
 php bin/console debug:mcp --client=docs      # connect and list what "readme" advertises
 php bin/console debug:mcp --clients          # list configured clients without connecting

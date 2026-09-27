@@ -1,6 +1,6 @@
 # Platform : Bridges
 
-All 37 platform bridges verified by reading every
+All 43 platform bridges verified by reading every
 `https://github.com/symfony/ai/tree/main/src/platform/src/Bridge/<Dir>/composer.json`.
 Each bridge is a separate Composer package : install only what you use.
 
@@ -41,14 +41,17 @@ read the `name` field of each `composer.json`.
 | DeepSeek          | `symfony/ai-deep-seek-platform`           | DeepSeek                                        |
 | Deepgram          | `symfony/ai-deepgram-platform`            | Deepgram STT                                    |
 | DockerModelRunner | `symfony/ai-docker-model-runner-platform` | Docker Model Runner                             |
+| EdenAi            | `symfony/ai-eden-ai-platform`             | Eden AI gateway + OCR/STT/TTS/image (async jobs) |
 | ElevenLabs        | `symfony/ai-eleven-labs-platform`         | ElevenLabs TTS                                  |
 | Failover          | `symfony/ai-failover-platform`            | `FailoverPlatform` decorator                    |
+| Fireworks         | `symfony/ai-fireworks-platform`           | Fireworks AI: chat + embeddings + rerank        |
 | Gemini            | `symfony/ai-gemini-platform`              | Google Gemini direct                            |
 | Generic           | `symfony/ai-generic-platform`             | OpenAI-compatible completions + embed           |
+| Higgsfield        | `symfony/ai-higgsfield-platform`          | Higgsfield image/video generation (async jobs)  |
 | HuggingFace       | `symfony/ai-hugging-face-platform`        | HF Inference API (multi-task)                   |
 | LmStudio          | `symfony/ai-lm-studio-platform`           | LM Studio local                                 |
 | Meta              | `symfony/ai-meta-platform`                | Llama (Llama.php + prompt converter)            |
-| MiniMax           | `symfony/ai-mini-max-platform`            | MiniMax provider                                |
+| MiniMax           | `symfony/ai-mini-max-platform`            | MiniMax provider (video / async TTS are jobs)   |
 | Mistral           | `symfony/ai-mistral-platform`             | Mistral + Embeddings + OCR                      |
 | ModelsDev         | `symfony/ai-models-dev-platform`          | models.dev catalogue aggregator                 |
 | Ollama            | `symfony/ai-ollama-platform`              | Ollama local                                    |
@@ -57,9 +60,12 @@ read the `name` field of each `composer.json`.
 | OpenRouter        | `symfony/ai-open-router-platform`         | OpenRouter aggregator + Rerank + Speech         |
 | Ovh               | `symfony/ai-ovh-platform`                 | OVHcloud AI Endpoints                           |
 | Perplexity        | `symfony/ai-perplexity-platform`          | Perplexity search LLM                           |
-| Replicate         | `symfony/ai-replicate-platform`           | Replicate (Llama client)                        |
+| Replicate         | `symfony/ai-replicate-platform`           | Replicate (every call is an async job)          |
 | Scaleway          | `symfony/ai-scaleway-platform`            | Scaleway GenAI (LLM + Embeddings + Responses)   |
+| Together          | `symfony/ai-together-platform`            | Together: chat, embed, image, TTS, STT, rerank  |
 | TransformersPhp   | `symfony/ai-transformers-php-platform`    | TransformersPHP local pipeline                  |
+| TypeSafe          | `symfony/ai-type-safe-platform`           | TypeSafe typed-question evaluation (Jev models) |
+| Venice            | `symfony/ai-venice-platform`              | Venice AI: chat, embed, image, TTS, STT, video  |
 | VertexAi          | `symfony/ai-vertex-ai-platform`           | Vertex AI (Embeddings + Gemini)                 |
 | Voyage            | `symfony/ai-voyage-platform`              | Voyage embeddings                               |
 
@@ -74,7 +80,11 @@ These target major commercial APIs and require a vendor API key.
   `Factory::createPlatform()` are the canonical reference shape.
 - `symfony/ai-anthropic-platform` : Anthropic Claude. `Factory::createPlatform()`
   accepts a `cacheRetention` parameter (`'none'|'short'|'long'`, default
-  `'short'`) that controls Anthropic prompt caching.
+  `'short'`) that controls Anthropic prompt caching. Since 0.14 the
+  `server_tools` option maps `web_search` and `code_execution` to their
+  versioned Anthropic tool spec (`['server_tools' => ['web_search' => ['max_uses' => 3]]]`);
+  unmapped names throw. A web search comes back as a `Result\WebSearchResult`
+  part of a `MultiPartResult` (read with `asMultiPart()`).
 - `symfony/ai-mistral-platform` : Mistral chat + Embeddings + OCR.
 - `symfony/ai-cohere-platform` : Cohere chat + Embeddings + Rerank + Speech-to-Text.
   This is the **canonical reranking bridge** in this codebase (see
@@ -89,7 +99,13 @@ These target major commercial APIs and require a vendor API key.
 - `symfony/ai-amazee-ai-platform` : Amazee.AI.
 - `symfony/ai-cerebras-platform` : Cerebras inference.
 - `symfony/ai-mini-max-platform` : MiniMax (its own provider; **not** an
-  Anthropic alias).
+  Anthropic alias). Video generation and `async: true` speech return a
+  `JobResult` since 0.14 : resolve with `Factory::createJobClient()` +
+  `JobRunner` (see `api.md` → Asynchronous jobs).
+- `symfony/ai-venice-platform` : Venice AI (chat with `venice_parameters`,
+  embeddings, image generation/editing/upscaling, TTS, STT, async video jobs).
+- `symfony/ai-type-safe-platform` : TypeSafe, evaluates typed questions
+  (choice, score, …) against a state with the Jev models; not a chat LLM.
 - `symfony/ai-decart-platform` : Decart video.
 - `symfony/ai-models-dev-platform` : models.dev catalogue aggregator (provides
   `ProviderRegistry` + `CapabilityMapper`, not its own HTTP transport).
@@ -124,7 +140,14 @@ Inference you run yourself.
 - `symfony/ai-cartesia-platform` : Cartesia TTS / voice.
 - `symfony/ai-deepgram-platform` : Deepgram STT.
 - `symfony/ai-eleven-labs-platform` : ElevenLabs TTS.
-- `symfony/ai-replicate-platform` : Replicate (Llama client).
+- `symfony/ai-replicate-platform` : Replicate. Every model runs as a
+  prediction, so since 0.14 **every** invocation returns a `JobResult` : call
+  `->asJob()` and resolve through `Factory::createJobClient()` + `JobRunner`.
+- `symfony/ai-higgsfield-platform` : Higgsfield asynchronous image and video
+  generation (job client).
+- `symfony/ai-eden-ai-platform` : Eden AI gateway : OpenAI-compatible chat and
+  embeddings, plus expert models (OCR, document parsing, TTS, async
+  speech-to-text, image analysis/generation).
 
 ### Aggregators / orchestrators
 
@@ -133,6 +156,10 @@ Inference you run yourself.
 - `symfony/ai-hugging-face-platform` : HuggingFace Inference API.
 - `symfony/ai-generic-platform` : Generic OpenAI-compatible completion +
   embeddings (for self-hosted proxies).
+- `symfony/ai-fireworks-platform` : Fireworks AI (OpenAI-compatible chat,
+  embeddings, reranking).
+- `symfony/ai-together-platform` : Together AI (chat, embeddings, image
+  generation, TTS, STT, reranking).
 
 ### Subprocess-based agents (process wrappers)
 
@@ -157,7 +184,8 @@ These wrap any `PlatformInterface`; they do not target a vendor themselves.
 
 ## Reranking : where to find it
 
-Two bridges ship rerank models. There is **no** Voyage rerank.
+Cohere and OpenRouter ship dedicated rerank models; Fireworks and Together
+(since 0.14) also serve reranking through `asReranking()`. There is **no** Voyage rerank.
 
 - `symfony/ai-cohere-platform` : `Bridge\Cohere\Reranker` with models
   `rerank-v3.5`, `rerank-v4.0-fast`, `rerank-v4.0-pro`, `rerank-english-v3.0`,

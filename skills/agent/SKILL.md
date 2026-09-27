@@ -5,12 +5,10 @@ license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.13.0"
+  version: "0.14.1"
 ---
 
 # Agent
-
-> ⚠️ **Symfony AI is experimental** : APIs may break between releases. Always check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading.
 
 The high-level framework for building AI agents on top of `symfony/ai-platform`. An `Agent` is a `PlatformInterface` wrapped with a typed input/output processor pipeline, an optional tool-calling loop, optional memory hydration, and (on top) a `MultiAgent` router or a `SpeechAgent` wrapper.
 
@@ -125,6 +123,10 @@ See `references/gotchas.md` for the full list (processor order, idempotence, rec
 | Embedding-based memory             | `EmbeddingProvider($platform, $model, $vectorStore)` + `MemoryInputProcessor` |
 | Multi-agent routing                | `MultiAgent($orchestrator, [Handoff, ...], $fallback)`                        |
 | Speech + chat                      | `SpeechAgent($agent, SpeechConfiguration, $stt, $tts)`                        |
+| Concurrent I/O-bound tool calls    | `toolExecutor: new FiberToolExecutor($toolbox)` + `SuspendableTrait` in tools |
+| Tools from several toolboxes       | `ChainToolbox([$localToolbox, $mcpToolbox])` (duplicate names throw)          |
+| DTO as the tool's argument schema  | `__invoke(#[MapToolArguments] MyDto $dto)`                                    |
+| Stop a running agent               | `$execution->cancel()` (then consuming it throws `RuntimeException`)          |
 
 ## References
 

@@ -27,11 +27,11 @@ services:
         autoconfigure: true
 ```
 
-If `autoconfigure: false` is set, `AiBundle::loadExtension()` calls `registerAttributeForAutoconfiguration(AsTool::class, …)` (lines 333-339), `AsInputProcessor` (lines 341-346), `AsOutputProcessor` (lines 348-353), and `IsGrantedTool` (lines 370-373) silently have no effect : your services are not tagged, and the agent never sees the tools. No warning is emitted.
+If `autoconfigure: false` is set, the `registerAttributeForAutoconfiguration()` calls in `AiBundle::loadExtension()` for `AsTool`, `AsInputProcessor`, `AsOutputProcessor`, and `IsGrantedTool` silently have no effect : your services are not tagged, and the agent never sees the tools. No warning is emitted.
 
 ## 2. Service tag duplicates
 
-Two `#[AsTool]` attributes on the same method/class produce two tags. The bundle does **not** deduplicate by service id + tool name : `AiBundle::loadExtension()` lines 333-339 just calls `addTag('ai.tool', …)` per attribute occurrence. If you accidentally duplicate, the toolbox exposes the same tool twice and the LLM may pick either. Check with `bin/console debug:container --tag=ai.tool` after changes.
+Two `#[AsTool]` attributes on the same method/class produce two tags. The bundle does **not** deduplicate by service id + tool name : `AiBundle::loadExtension()` (the `AsTool` autoconfiguration closure) just calls `addTag('ai.tool', …)` per attribute occurrence. If you accidentally duplicate, the toolbox exposes the same tool twice and the LLM may pick either. Check with `bin/console debug:container --tag=ai.tool` after changes.
 
 ## 3. Env var interpolation
 
@@ -47,7 +47,7 @@ Container parameters are static after compilation. `'%VAR%'` interpolation from 
 
 ## 4. Profiler in production
 
-The data collector and traceable decorators are removed when `kernel.debug` is false (`AiBundle::loadExtension()` lines 381-384; `DebugCompilerPass::process()` line 32). There is **no** `ai.profiler.enabled` YAML key. Do not try to enable the data collector in production : it is intentionally absent.
+The data collector and traceable decorators are removed when `kernel.debug` is false (`AiBundle::loadExtension()` removes `ai.data_collector` and `ai.traceable_toolbox`; `DebugCompilerPass::process()` returns early). There is **no** `ai.profiler.enabled` YAML key. Do not try to enable the data collector in production : it is intentionally absent.
 
 If you want metrics in production, write a custom output processor (see `references/processors.md`) that pushes to your APM and tags it `#[AsOutputProcessor]` so it runs against every agent.
 
@@ -59,13 +59,13 @@ If you want metrics in production, write a custom output processor (see `referen
 
 `ProcessorCompilerPass::process()` sorts each agent's input and output processors by priority descending — the *same* comparator for both lists, so higher priority is first in **both** chains, not last on output. If you register the same processor via attribute **and** manually in `services.yaml` with two different priorities, you get two tags on the same service and the order is non-deterministic. Stick to one registration path.
 
-Interface-tagged processors (`tagged_by: 'interface'`) are deduped per service (`ProcessorCompilerPass::process()` lines 38-40) : only the first tag of an interface-tagged service is kept.
+Interface-tagged processors (`tagged_by: 'interface'`) are deduped per service (`ProcessorCompilerPass::process()`, the `tagged_by: 'interface'` check) : only the first tag of an interface-tagged service is kept.
 
 ## 7. Processor scope (per-agent vs global)
 
-`#[AsInputProcessor(agent: 'ai.agent.<name>')]` binds to a specific service id. `agent: null` (or `#[AsInputProcessor]` with no args) applies to **every** `ai.agent.*` service (the compiler pass matches either exact id or null : lines 42-43).
+`#[AsInputProcessor(agent: 'ai.agent.<name>')]` binds to a specific service id. `agent: null` (or `#[AsInputProcessor]` with no args) applies to **every** `ai.agent.*` service (`ProcessorCompilerPass::process()` matches either exact id or null).
 
-Built-in `SystemPromptInputProcessor` and `MemoryInputProcessor` are tagged with the specific agent id (`AiBundle::processAgentConfig()` lines 1353, 1377) : they do not leak across agents. The `ToolProcessor` is tagged with the agent id and **both** input and output (lines 1281-1282).
+Built-in `SystemPromptInputProcessor` and `MemoryInputProcessor` are tagged with the specific agent id (`AiBundle::processAgentConfig()`, priorities `-30` and `-40`) : they do not leak across agents. Tool calling is not a processor (there is no `ToolProcessor`/`AgentProcessor` since 0.13) : the toolbox is wired straight onto the `Agent` service.
 
 ## 8. `IsGrantedTool` always throws
 
@@ -75,7 +75,7 @@ There is no `throwOnDenied` parameter and no `throw_on_tool_denied` key : denial
 
 If you change an `#[AsTool]` method's `name`, `description`, or `method`, the change does not take effect until you clear the container cache. The bundle does not hot-reload attribute metadata. Run `bin/console cache:clear --env=dev` (and `--env=prod` for prod builds).
 
-The `SchemaProviderValidationPass` (`SchemaProviderValidationPass::process()` lines 28-66) also runs at compile time: if you add `#[Schema(provider: 'some.service')]` on a tool parameter, the provider must be tagged `ai.platform.json_schema.provider` (auto-registered via `SchemaProviderInterface`) or the container build fails.
+The `SchemaProviderValidationPass` (`SchemaProviderValidationPass::process()`) also runs at compile time: if you add `#[Schema(provider: 'some.service')]` on a tool parameter, the provider must be tagged `ai.platform.json_schema.provider` (auto-registered via `SchemaProviderInterface`) or the container build fails.
 
 ## 10. Service IDs vs class names in `tools.services`
 
@@ -92,17 +92,17 @@ ai:
                       description: 'Delegate to the default agent.'
 ```
 
-`config/options.php` lines 287-310 accept both. Class names work because Symfony's container resolves them to their default service id. Use service ids when the class is abstract or autowiring-disabled.
+The `ai.agent.<name>.tools.services` node of `config/options.php` accepts both. Class names work because Symfony's container resolves them to their default service id. Use service ids when the class is abstract or autowiring-disabled.
 
 ## 11. Missing optional package fails the build
 
-`AiBundle::loadExtension()` lines 368-413 use `ContainerBuilder::willBeAvailable()` to remove services for missing optional packages. For most optional deps this is graceful. For `symfony/ai-agent` (used by `ai.agent.*`, `ai.multi_agent.*`, `ai.command.chat`), `symfony/ai-store` (used by `ai.store.*`, `ai.indexer.*`, `ai.retriever.*`), `symfony/ai-chat` (used by `ai.chat.*`, `ai.message_store.*`), and every per-provider bridge (e.g. `symfony/ai-open-ai-platform`), the bundle throws `RuntimeException` with a `composer require …` hint at compile time if you configure the key without installing the package.
+`AiBundle::loadExtension()` (its trailing optional-package checks) uses `ContainerBuilder::willBeAvailable()` to remove services for missing optional packages. For most optional deps this is graceful. For `symfony/ai-agent` (used by `ai.agent.*`, `ai.multi_agent.*`, `ai.command.chat`), `symfony/ai-store` (used by `ai.store.*`, `ai.indexer.*`, `ai.retriever.*`), `symfony/ai-chat` (used by `ai.chat.*`, `ai.message_store.*`), and every per-provider bridge (e.g. `symfony/ai-open-ai-platform`), the bundle throws `RuntimeException` with a `composer require …` hint at compile time if you configure the key without installing the package.
 
-For `symfony/security-core`, the autoconfig `IsGrantedTool` closure throws on any service carrying the attribute (lines 370-373). Install the package.
+For `symfony/security-core`, the autoconfig `IsGrantedTool` closure registered by `AiBundle::loadExtension()` throws on any service carrying the attribute. Install the package.
 
 ## 12. Compiler-pass ordering
 
-Three passes are added (`AiBundle::build()` lines 180-182): `DebugCompilerPass`, `ProcessorCompilerPass`, `SchemaProviderValidationPass`. They are added in that order; Symfony DI runs them after the rest of the container is built. Adding your own pass that decorates `ai.agent.*` will run after `ProcessorCompilerPass`, which is the one that writes input/output processor arrays into agent arguments (lines 68-70). If you replace the agent definition entirely, your processors will be lost.
+Three passes are added (`AiBundle::build()`): `DebugCompilerPass`, `ProcessorCompilerPass`, `SchemaProviderValidationPass`. They are added in that order; Symfony DI runs them after the rest of the container is built. Adding your own pass that decorates `ai.agent.*` will run after `ProcessorCompilerPass`, which is the one that writes input/output processor arrays into agent arguments (`$inputProcessors` / `$outputProcessors`). If you replace the agent definition entirely, your processors will be lost.
 
 ## See also
 

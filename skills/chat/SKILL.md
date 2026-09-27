@@ -5,12 +5,10 @@ license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.13.0"
+  version: "0.14.1"
 ---
 
 # Chat
-
-> ⚠️ **Symfony AI is experimental** : APIs may break between releases. Always check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading.
 
 The `symfony/ai-chat` component wraps an `Agent` with a `MessageStoreInterface` so that a conversation survives across requests. The agent stays stateless; persistence is delegated to a pluggable store (in-memory, Doctrine DBAL, Redis, MongoDB, Meilisearch, Cache, Session, Cloudflare KV, SurrealDB, Pogocache).
 

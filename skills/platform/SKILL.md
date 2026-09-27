@@ -5,14 +5,12 @@ license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.13.0"
+  version: "0.14.1"
 ---
 
 # Platform
 
-> **Symfony AI is experimental** : APIs may break between releases. Always check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading.
-
-Unified abstraction over 37 LLM / multimodal providers living under
+Unified abstraction over 43 LLM / multimodal providers living under
 `Symfony\AI\Platform\Bridge\*`. One `Platform` service, one `invoke()` call site,
 many providers.
 
@@ -120,12 +118,18 @@ explanations in `references/gotchas.md`.
   `symfony/ai-platform`.
 - **`MiniMax` is its own provider.** `Bridge\MiniMax\Factory` ships in
   `symfony/ai-mini-max-platform`; it is **not** an Anthropic alias.
+- **Async providers return a job, not a result (0.14).** Replicate (every
+  call), MiniMax (video, `async: true` speech), Higgsfield, Venice video, Eden AI
+  STT and OpenAI batches return a `JobResult`: `asText()`/`asFile()` throw
+  `UnexpectedResultTypeException`. Use `->asJob()` then
+  `(new JobRunner())->wait(Factory::createJobClient($apiKey), $handle)`; read
+  `references/api.md` → Asynchronous jobs.
 
 ## Common tasks
 
 - **Switch provider**: change `OpenAiFactory::createPlatform(...)` to e.g.
   `Anthropic\Factory::createPlatform(...)`. Read `references/bridges.md` for
-  the catalogue of 37 packages.
+  the catalogue of 43 packages.
 - **Get structured JSON back**: pass `'response_format' => MyDto::class` (or an
   instance) in `$options`. Read `references/patterns.md#structured-output`.
 - **Call a tool from raw Platform**: define a `Tool` with an
@@ -150,7 +154,7 @@ pick the one that fits the question.
   [`references/api.md`](references/api.md) when the user wants the full
   namespace tree, real method signatures, or how `ResultInterface` differs
   from `DeferredResult`.**
-- **All 37 bridges, grouped by category, with real package names: read
+- **All 43 bridges, grouped by category, with real package names: read
   [`references/bridges.md`](references/bridges.md) when the user picks a
   provider or asks "which packages exist for X?".**
 - **Embeddings, Vector, reranking contracts and a working RAG skeleton:

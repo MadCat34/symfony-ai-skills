@@ -25,6 +25,7 @@ hits a specific failure mode.
 - 18. Stream consumers and intermediate validity
 - 19. `FailoverPlatform` does not retry, map models, or resume streams
 - 20. Capability guards: exact cases, no invention
+- 21. Async providers return a `JobResult` (0.14)
 
 ## 1. `TokenUsage` is `final`, fields are `private readonly ?int`
 
@@ -39,6 +40,17 @@ provider that does not report a given counter returns `null`, not `0`.
 `TokenUsageInterface` is the right type to type-hint against when accepting
 either a single `TokenUsage` or a `TokenUsageAggregation` (sums numeric
 fields, min()es `remaining*`).
+
+Since 0.14 the interface also declares `getModel(): ?string` (the model the
+provider says consumed the tokens; a 12th, optional constructor argument on
+`TokenUsage`). A custom `TokenUsageInterface` implementation must add it.
+`TokenUsageAggregation::getModel()` is `null` as soon as the summed usages
+disagree : price mixed-model runs by iterating `getTokenUsages()`.
+
+A result converter overriding
+`Bridge\Generic\Completions\CompletionsConversionTrait::convertStreamUsage()`
+must accept the new second argument:
+`protected function convertStreamUsage(array $usage, ?string $model = null): TokenUsage`.
 
 ## 2. `FinishReason` is a `final class`, not an enum : and cases differ
 
@@ -174,7 +186,7 @@ tool-call responses are modelled as `ToolCallMessage` carrying the
   `File` subclass) with `new File(string|\Closure $data, string $format, ?string $path = null)`.
   `$format` **is** the MIME type: `File::fromFile()` fills it with
   `mime_content_type($path)` and `File::fromDataUrl()` with the substring
-  between `data:` and `;base64,` (`File.php:55-64`). Pass `'image/png'`.
+  between `data:` and `;base64,`. Pass `'image/png'`.
 - Provider size limits differ (OpenAI 20 MB images, Anthropic 5 MB,
   Gemini 20 MB), but **nothing in `src/platform/` enforces them**. There is
   no local size check: an oversized file is sent and the provider's API
@@ -314,3 +326,22 @@ Capability names that **do not exist** in this codebase (do not invent):
 `OUTPUT_STRUCTURED`), `FUNCTION_CALLING` (use `TOOL_CALLING`),
 `TEXT_COMPLETION`, `CHAT`. The complete list is the enum body in
 `https://github.com/symfony/ai/tree/main/src/platform/src/Capability.php`.
+
+## 21. Async providers return a `JobResult` (0.14)
+
+Replicate (every invocation), MiniMax (video, `async: true` speech), Higgsfield,
+Venice video, Eden AI speech-to-text and OpenAI batches (`'batch' => true`) no
+longer block until the provider is done. They return a `Result\JobResult`
+carrying a serializable `Job\JobHandle`:
+
+- `asText()` / `asBinary()` / `asFile()` on it throw `UnexpectedResultTypeException`.
+  Call `->asJob()` and resolve with `(new JobRunner())->wait($jobClient, $handle)`.
+- The job client comes from the **bridge factory** (`Factory::createJobClient($apiKey)`),
+  not from the platform. `wait()` throws `InvalidArgumentException` if the client
+  does not support the handle's provider.
+- `JobTimeoutException` does not mean the job failed : it may still be running.
+  Keep the handle (`toString()` / `fromString()`) and wait again later, ideally
+  from a Messenger worker. `JobFailedException` means a terminal failure.
+- `Bridge\MiniMax\MiniMaxResultConverter` no longer takes an HTTP client, API
+  key, endpoint or clock, and `Bridge\Replicate\Client` no longer takes a clock
+  (`new Client($httpClient, $apiKey)`). Code going through `Factory` is unaffected.

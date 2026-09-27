@@ -26,6 +26,8 @@ Source of truth: `https://github.com/symfony/ai/tree/main/src/store/src/`. Every
 - 20. Generated chunk UUIDs and naive replacement
 - 21. `semanticRatio` is not portable across hybrid implementations
 - 22. Reranker failure when text metadata is absent
+- 23. Scoped-client stores and positional arguments (0.14)
+- 24. Elasticsearch / OpenSearch `_bulk` partial failures throw
 
 ## 1. Embedding-model match (index-time vs query-time)
 
@@ -189,7 +191,7 @@ The score on a `VectorDocument` is `null` until the store has ranked it. Some st
 
 ## 13. Adding documents without an id
 
-`TextDocument::__construct(int|string $id, string $content, Metadata $metadata = new Metadata())` : the id is **required** and must be the first positional argument. Loaders that don't have an obvious id use `Uuid::v4()`. `RssFeedLoader` is the exception and the difference matters: it reuses the item's `<guid>` when that is a valid UUID, and otherwise derives a **deterministic `Uuid::v5($namespace, $guid ?? $link)`** (`RssFeedLoader.php:71`). Re-indexing the same feed therefore produces the same ids and updates rows in place, where a v4-based loader would insert duplicates. Your custom documents must pick the semantics they want deliberately.
+`TextDocument::__construct(int|string $id, string $content, Metadata $metadata = new Metadata())` : the id is **required** and must be the first positional argument. Loaders that don't have an obvious id use `Uuid::v4()`. `RssFeedLoader` is the exception and the difference matters: it reuses the item's `<guid>` when that is a valid UUID, and otherwise derives a **deterministic `Uuid::v5($namespace, $guid ?? $link)`** (`RssFeedLoader::load()`). Re-indexing the same feed therefore produces the same ids and updates rows in place, where a v4-based loader would insert duplicates. Your custom documents must pick the semantics they want deliberately.
 
 ## 14. `Vectorizer::vectorize()` on arrays of `EmbeddableDocumentInterface`
 
@@ -238,7 +240,7 @@ The Store component does not ship a source manifest, change-data-capture, or sch
 
 - **Vectorizer** (`Document\Vectorizer`, `Document\VectorizerInterface`): calls the platform to turn text into vectors.
 
-- **Indexer** (`DocumentIndexer`, `SourceIndexer`, `ConfiguredSourceIndexer`): wires the previous stages and calls `Store::add()`.
+- **Indexer** (`DocumentIndexer`, `SourceIndexer`, `ConfiguredSourceIndexer`): wires the previous stages and calls `Store::add()`. Since 0.14 `SourceIndexer::index($source, $options)` passes `$options` to the loader **and** to the processor, so a custom loader receives `chunk_size`, `platform_options`, etc. alongside its own keys : ignore unknown options, never throw on them.
 
 Symfony AI provides each stage in isolation. It does **not** track which sources have been indexed, which file mtimes changed, or which documents were deleted upstream. You decide:
 
@@ -305,3 +307,11 @@ To repair:
 - flip the `Vectorizer` constructor to `includeText: true` and re-index the affected sources (chunk UUIDs change : see gotcha #20),
 
 - or apply a `ChainTransformer` step that writes `Metadata::setText($document->getContent())` for every document, then re-index.
+
+## 23. Scoped-client stores and positional arguments (0.14)
+
+Elasticsearch, ManticoreSearch, Milvus, Neo4j, OpenSearch and Supabase `Store` constructors take an `HttpClientInterface` scoped to the instance as first argument; endpoint and credentials moved to each bridge's `StoreFactory::create()`. A 0.13-style `new Store($httpClient, 'http://…', 'api-key', …)` does not always fail : on several bridges the values shift into the wrong parameters and the store silently targets a wrong index or collection. Use the `StoreFactory` or named arguments. See `references/bridges.md` → "Scoped-client stores".
+
+## 24. Elasticsearch / OpenSearch `_bulk` partial failures throw
+
+A `_bulk` request is answered with HTTP 200 even when individual operations failed. Since 0.14.1 the Elasticsearch and OpenSearch stores inspect the per-item errors and throw a `RuntimeException` ("Failed to process N of M bulk operation(s)…") from `add()` and `remove()` instead of silently dropping documents. Catch it around indexing runs; a mapping mismatch (wrong `dimensions`) is the usual cause.

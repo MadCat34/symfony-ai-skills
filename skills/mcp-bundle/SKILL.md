@@ -5,12 +5,10 @@ license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.13.0"
+  version: "0.14.1"
 ---
 
 # MCP Bundle
-
-> ⚠️ **Symfony AI is experimental** : APIs may break between releases. Always check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading. The bundle itself is also marked experimental in the source `README.md` and not covered by Symfony's Backward Compatibility Promise.
 
 Build an MCP (Model Context Protocol) server inside your Symfony application. The bundle WRAPS the official [`mcp/sdk`](https://github.com/modelcontextprotocol/php-sdk) : `#[McpTool]`, `#[McpPrompt]`, `#[McpResource]`, `#[McpResourceTemplate]` come from the SDK namespace `Mcp\Capability\Attribute\`, not from this bundle. The bundle adds Symfony service auto-discovery (replacing the SDK's file-based discovery), container compilation of handlers, an HTTP controller, a STDIO console command, a debug command, a Profiler data collector, and the `#[AsMcpApp]` / `#[AsMcpAppTool]` UI-resource layer.
 
@@ -45,7 +43,7 @@ For UI-resource MCP Apps (the `#[AsMcpApp]` flow), also install Twig:
 composer require symfony/twig-bundle
 ```
 
-For the Profiler panel to show MCP capabilities on every request: keep `kernel.debug = true` : the data collector is registered conditionally on that flag (in `McpBundle::configureClient()`, lines 184-192, called from `loadExtension()`).
+For the Profiler panel to show MCP capabilities on every request: keep `kernel.debug = true` : the data collector is registered conditionally on that flag (in `McpBundle::configureClient()`, called from `loadExtension()`).
 
 ## Quick reference
 

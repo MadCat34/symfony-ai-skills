@@ -5,12 +5,10 @@ license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.13.0"
+  version: "0.14.1"
 ---
 
 # AI Bundle
-
-> ⚠️ **Symfony AI is experimental** : APIs may break between releases. Always check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading.
 
 The Symfony integration layer for the AI components. Wires `Platform`, `Agent`, `Store`, `Chat`, `Indexer`, `Retriever`, `Vectorizer`, and `MultiAgent` as Symfony services; registers tools and processors via PHP attributes; integrates with Symfony Security (`#[IsGrantedTool]`), the Profiler data collector (auto-loaded when `kernel.debug` is true), and the DI compiler passes for processor ordering, JSON-schema provider validation, and traceable decorator wrapping.
 
@@ -41,7 +39,7 @@ composer require symfony/ai-open-ai-platform
 # OPENAI_API_KEY=sk-...
 ```
 
-The bundle requires `symfony/framework-bundle` and either `symfony/security-core` is optional (`#[IsGrantedTool]`), `symfony/validator` (for `ValidateToolCallArgumentsListener` and structured-output validator subscriber) is optional. The bundle uses `willBeAvailable()` to remove services for missing optional packages : `AiBundle::loadExtension()` lines 387-413.
+The bundle requires `symfony/framework-bundle` and either `symfony/security-core` is optional (`#[IsGrantedTool]`), `symfony/validator` (for `ValidateToolCallArgumentsListener` and structured-output validator subscriber) is optional. The bundle uses `willBeAvailable()` to remove services for missing optional packages : `AiBundle::loadExtension()`.
 
 ## Quick reference
 
@@ -107,7 +105,7 @@ class WeatherService
 }
 ```
 
-That's it. The bundle auto-discovers `WeatherService` via the `#[AsTool]` attribute (`AiBundle::loadExtension()` lines 333-339), registers it as a tool, wires the agent + platform, and injects everything via DI.
+That's it. The bundle auto-discovers `WeatherService` via the `#[AsTool]` attribute (`AiBundle::loadExtension()`), registers it as a tool, wires the agent + platform, and injects everything via DI.
 
 ## Real config keys (top-level)
 
@@ -126,9 +124,9 @@ Source: `config/options.php`. The canonical root keys are:
 | `ai.chat` | Chat = (agent, message_store) |
 | `ai.message_store` | Persistent message stores (cache, doctrine, memory, redis, …) |
 
-**There is no `ai.profiler.*` key.** The data collector is added automatically when `kernel.debug` is true; see `AiBundle::loadExtension()` lines 381-384 and `DebugCompilerPass::process()` (no `ai.profiler.*` YAML exists).
+**There is no `ai.profiler.*` key.** The data collector is added automatically when `kernel.debug` is true; see `AiBundle::loadExtension()` and `DebugCompilerPass::process()` (no `ai.profiler.*` YAML exists).
 
-**Processors are never listed under `ai.agent.*.input_processors` / `output_processors`.** They are auto-tagged via `#[AsInputProcessor]` / `#[AsOutputProcessor]` attributes, or auto-registered when a service implements `InputProcessorInterface` / `OutputProcessorInterface` (see `AiBundle::loadExtension()` lines 341-358).
+**Processors are never listed under `ai.agent.*.input_processors` / `output_processors`.** They are auto-tagged via `#[AsInputProcessor]` / `#[AsOutputProcessor]` attributes, or auto-registered when a service implements `InputProcessorInterface` / `OutputProcessorInterface` (see `AiBundle::loadExtension()`).
 
 **The only `fault_tolerance` key is `fault_tolerant_toolbox` (boolean, default `true`).** There is no `max_retries` or `circuit_breaker_threshold`.
 
@@ -146,12 +144,12 @@ See `references/config.md` for the full tree.
 
 - **Autoconfiguration must be enabled** in `services.yaml`. The bundle relies on `_defaults: { autoconfigure: true }`. Without it, `#[AsTool]`, `#[AsInputProcessor]`, `#[AsOutputProcessor]`, and `#[IsGrantedTool]` are never registered.
 - **Env var interpolation.** Use `'%env(VAR)%'` not `'%VAR%'` : the latter reads container parameters and is empty in production for env-only vars.
-- **`#[IsGrantedTool]` always throws on denial.** The `IsGrantedToolAttributeListener::__invoke()` (lines 73-83) unconditionally throws `AccessDeniedException`; there is no `throwOnDenied: true` option. Remove the attribute or change the security expression if you want to allow graceful denial.
-- **Security dependency missing.** If `symfony/security-core` is not installed, the listener is removed at compile time and `#[IsGrantedTool]` throws `InvalidArgumentException` at container build time (`AiBundle::loadExtension()` lines 368-374). Install `symfony/security-core` to enable it.
+- **`#[IsGrantedTool]` always throws on denial.** `IsGrantedToolAttributeListener::__invoke()` unconditionally throws `AccessDeniedException`; there is no `throwOnDenied: true` option. Remove the attribute or change the security expression if you want to allow graceful denial.
+- **Security dependency missing.** If `symfony/security-core` is not installed, the listener is removed at compile time and `#[IsGrantedTool]` throws `InvalidArgumentException` at container build time (`AiBundle::loadExtension()`). Install `symfony/security-core` to enable it.
 - **Processor ordering.** Built-in processors use priorities: `SystemPromptInputProcessor` = `-30`, `MemoryInputProcessor` = `-40` (`AiBundle::processAgentConfig()`). Higher priority runs first. Tool calling is not a tagged processor : the bundle wires the toolbox directly onto the `Agent` service's `$toolbox` argument (with `$maxToolCalls`, `$excludeToolMessages`, `$includeSources`, `$eventDispatcher`).
-- **Processor scope.** `#[AsInputProcessor(agent: '...')]` binds to a specific agent service id; `agent: null` (default) applies to all agents. `ProcessorCompilerPass::process()` lines 36-48 match either exact service id or null.
+- **Processor scope.** `#[AsInputProcessor(agent: '...')]` binds to a specific agent service id; `agent: null` (default) applies to all agents. `ProcessorCompilerPass::process()` matches either exact service id or null.
 - **Profiling is on `kernel.debug`, not a YAML key.** When `kernel.debug` is false, `ai.data_collector` and `ai.traceable_toolbox` are removed. Do not try to enable the profiler via YAML.
-- **`tools: enabled` is opt-in.** Default is no tools. Set `tools: true` (or `enabled: true`) to auto-register every `#[AsTool]` service, or pass an explicit `services:` list to constrain which tools an agent sees (`config/options.php` lines 267-313).
+- **`tools: enabled` is opt-in.** Default is no tools. Set `tools: true` (or `enabled: true`) to auto-register every `#[AsTool]` service, or pass an explicit `services:` list to constrain which tools an agent sees (the `ai.agent.<name>.tools` node of `config/options.php`).
 - **`fault_tolerant_toolbox` defaults to `true`.** A failing tool call becomes a structured denial that the LLM sees : disable only if you want uncaught exceptions.
 - **No `ai.profiler.*` config, no `ai.agent.*.system_prompt`, no `ai.store.*.bridge`.** These keys do not exist in `config/options.php`; see `references/config.md` for the real tree.
 
@@ -164,7 +162,10 @@ See `references/config.md` for the full tree.
 - **Build a RAG pipeline**: configure `ai.vectorizer` + `ai.store.<provider>.<name>`, then `ai.indexer` (with a loader or `source`) and `ai.retriever`. See `references/config.md`.
 - **Persistent chat**: configure `ai.message_store.<provider>.<name>` (e.g. `doctrine`, `cache`, `redis`) and `ai.chat.<name>` referencing the agent + message_store service ids. See `references/config.md`.
 - **Multi-agent routing**: configure agents under `ai.agent.<name>` and orchestration under `ai.multi_agent.<name>` with `orchestrator`, `fallback`, and `handoffs`. See `references/config.md`.
-- **Debug in dev**: the Profiler data collector appears in the Web Debug Toolbar as soon as any AI component is invoked; no setup needed.
+- **Debug in dev**: the Profiler data collector appears in the Web Debug Toolbar as soon as any AI component is invoked; no setup needed. Since 0.14 agent calls, platform invocations and tool executions also show in the profiler's performance timeline, and an async job is rendered as its handle.
+- **Expose a remote MCP server's tools to an agent** (0.14): declare the connection under `mcp.clients` (`mcp-bundle`), then add `- mcp_server: '<client>.<server>'` to the agent's `tools:` list. Requires `symfony/ai-mcp-tool`. See `references/config.md` → `ai.agent`.
+- **Run tool calls concurrently** (0.14): `tools: { execution_strategy: fiber, services: [...] }`.
+- **Resolve async jobs in a worker** (0.14): inject `Symfony\AI\Platform\Job\JobRunner` and `JobClientInterface $<platform>` (e.g. `$openai`). See `references/config.md` → `ai.platform`.
 
 ## References
 
