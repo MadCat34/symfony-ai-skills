@@ -1,45 +1,56 @@
 ---
 name: symfony-ai-store
-description: 'Use when storing or querying documents in a vector database (Pinecone, Qdrant, Postgres/pgvector, Elasticsearch, Meilisearch, Redis, MongoDB, ...) for RAG, semantic search, similarity, or long-term retrieval. Also trigger when the user asks "how do I add RAG", "how to chunk documents before embedding", "how to rerank results", or "which store to use in tests". Triggers on `StoreInterface`, `StoreFactory`, `VectorQuery`, `TextQuery`, `HybridQuery`, `VectorDocument`, `TextDocument`, `Vectorizer`, `DocumentIndexer`, `Retriever`, `CombinedStore`, `Metadata`. A full RAG pipeline also needs `symfony-ai-platform` for the embeddings. Do NOT trigger for raw embeddings generation alone (use `symfony-ai-platform`).'
+description: 'Use when building RAG, semantic search or similarity lookup with Symfony AI Store, including generic questions on chunking documents or picking a vector database: loading and chunking documents, indexing embeddings, querying pgvector, Pinecone, Qdrant, Elasticsearch, Redis and others, hybrid search or reranking. Triggers on `StoreInterface`, `VectorQuery`, `DocumentIndexer`, `Vectorizer`. Not for generating embeddings alone (`symfony-ai-platform`) or chat history (`symfony-ai-chat`).'
 license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.14.1"
+  version: 0.14.1
+  tags: symfony, php, ai, rag, vector-database, semantic-search, embeddings, pgvector, pinecone, qdrant
 ---
 
-# Store : Symfony AI
+# Symfony AI Store
 
-> **Store requires a configured Platform for embeddings. In the `symfony-ai-platform` skill, read `references/embeddings.md` first. No Platform → no embeddings → no store.**
+## Purpose
 
-The persistence + retrieval layer for Symfony AI. The embedding model lives in `symfony-ai-platform`; the Store component borrows it to turn text into vectors and persist them in a backend you choose.
+The persistence and retrieval layer of Symfony AI: load documents, chunk them,
+turn them into vectors through a Platform embedding model, store them in one
+of 24 backends, and query them back by similarity, keywords, or both.
 
-## When to use Store vs raw vector DB client
+## When to use
 
-Use **Store** when:
+- Retrieval-augmented generation (RAG) or semantic search over documents.
+- Swapping vector databases without rewriting the application (Pinecone ↔ Postgres ↔ Qdrant).
+- Standard loaders and transformers: directories, Markdown, chunking, batching, throttling.
+- Hybrid (vector + keyword) search, reranking, or a store for tests (`InMemory\Store`).
+- Embeddings kept in a MySQL `JSON` column today: a JSON column has no vector
+  index and no similarity search, so every query becomes a full scan in PHP.
 
-- You want to swap vector DB backends without rewriting the application (Pinecone ↔ Postgres ↔ Qdrant).
-- You want the standard transformers (chunking, batching, throttling).
-- You are building a RAG agent (combine with `symfony-ai-agent` skill).
-- You are tempted to keep embeddings in a MySQL `JSON` column : a JSON column has no vector index and no similarity search, so every query becomes a full scan in PHP.
+## When not to use
 
-Use **raw vector DB client** when:
+- Generating embeddings without storing them: use `symfony-ai-platform`.
+- Persisting a chat conversation: use `symfony-ai-chat`.
+- The agent that consumes retrieved documents: use `symfony-ai-agent`.
+- Declaring stores, indexers and retrievers in `config/packages/ai.yaml`: use `symfony-ai-bundle`.
+- A database-specific feature the bridge hides (Pinecone namespaces, Qdrant
+  collection metadata, Milvus partitions) or full control of the SQL (custom
+  indexes on metadata columns): use the database client directly.
 
-- You need a DB-specific feature (Pinecone namespaces, Qdrant collection metadata, Milvus partitions).
-- You need full control over the SQL level (custom indexes on metadata columns).
+## Prerequisites
 
-## Installation
+PHP 8.2+, the store package, at least one store bridge, and a configured
+Platform with an embedding model: vector search is impossible without
+embeddings. Read `references/embeddings.md` in `symfony-ai-platform` first.
 
 ```bash
-composer require symfony/ai-store
-composer require symfony/ai-platform
-composer require symfony/ai-open-ai-platform
-# Plus at least one bridge
+composer require symfony/ai-store symfony/ai-platform symfony/ai-open-ai-platform
 composer require symfony/ai-pinecone-store
 # Or: ai-postgres-store, ai-qdrant-store, ai-meilisearch-store, …
 ```
 
-## Quick reference
+## Examples
+
+Index one document, then query it by similarity:
 
 ```php
 use Symfony\AI\Platform\Bridge\OpenAi\Factory as OpenAiFactory;
@@ -95,93 +106,109 @@ TransformerInterface[]   VectorizerInterface   RetrieverInterface
 (chunking, trim, …)      (Platform delegate)   (query side)
 ```
 
-- `StoreInterface` : write/read interface (24 bridges implement it).
-- `ManagedStoreInterface` : adds `setup()` / `drop()` for index lifecycle.
-- `IndexerInterface` : high-level "turn sources into stored vectors" service.
-- `DocumentProcessor` : internal pipeline used by `DocumentIndexer` and `SourceIndexer`.
-- `RetrieverInterface` : read-side service: a string in, `VectorDocument[]` out.
-- `CombinedStore` : wraps a vector store + a text store, performs Reciprocal Rank Fusion for `HybridQuery`.
-- `TraceableStore` : decorator that records calls (useful for tests / debug).
-- `RerankerListener` : listens to `PostQueryEvent` to rerank the result list.
+- `StoreInterface`: write/read interface, implemented by the 24 bridges; it
+  extends `\Countable`, so `count($store)` returns the number of documents.
+- `ManagedStoreInterface`: adds `setup()` / `drop()` for the index lifecycle.
+- `DocumentProcessor::process()` runs filter → transform → vectorize → store,
+  in batches of 50 documents (`process($docs, ['chunk_size' => N])`), with one
+  `$store->add()` per batch.
+- `Indexer\DocumentIndexer(DocumentProcessor)` indexes documents you built;
+  `Indexer\SourceIndexer(LoaderInterface, DocumentProcessor)` indexes whatever a
+  loader yields from a source; `Indexer\ConfiguredSourceIndexer` adds a default
+  source. None of them takes a `PlatformInterface` directly: wiring goes
+  through `Vectorizer`.
+- `RetrieverInterface`: a string in, `VectorDocumentInterface[]` out.
+- `CombinedStore`: a vector store + a text store, merged by Reciprocal Rank
+  Fusion for `HybridQuery`.
+- `RerankerListener`: reranks results on `PostQueryEvent`; `TraceableStore`
+  records calls for tests and debugging.
 
-Everything lives under namespace `Symfony\AI\Store`. See `references/api-reference.md` for the full tree.
+Documents and queries:
 
-### Pipeline order (DocumentProcessor)
+- `TextDocument(int|string $id, string $content, Metadata $metadata = new Metadata())`:
+  the `id` is required. `Metadata` extends `\ArrayObject`; reserved keys are
+  `_parent_id`, `_text`, `_source`, `_summary`, `_title`, `_depth`.
+- `VectorDocument(int|string $id, VectorInterface $vector, Metadata $metadata = new Metadata(), ?float $score = null)`:
+  `withScore()` returns a copy. Stores, retrievers and rerankers are typed
+  against `VectorDocumentInterface`; never narrow results to `VectorDocument`.
+- `VectorQuery(VectorInterface $vector)` for similarity (feed a result's
+  `getVector()` back for "more like this"), `TextQuery(string|array $text)`
+  for keywords, `HybridQuery(VectorInterface $vector, string|array $text, float $semanticRatio = 0.5)`
+  for both.
 
-`DocumentProcessor::process()` runs sequentially:
+Inside a Symfony app (`symfony-ai-bundle`), five commands manage stores:
+`ai:store:setup <store>`, `ai:store:drop <store> --force`,
+`ai:store:clear <store> --force`, `ai:store:index <indexer> [--source=…]` and
+`ai:store:retrieve <retriever> [query] [--limit=N]`.
 
-```text
-filter (FilterInterface[]) → transform (TransformerInterface[]) → vectorize → store
-```
+## Key gotchas
 
-It chunks the stream into batches of 50 documents (`DocumentProcessor` default; override via `process($docs, ['chunk_size' => N])`) and calls `$store->add()` once per batch.
+1. **Embedding-model match.** Documents and queries must be embedded with the
+   same model. Changing the model requires a full re-index.
+2. **Chunking window.** `TextSplitTransformer` defaults to `chunkSize=1000`,
+   `overlap=200`. Each chunk gets a fresh `Uuid::v4()` id; `Metadata::KEY_PARENT_ID`
+   links it back to its source document.
+3. **Batch indexing memory.** `DocumentProcessor` flushes every 50 documents;
+   tune `chunk_size` for rate limits, and throttle with `ChunkDelayTransformer`
+   (it requires a `ClockInterface`).
+4. **Metadata is JSON-encoded.** Bridges that persist metadata (`Postgres`,
+   `Supabase`, `Cloudflare`, …) store it as JSON, and `Metadata::KEY_TEXT` can
+   be a long string: size the column or field for it.
+5. **Check support before querying.** Some bridges are text-only or
+   vector-only: call `$store->supports(VectorQuery::class)` first.
 
-### Indexer chain
+## Troubleshooting
 
-| Class | Input shape | Purpose |
-|---|---|---|
-| `Indexer\DocumentIndexer(DocumentProcessor $processor)` | `EmbeddableDocumentInterface` or iterable | Index a hand-crafted list |
-| `Indexer\SourceIndexer(LoaderInterface $loader, DocumentProcessor $processor)` | source identifier (string or iterable of strings) | Index whatever the loader yields |
-| `Indexer\ConfiguredSourceIndexer(SourceIndexer $indexer, string\|array $defaultSource)` | source or null → falls back to `$defaultSource` | Bundle-friendly default |
+| Error | Cause | Fix |
+| --- | --- | --- |
+| `Unexpected response type: expected "…\VectorResult", got "…\TextResult".` (`UnexpectedResultTypeException`) | The `Vectorizer` was given a chat model. | Use an embedding model, e.g. `text-embedding-3-small`. |
+| `The content shall not be an empty string.` (`InvalidArgumentException`) | A `TextDocument` was built from empty content. | Skip empty sources before building documents, or drop them with a filter. |
+| `Overlap must be non-negative and less than chunk size. Got chunk size: …, overlap: ….` | `TextSplitTransformer` received `overlap >= chunkSize` or a negative overlap. | Keep `0 <= overlap < chunkSize`. |
+| `Query type "…" is not supported by store "…"` (`UnsupportedQueryTypeException`) | The bridge cannot run that query type. | Check `$store->supports(…)`; for hybrid search use a bridge that supports `HybridQuery` or a `CombinedStore`. |
+| `Semantic ratio must be between 0.0 and 1.0, got …` | `HybridQuery` received a ratio outside `[0.0, 1.0]`. | Pass a ratio between 0 and 1 (0.5 by default). |
+| `For using the DirectoryLoader, the Symfony Finder component is required. …` (same pattern for `MarkdownLoader`, RSS, JSON loaders) | An optional dependency of the loader is missing. | Run the `composer require` named in the message. |
+| Results look unrelated after a model or provider change | Documents were embedded with the previous model. | Re-index everything with the new model. |
 
-The interfaces never take a `PlatformInterface` directly : wiring goes through `Vectorizer`.
+## Limitations
 
-### Document lifecycle
+- The component is experimental: APIs change between minor versions. Pin
+  `symfony/ai-store` and read `UPGRADE.md` in the monorepo before upgrading.
+- Similarity scores are not comparable across backends: distance metrics and
+  normalisation differ (cosine on Postgres ≠ cosine on Qdrant in absolute terms).
+- `AzureSearch` and `Supabase` do not implement `ManagedStoreInterface`: create
+  and remove their indexes outside Symfony AI.
+- Vector search depends on a Platform embedding model; keyword-only stores
+  answer `TextQuery` alone.
 
-- `TextDocument(int|string $id, string $content, Metadata $metadata = new Metadata())` : note the required `id`. Empty content throws `InvalidArgumentException`.
-- `Metadata` extends `\ArrayObject`. Reserved keys: `_parent_id`, `_text`, `_source`, `_summary`, `_title`, `_depth`.
-- `VectorDocument(int|string $id, VectorInterface $vector, Metadata $metadata = new Metadata(), ?float $score = null)` : `withScore()` returns a new instance with an updated score. Stores, retrievers and rerankers are typed against `VectorDocumentInterface` (since 0.14); never narrow results to the final `VectorDocument`.
-- `Vector` (from `Symfony\AI\Platform\Vector`) exposes `getData(): list<float>` and `getDimensions(): int`.
+## Usage
 
-### Query types
-
-`StoreInterface::query()` takes a `QueryInterface`:
-
-- `VectorQuery(VectorInterface $vector)` : pure vector similarity. Feed a returned document's `getVector()` straight back in for "more like this".
-- `TextQuery(string|array $text)` : keyword / full-text only. Internally uses `Metadata::KEY_TEXT`.
-- `HybridQuery(VectorInterface $vector, string|array $text, float $semanticRatio = 0.5)` : combined; the ratio must be `0.0-1.0`.
-
-Always call `$store->supports(VectorQuery::class)` before issuing a vector query, since some bridges are text-only or FTS-only.
-
-`StoreInterface` extends `\Countable` (since 0.14): `count($store)` returns the number of stored documents.
-
-### Lifecycle commands
-
-The Store component ships five CLI commands when used inside a Symfony app (via `ai-bundle`):
-
-- `ai:store:setup <store>` : create the index / table.
-- `ai:store:drop <store> --force` : destroy infrastructure.
-- `ai:store:clear <store> --force` : remove all documents, keep the store usable.
-- `ai:store:index <indexer> [--source=…]` : index using a configured `SourceIndexer` / `ConfiguredSourceIndexer`.
-- `ai:store:retrieve <retriever> [query] [--limit=N]` : query via a configured `RetrieverInterface`.
-
-## Key gotchas (5)
-
-1. **Embedding-model match.** The model used to embed documents *at index time* must match the model used to embed queries *at retrieval time*. Changing the model requires a full re-index.
-2. **Chunking window.** `TextSplitTransformer` defaults: `chunkSize=1000`, `overlap=200`. The overlap must be `>= 0` and `< chunkSize` (throws otherwise). Each chunk gets a fresh `Uuid::v4()` id; `Metadata::KEY_PARENT_ID` links it back.
-3. **Batch indexing memory.** `DocumentProcessor` flushes every 50 documents (override via `chunk_size`). Tune for rate limits and combine with `ChunkDelayTransformer` (which requires a `ClockInterface`) to throttle between batches.
-4. **Metadata JSON serialisation.** Bridges that persist metadata (`Postgres`, `Supabase`, `Cloudflare`, …) JSON-encode the `Metadata` array. `Metadata::KEY_TEXT` may be a long string : make sure the column or field size supports it.
-5. **Distance metrics differ across bridges.** Cosine on Postgres ≠ cosine on Qdrant in absolute terms. Stick to one backend per index, never compare raw scores across systems.
-
-For the full list (empty result sets, drop semantics, query-time `limit`, transformer chain order, re-indexing after metadata schema change, reranker ordering), see `references/gotchas.md`.
-
-## Common tasks
-
-- **Index a directory of Markdown files** : use `DirectoryLoader(['md' => new MarkdownLoader()])` inside a `SourceIndexer`, then `$indexer->index('/path/to/dir')`.
-- **Hybrid search** : wrap a vector store + a text store in `CombinedStore`, then issue `HybridQuery` queries.
-- **Rerank results** : wire `Reranker` (a `PlatformInterface` plus a Cohere reranker model) into a `RerankerListener` listening to `PostQueryEvent`.
-- **Test without a database** : use `InMemory\Store`. It implements both `StoreInterface` and `ManagedStoreInterface`, supports `VectorQuery`, `TextQuery`, `HybridQuery`, and accepts `maxItems` plus a `filter` callable in `$options`.
+- **Index a directory of Markdown files**: `DirectoryLoader(['md' => new MarkdownLoader()])`
+  inside a `SourceIndexer`, then `$indexer->index('/path/to/dir')`.
+- **Hybrid search**: wrap a vector store and a text store in `CombinedStore`,
+  then issue `HybridQuery` queries.
+- **Rerank results**: wire a `Reranker` (a `PlatformInterface` plus a reranking
+  model such as Cohere's) into a `RerankerListener` on `PostQueryEvent`.
+- **Test without a database**: use `InMemory\Store`. It implements both
+  `StoreInterface` and `ManagedStoreInterface`, supports `VectorQuery`,
+  `TextQuery` and `HybridQuery`, and accepts `maxItems` plus a `filter`
+  callable in `$options`.
 
 ## References
 
-- `references/api-reference.md` : full namespace tree, every constructor signature, every query type. Read this when wiring the DI container.
-- `references/bridges.md` : the 24 bridge packages, grouped by category. Read this when picking a backend.
-- `references/patterns.md` : InMemory, Postgres+pgvector, Pinecone, and hybrid retrieval patterns with copy-pasteable code.
-- `references/gotchas.md` : embedding-model match, chunking, batch indexing, distance metrics, rerankers, drop semantics, query-time `limit`, and more.
+- Read [`references/api-reference.md`](references/api-reference.md) when wiring
+  classes by hand or in the container: the namespace tree, every constructor
+  signature, every query type, the commands.
+- Read [`references/bridges.md`](references/bridges.md) when the user picks a
+  backend: the 24 bridge packages, their classes and quirks.
+- Read [`references/patterns.md`](references/patterns.md) when the user wants
+  runnable code: InMemory, Postgres + pgvector, Pinecone, hybrid retrieval.
+- Read [`references/gotchas.md`](references/gotchas.md) when retrieval
+  misbehaves and the cause is not above: empty results, drop semantics,
+  query-time limits, transformer order, rerankers, re-indexing.
 
 ## See also
 
-- `symfony-ai-platform` skill, `references/embeddings.md` : the embedding model side
-- `symfony-ai-platform` skill, `references/bridges.md` : embedding model providers
-- `symfony-ai-agent` skill : for RAG agent patterns
-- `symfony-ai-bundle` skill : for Symfony wiring of stores / indexers / retrievers
+- `symfony-ai-platform`: the embedding model side (`references/embeddings.md`)
+  and the providers that offer embeddings (`references/bridges.md`).
+- `symfony-ai-agent`: an agent that consumes retrieved documents (RAG agent).
+- `symfony-ai-bundle`: stores, vectorizers, indexers and retrievers in `ai.yaml`.

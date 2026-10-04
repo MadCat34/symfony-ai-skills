@@ -1,71 +1,53 @@
 ---
 name: symfony-ai-agent
-description: 'Use when building autonomous AI agents that call tools, hold memory, orchestrate sub-agents, or process input/output through a typed pipeline. Also trigger when the user asks "how do I let an LLM call my PHP code", "how to run tool calls concurrently", "how to stop a running agent", "how to map tool arguments onto a DTO", or "how to plug a remote MCP server''s tools into an agent without the bundle". Triggers on `Agent`, `Execution`, `#[AsTool]` (without the bundle), `#[MapToolArguments]`, `Toolbox`, `ChainToolbox`, `FiberToolExecutor`, `McpToolbox`, `MemoryInputProcessor`, `MultiAgent`, `SpeechAgent`, `InputProcessor`, `OutputProcessor`. Do NOT trigger for raw LLM invocation (use `symfony-ai-platform`), a vector DB (use `symfony-ai-store`), or `ai.yaml` wiring (use `symfony-ai-bundle`).'
+description: 'Use when building an AI agent with Symfony AI Agent: letting an LLM call PHP services as tools, running the tool-calling loop, injecting memory, routing tasks between sub-agents, or adding speech, even when the question does not name Symfony or PHP. Triggers on `Agent`, `Toolbox`, `#[AsTool]` without the bundle, `ChainToolbox`, `McpToolbox`, `MultiAgent`. Not for one-shot LLM calls (`symfony-ai-platform`), persisted conversations (`symfony-ai-chat`) or `ai.yaml` (`symfony-ai-bundle`).'
 license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.14.1"
+  version: 0.14.1
+  tags: symfony, php, ai, agent, tool-calling, function-calling, memory, multi-agent, mcp
 ---
 
-# Agent
+# Symfony AI Agent
 
-The high-level framework for building AI agents on top of `symfony/ai-platform`. An `Agent` is a `PlatformInterface` wrapped with a typed input/output processor pipeline, an optional tool-calling loop, optional memory hydration, and (on top) a `MultiAgent` router or a `SpeechAgent` wrapper.
+## Purpose
 
-## When to use Agent vs raw Platform
+The agent framework on top of `symfony/ai-platform`. An `Agent` wraps a
+`PlatformInterface` with a typed input/output processor pipeline, an optional
+tool-calling loop, optional memory, and, on top, a `MultiAgent` router or a
+`SpeechAgent` wrapper.
 
-Use **Agent** when you want one or more of:
+## When to use
 
-- An automatic tool-calling loop driven by the LLM (the model invokes tools until it stops).
+- The LLM must call PHP code as tools, in a loop, until it has an answer.
+- Services exposed as tools with `#[AsTool]` on the class, in plain PHP.
+- Memory injected before each call (`MemoryInputProcessor` + providers).
+- Routing between specialised sub-agents (`MultiAgent`) or speech in and out (`SpeechAgent`).
+- Tools from a remote MCP server handed to an agent without the bundle (`McpToolbox`).
 
-- Your own services exposed as tools via `#[AsTool]` on the class.
+## When not to use
 
-- Memory retrieved before each call (`MemoryInputProcessor` + providers).
+- A one-shot completion, or a tool loop driven by hand: use `symfony-ai-platform`.
+- Conversation history that survives between HTTP requests: use `symfony-ai-chat`
+  (it wraps an `Agent`); agent memory is read-only retrieval, not history.
+- Agents, tools and processors declared in `config/packages/ai.yaml`: use `symfony-ai-bundle`.
+- Storing the documents behind embedding memory: use `symfony-ai-store`.
 
-- Sub-agent routing (`MultiAgent`) or audio + chat composition (`SpeechAgent`).
+## Prerequisites
 
-Use **raw Platform** when you want a one-shot completion, full manual control over a tool loop, or access to provider-specific features not yet abstracted by Agent.
-
-## Installation
+PHP 8.2+, the agent and platform packages, a bridge, and its API key:
 
 ```bash
-composer require symfony/ai-agent
-composer require symfony/ai-platform
+composer require symfony/ai-agent symfony/ai-platform
 composer require symfony/ai-open-ai-platform
 # OPENAI_API_KEY=sk-...
 ```
 
-## Architecture
+## Examples
 
-```text
-User input (string|MessageBag|UserMessage)
-   |
-   v
-InputProcessor[] (registration order)
-
-   - SystemPromptInputProcessor, MemoryInputProcessor,
-     ModelOverrideInputProcessor, ...
-   |
-   v
-PlatformInterface::invoke(model, messages, options)
-   |
-   v
-Tool-calling loop (if a `toolbox` was passed to Agent, max 50 iterations)
-   |
-   v
-OutputProcessor[] (registration order)
-   |
-   v
-Execution (lazy — drives the run only when consumed)
-```
-
-The processor pipeline mutates a typed `Input` container before the platform call, then mutates an `Output` container after the platform call. Tool calling is **not** part of that pipeline : `Agent` drives its own tool-calling loop internally once a `toolbox` is passed to its constructor (see [Quick reference](#quick-reference-tool-calling-agent) below).
-
-`Agent::call()` returns a lazy `Execution`, not a `ResultInterface` directly : nothing runs until you consume it (`->getContent()`, `->getResult()`, or a `foreach`). See `references/api-reference.md` § `Execution` for its full contract.
-
-## Quick reference: tool-calling agent
-
-This compiles against `src/agent/`. Tools are objects decorated with `#[AsTool]` on the **class**; pass the `Toolbox` directly to `Agent` via the `toolbox` constructor argument:
+A tool-calling agent. Tools are objects with `#[AsTool]` on the **class**; the
+`Toolbox` goes to `Agent` through the named `toolbox` argument:
 
 ```php
 use Symfony\AI\Agent\Agent;
@@ -91,29 +73,77 @@ $result = $agent->call("What's the weather in Paris?");
 echo $result->getContent();
 ```
 
-Notes:
+`Agent::call()` accepts `string|MessageBag|UserMessage` and returns a lazy
+`Execution`.
 
-- `#[AsTool]` is `TARGET_CLASS | IS_REPEATABLE`. Place it on the class, not on a method. The default method is `__invoke`.
+## Architecture
 
-- `new Toolbox([new WeatherService()])` : the constructor takes an iterable of services, **not** variadic services.
+```text
+User input (string|MessageBag|UserMessage)
+   |
+   v
+InputProcessor[] (registration order)
+   - SystemPromptInputProcessor, MemoryInputProcessor,
+     ModelOverrideInputProcessor, ...
+   |
+   v
+PlatformInterface::invoke(model, messages, options)
+   |
+   v
+Tool-calling loop (if a `toolbox` was passed to Agent, max 50 iterations)
+   |
+   v
+OutputProcessor[] (registration order)
+   |
+   v
+Execution (lazy — drives the run only when consumed)
+```
 
-- `Agent::call()` accepts `string|MessageBag|UserMessage`.
+The processors mutate a typed `Input` before the platform call and an `Output`
+after it. Tool calling is **not** a processor: `Agent` runs its own loop once a
+`toolbox` is passed. Nothing runs until the `Execution` is consumed
+(`->getContent()`, `->getResult()`, or a `foreach`).
 
 ## Key gotchas
 
-- **Tools are wired via the named `toolbox` constructor argument, not `$inputProcessors`/`$outputProcessors`.** Passing the toolbox as the third positional constructor argument will fail with a type error — use the named argument instead: `new Agent($platform, $model, toolbox: $toolbox)`.
+- **`Toolbox` is not variadic.** The constructor is `(iterable $tools, ...)`:
+  pass `[new WeatherService()]`, an array, not a splat.
+- **`#[AsTool]` targets the class, not a method.** Positional arguments are
+  `(string $name, string $description, string $method = '__invoke', array $metadata = [])`;
+  repeat the attribute to expose several methods of one class.
+- **Processors run in registration order, for input and output alike.**
+- **Memory is read-only retrieval.** `MemoryProviderInterface::load(Input)`
+  returns `list<Memory>` and never writes. `StaticMemoryProvider` only knows
+  what it was seeded with: "my name is Alice", said in an earlier turn, is not
+  remembered.
+- **An `Execution` is single-use and lazy.** Keep the result after consuming it;
+  call the agent again for a new run.
 
-- **`Toolbox` is not variadic.** The constructor is `(iterable $tools, ...)`. Pass `[new WeatherService()]` : an array, not a splat.
+## Troubleshooting
 
-- **`#[AsTool]` is class-targeted, not method-targeted.** Put it on the class; the positional args are `(string $name, string $description, string $method = '__invoke', array $metadata = [])`. For multiple methods on the same class, repeat the attribute.
+| Error | Cause | Fix |
+| --- | --- | --- |
+| `Agent::__construct(): Argument #3 ($inputProcessors) must be of type …, Toolbox given` (`TypeError`) | The toolbox was passed positionally, into the input-processor slot. | `new Agent($platform, $model, toolbox: $toolbox)`. |
+| `The class "…" is not a tool, please add Symfony\AI\Agent\Toolbox\Attribute\AsTool attribute.` | A service in the `Toolbox` has no `#[AsTool]`. | Add `#[AsTool(name, description)]` on the class. |
+| `Method "…" not found in tool "…".` | `#[AsTool(method: …)]` names a method the class does not have. | Fix the method name; the default is `__invoke`. |
+| `Maximum number of tool calling iterations (50) exceeded.` (`MaxIterationsExceededException`) | The model keeps calling tools without concluding. | Make tool results conclusive or the prompt clearer; raise `maxToolCalls` only if the task needs it. |
+| `Tool "…" is offered by more than one toolbox …` (`ToolConfigurationException`) | Two toolboxes in a `ChainToolbox` expose the same tool name. | Rename one of the tools; names must be unique across the chain. |
+| `The agent execution was canceled.` (`RuntimeException`) | The `Execution` was consumed after `cancel()`. | Stop consuming a cancelled execution. |
+| `The execution was already consumed. Call the agent again for a new execution.` (`LogicException`) | The same `Execution` was iterated twice. | Keep the first result, or call the agent again. |
 
-- **Processors run in registration order for BOTH input and output.** The previous "output processors in reverse order" guidance is wrong : see `src/Agent.php`.
+## Limitations
 
-- **`Memory` is read-only retrieval.** `MemoryProviderInterface::load(Input)` returns `list<Memory>`; it never writes. `StaticMemoryProvider` ships pre-seeded; "my name is Alice then ask" only works if you pre-seed the array.
+- The component is experimental: APIs change between minor versions. Pin
+  `symfony/ai-agent` and read `UPGRADE.md` in the monorepo before upgrading.
+- The tool loop stops after `maxToolCalls` iterations (50 by default).
+- Memory providers only read; persisting a conversation is `symfony-ai-chat`'s job.
+- A `MultiAgent` routes each request to one handoff target; it does not run
+  sub-agents in parallel.
 
-See `references/gotchas.md` for the full list (processor order, idempotence, recursion depth, `FaultTolerantToolbox` semantics, etc.).
+## Usage
 
-## Common tasks
+Pick the building blocks for the task, then pass them to `Agent` (named
+arguments for `toolbox:` and `toolExecutor:`).
 
 | Task                               | Building blocks                                                               |
 | ---------------------------------- | ----------------------------------------------------------------------------- |
@@ -130,16 +160,18 @@ See `references/gotchas.md` for the full list (processor order, idempotence, rec
 
 ## References
 
-- **Full API surface** (namespaces, classes, methods, exceptions): [references/api-reference.md](references/api-reference.md)
-
-- **Patterns** (6 copy-paste recipes): [references/patterns.md](references/patterns.md)
-
-- **Gotchas** (14 common mistakes): [references/gotchas.md](references/gotchas.md)
+- Read [`references/api-reference.md`](references/api-reference.md) when the
+  user needs exact signatures: `Agent`, `Execution`, processors, `Toolbox`,
+  tool executors, `#[AsTool]`, memory providers, `MultiAgent`, `McpToolbox`.
+- Read [`references/patterns.md`](references/patterns.md) when the user wants
+  runnable code: tools, memory, fault tolerance, multi-agent, speech.
+- Read [`references/gotchas.md`](references/gotchas.md) when an agent
+  misbehaves and the cause is not above: processor order, idempotence,
+  recursion depth, `FaultTolerantToolbox` semantics.
 
 ## See also
 
-- `symfony-ai-platform` skill : for raw LLM invocation (Agent wraps it).
-
-- `symfony-ai-store` skill : for vector storage used by `EmbeddingProvider`.
-
-- `symfony-ai-chat` skill : for stateful chat sessions wrapping an Agent.
+- `symfony-ai-platform`: raw LLM invocation, which `Agent` wraps.
+- `symfony-ai-chat`: a persisted conversation wrapping an `Agent`.
+- `symfony-ai-store`: the vector store behind `EmbeddingProvider`.
+- `symfony-ai-bundle`: agents, tools and processors declared in `ai.yaml`.

@@ -1,41 +1,46 @@
 ---
 name: symfony-ai-platform
-description: 'Use when invoking any LLM through Symfony AI''s unified abstraction : chat, completions, structured output, tool/function calling, embeddings, async jobs, or multi-provider failover. Also trigger when the user asks "how do I call OpenAI / Anthropic / Gemini from PHP", "how to switch LLM providers without rewriting code", "how to get structured JSON out of an LLM", "how to embed text with an AI model", "how to track token usage or cost per model", or "why does Replicate / MiniMax throw UnexpectedResultTypeException". Triggers on `PlatformInterface`, `Platform`, `Model`, `MessageBag`, `FailoverPlatform`, `TokenUsage`, `JobRunner`, `JobHandle`, `asJob()`, `BatchResult`. Do NOT trigger for Chat sessions, Agent orchestration, or vector DBs (use `symfony-ai-chat`, `symfony-ai-agent`, `symfony-ai-store`).'
+description: 'Use when PHP code calls an LLM or embedding model through Symfony AI Platform: completions, streaming, structured JSON output, tool calling, multimodal input, async jobs, or switching and failing over between OpenAI, Anthropic, Gemini, Ollama and other providers, even when Symfony AI is not named. Triggers on `PlatformInterface`, `MessageBag`, `DeferredResult`, `FailoverPlatform`. Not for agent loops, chat history or vector stores (`symfony-ai-agent`, `symfony-ai-chat`, `symfony-ai-store`).'
 license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.14.1"
+  version: 0.14.1
+  tags: symfony, php, ai, llm, openai, anthropic, gemini, embeddings, structured-output, tool-calling
 ---
 
-# Platform
+# Symfony AI Platform
 
-Unified abstraction over the 43 bridges living under
+## Purpose
+
+One PHP abstraction over the 43 bridges living under
 `Symfony\AI\Platform\Bridge\*` (LLM and multimodal providers, plus the
-`Failover` and `Cache` decorators). One `Platform` service, one `invoke()` call
-site, many providers.
+`Failover` and `Cache` decorators): one `Platform` service, one `invoke()` call
+site. Switching provider means changing the factory line, not the call sites.
 
-## When to use Platform vs a vendor SDK directly
+## When to use
 
-Use **Platform** when you want:
+- Calling an LLM or an embedding model from PHP, with or without the Symfony framework.
+- Keeping one call site that can move between OpenAI, Anthropic, Gemini, Mistral, Ollama and the other bridges.
+- Tool calling, structured output (JSON schema to PHP object, optional Validator), streaming and multimodal input, normalised across providers.
+- Generating embeddings for RAG.
+- Failing over between providers with rate limiting, running async or batch jobs, tracing calls with `TraceablePlatform`.
 
-- A single call site that can switch providers by changing one factory line
-- Tool / function calling normalised across providers
-- Structured output (JSON schema validation, optional Validator integration)
-- Embeddings behind the same interface (storing and searching them is the Store component's job)
-- Multi-provider failover with rate-limited retries
-- Cross-provider observability via `TraceablePlatform`
+## When not to use
 
-**Skip Platform** when you need a provider-specific feature that the bridge does
-not yet expose (an unusual streaming protocol, a private beta endpoint, etc.).
-In that case call the vendor's PHP SDK directly : but read `references/gotchas.md`
-first to know what you lose. Reaching for `openai-php/client` (or another vendor
-SDK) by default, without such a reason, gives up unified tool calling,
-structured output, failover, and message templates.
+- An automatic tool-calling loop, memory or sub-agents: use `symfony-ai-agent`.
+- Conversation history persisted between requests: use `symfony-ai-chat`.
+- Storing or searching vectors: use `symfony-ai-store`.
+- Declaring platforms in `config/packages/ai.yaml`: use `symfony-ai-bundle`.
+- A provider feature no bridge exposes yet (an unusual streaming protocol, a
+  private beta endpoint): call the vendor SDK directly, after reading
+  `references/gotchas.md` to see what is lost. Reaching for `openai-php/client`
+  by default, without such a reason, gives up unified tool calling, structured
+  output, failover, and message templates.
 
-## Installation
+## Prerequisites
 
-The core package plus one bridge per provider:
+PHP 8.2+, the core package, one bridge per provider, and that provider's API key:
 
 ```bash
 composer require symfony/ai-platform
@@ -43,23 +48,14 @@ composer require symfony/ai-open-ai-platform   # pick one or many
 # OPENAI_API_KEY=sk-...
 ```
 
-For failover (rate-limited, multi-platform):
+Optional packages: `symfony/ai-failover-platform` (multi-provider failover) and
+`symfony/ai-cache-platform` (responses cached by prompt-cache key).
 
-```bash
-composer require symfony/ai-failover-platform
-```
+## Examples
 
-For caching prompt-cache-keyed responses:
-
-```bash
-composer require symfony/ai-cache-platform
-```
-
-## Quick reference (5 lines)
-
-The minimal end-to-end call. Note that `Message::forSystem`, `Message::ofUser`,
-the `Bridge\OpenAi\Factory` (renamed from `PlatformFactory` in 0.12), and
-`$result->asText()` are the real names in this source tree.
+The minimal end-to-end call. The factory class is `Bridge\OpenAi\Factory`
+(there is no `PlatformFactory`), messages come from `Message::forSystem()` /
+`Message::ofUser()`, and `asText()` reads the answer:
 
 ```php
 use Symfony\AI\Platform\Bridge\OpenAi\Factory as OpenAiFactory;
@@ -98,79 +94,80 @@ Platform (Symfony\AI\Platform\Platform)
 - `Provider::invoke()` normalises input via `Contract::createRequestPayload()`,
   sends through a `ModelClientInterface`, and wraps the `RawResultInterface`
   in a `DeferredResult` that runs its `ResultConverter` lazily on first access.
-- `DeferredResult::asText()`, `asObject()`, `asStream()`, etc. are the
-  one-stop accessor : see `references/api-reference.md`.
 
 ## Key gotchas
-
-These bite the moment you go beyond the trivial example. Full list and
-explanations in `references/gotchas.md`.
 
 - **`DeferredResult`, not `Result\Result`.** All `asText()` / `asObject()` /
   `asVectors()` / `asStream()` methods hang off `DeferredResult`. The interface
   `ResultInterface` only exposes `getContent()`, `getRawResult()`, `setRawResult()`.
-- **Tool calls need `Tool` + `ExecutionReference` in raw Platform.** There is no
-  `ToolDefinition` class in `src/platform/src/Tool/`. The agent's `#[AsTool]`
-  attribute lives at `src/agent/src/Toolbox/Attribute/AsTool.php` and only kicks
-  in when you are inside the Agent component.
+- **Raw tool calls need `Tool` + `ExecutionReference`.** There is no
+  `ToolDefinition` class. `#[AsTool]` belongs to the Agent component
+  (`symfony-ai-agent`) and does nothing in raw Platform calls.
 - **`CachePlatform` is opt-in.** Caching only activates when
   `options['prompt_cache_key']` is set; without it, `CachePlatform` is a
   pass-through.
 - **`FailoverPlatform` is a separate package** (`symfony/ai-failover-platform`)
-  and requires a `RateLimiterFactoryInterface`. It is **not** bundled with
-  `symfony/ai-platform`.
+  and requires a `RateLimiterFactoryInterface`.
 - **`MiniMax` is its own provider.** `Bridge\MiniMax\Factory` ships in
   `symfony/ai-mini-max-platform`; it is **not** an Anthropic alias.
-- **Async providers return a job, not a result (0.14).** Replicate (every
-  call), MiniMax (video, `async: true` speech), Higgsfield, Venice video, Eden AI
-  STT and OpenAI batches return a `JobResult`: `asText()`/`asFile()` throw
-  `UnexpectedResultTypeException`. Use `->asJob()` then
-  `(new JobRunner())->wait(Factory::createJobClient($apiKey), $handle)`; read
-  `references/api-reference.md` → Asynchronous jobs.
 
-## Common tasks
+## Troubleshooting
 
-- **Switch provider**: change `OpenAiFactory::createPlatform(...)` to e.g.
-  `Anthropic\Factory::createPlatform(...)`. Read `references/bridges.md` for
-  the catalogue of 43 packages.
+| Error | Cause | Fix |
+| --- | --- | --- |
+| `Unexpected response type: expected "…\TextResult", got "…\JobResult".` (`UnexpectedResultTypeException`) | The provider runs asynchronously and returned a job: Replicate (every call), MiniMax video and `async: true` speech, Higgsfield, Venice video, Eden AI speech-to-text, OpenAI batches. | `$handle = $result->asJob();` then `(new JobRunner())->wait(Factory::createJobClient($apiKey), $handle)`. See `references/api-reference.md` → *Asynchronous jobs*. |
+| `No provider found for model "…".` (`ModelNotFoundException`) | No registered provider's catalog knows that model name: a typo, or the bridge for that provider is not installed. | Check the exact name in the bridge's `ModelCatalog`, install the bridge, or register the model on the catalog. |
+| `Model "…" (…) does not support "structured output".` (`MissingModelSupportException`) | A `response_format` was passed to a model without `Capability::OUTPUT_STRUCTURED`. | Pick a model that has it; guard other capabilities with `Model::supports()` (`references/patterns.md` → *Capability guards*). |
+| `All platforms failed.` (`RuntimeException` from `FailoverPlatform`) | Every wrapped platform threw; each failure is logged as "The {platform} platform failed due to an error/exception". | Read the logged causes; check API keys and the rate limiter policy. |
+| `RateLimitExceededException` | The provider answered HTTP 429. | Retry after `getRetryAfter()` seconds, or put several platforms behind `FailoverPlatform`. |
+| `ValidationException` from `asObject()` | Structured output broke the Validator constraints (`ValidatorSubscriber`). | Inspect the violations; tighten the prompt or relax the constraints. |
+
+## Limitations
+
+- The component is experimental: APIs change between minor versions. Pin
+  `symfony/ai-platform` and read `UPGRADE.md` in the monorepo before upgrading.
+- Bridges normalise a common subset; a provider-only feature may be missing
+  until its bridge adds it.
+- Capabilities belong to the model, not the provider: check `Model::supports()`
+  before sending images, audio, tools or a response format.
+- There is no `RetryPlatform`. `FailoverPlatform` moves on to the next
+  platform; retrying the same provider is up to the caller.
+
+## Usage
+
+- **Switch provider**: replace `OpenAiFactory::createPlatform(...)` with e.g.
+  `Anthropic\Factory::createPlatform(...)`; the call sites stay the same.
 - **Get structured JSON back**: pass `'response_format' => MyDto::class` (or an
-  instance) in `$options`. Read `references/patterns.md#structured-output`.
+  instance) in `$options`, then call `asObject()`.
 - **Call a tool from raw Platform**: define a `Tool` with an
-  `ExecutionReference`, pass it via `'tools' => [$tool]`. Read
-  `references/patterns.md#tool-calling`.
+  `ExecutionReference`, pass it via `'tools' => [$tool]`.
 - **Stream tokens**: pass `'stream' => true`, then iterate
   `$result->asStream()` yielding `TextDelta` (or `asStreamedObject()` for typed
-  partials). Read `references/patterns.md#streaming`.
-- **Multi-provider failover**: wrap your `Platform`s in `FailoverPlatform([...])`
-  together with a `RateLimiterFactoryInterface`. Read
-  `references/patterns.md#failover`.
-- **Multimodal (image, audio, PDF)**: use `File::fromFile()`, `Image::fromFile()`,
-  or `ImageUrl` / `DocumentUrl`. Read `references/patterns.md#multimodal`.
+  partials).
+- **Fail over between providers**: wrap the platforms in `FailoverPlatform([...])`
+  together with a `RateLimiterFactoryInterface`.
+- **Send an image, audio or PDF**: use `File::fromFile()`, `Image::fromFile()`,
+  `ImageUrl` or `DocumentUrl` content parts.
 
 ## References
 
-Read these when the matching situation applies. They are not a guided tour :
-pick the one that fits the question.
-
-- **Full API surface (namespaces, method signatures, `DeferredResult`,
-  `TokenUsage`, `FinishReason`, `Vector`, `MessageBag`): read
-  [`references/api-reference.md`](references/api-reference.md) when the user wants the full
-  namespace tree, real method signatures, or how `ResultInterface` differs
-  from `DeferredResult`.**
-- **All 43 bridges, grouped by category, with real package names: read
-  [`references/bridges.md`](references/bridges.md) when the user picks a
-  provider or asks "which packages exist for X?".**
-- **Embeddings, Vector, reranking contracts and a working RAG skeleton:
-  read [`references/embeddings.md`](references/embeddings.md) when the user
-  asks for embeddings, vector search, or RAG.**
-- **Patterns that compile: structured output, tool calling, failover,
-  streaming, multimodal: read [`references/patterns.md`](references/patterns.md)
-  when the user wants runnable code for one of these five jobs.**
-- **Provider quirks, edge cases, exception classes, finish-reason cases:
-  read [`references/gotchas.md`](references/gotchas.md) when something is
-  misbehaving and you need the trap list.**
+- Read [`references/api-reference.md`](references/api-reference.md) when the
+  user needs the namespace tree, exact method signatures, `DeferredResult`,
+  `TokenUsage`, `FinishReason`, `Vector`, `MessageBag`, async jobs or batches.
+- Read [`references/bridges.md`](references/bridges.md) when the user picks a
+  provider or asks which packages exist for it (all 43 bridges, by category).
+- Read [`references/embeddings.md`](references/embeddings.md) when the user
+  generates embeddings, reranks, or wires a RAG skeleton.
+- Read [`references/patterns.md`](references/patterns.md) when the user wants
+  runnable code for structured output, tool calling, failover, streaming or
+  multimodal input.
+- Read [`references/gotchas.md`](references/gotchas.md) when a call misbehaves
+  and the cause is not in the tables above: provider quirks, the exception
+  catalogue, finish-reason cases.
 
 ## See also
 
-- `symfony-ai-agent` skill : building a tool-calling agent on top of raw Platform calls.
-- `symfony-ai-store` skill : vector storage once you have embeddings from Platform.
+- `symfony-ai-agent`: a tool-calling agent built on top of Platform.
+- `symfony-ai-store`: storing and searching the vectors Platform generates.
+- `symfony-ai-chat`: conversation history across requests.
+- `symfony-ai-bundle`: declaring platforms in `config/packages/ai.yaml`.

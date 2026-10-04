@@ -1,47 +1,61 @@
 ---
 name: symfony-ai-bundle
-description: 'Use when configuring Symfony AI components via YAML, registering tools with PHP attributes, or wiring Symfony Security (`#[IsGrantedTool]`) or Profiler integration. Also trigger when the user asks "how do I configure an agent in ai.yaml", "how to restrict a tool to admins", or "how to give an agent a remote MCP server''s tools in YAML". Triggers on `config/packages/ai.yaml`, `#[AsTool]`, `#[AsInputProcessor]`, `#[AsOutputProcessor]`, `#[IsGrantedTool]`, `mcp_server`, `execution_strategy`, `ai.platform.job_runner`. Do NOT trigger for raw library use without Symfony (use `symfony-ai-platform` / `symfony-ai-agent` / `symfony-ai-store` / `symfony-ai-chat` directly).'
+description: 'Use when wiring Symfony AI into a Symfony application with the AI Bundle: `config/packages/ai.yaml` for platforms, agents, stores and chats, services auto-registered as tools with `#[AsTool]`, tools restricted with `#[IsGrantedTool]`, processors, the profiler, or an agent given a remote MCP server''s tools (`mcp_server`). Not for plain PHP without the framework (use the component skills) or for building an MCP server (`symfony-mcp-bundle`).'
 license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: "0.14.1"
+  version: 0.14.1
+  tags: symfony, php, ai, symfony-bundle, ai-yaml, configuration, dependency-injection, security, profiler
 ---
 
-# AI Bundle
+# Symfony AI Bundle
 
-The Symfony integration layer for the AI components. Wires `Platform`, `Agent`, `Store`, `Chat`, `Indexer`, `Retriever`, `Vectorizer`, and `MultiAgent` as Symfony services; registers tools and processors via PHP attributes; integrates with Symfony Security (`#[IsGrantedTool]`), the Profiler data collector (auto-loaded when `kernel.debug` is true), and the DI compiler passes for processor ordering, JSON-schema provider validation, and traceable decorator wrapping.
+## Purpose
 
-Source of truth: `https://github.com/symfony/ai/tree/main/src/ai-bundle/` (namespace `Symfony\AI\AiBundle`).
+The Symfony integration layer for the AI components. It turns
+`config/packages/ai.yaml` into `Platform`, `Agent`, `MultiAgent`, `Store`,
+`Vectorizer`, `Indexer`, `Retriever` and `Chat` services; registers tools and
+processors from PHP attributes; gates tools with Symfony Security
+(`#[IsGrantedTool]`); and adds a Profiler data collector when `kernel.debug` is
+true. Namespace: `Symfony\AI\AiBundle`.
 
-## When to use AI Bundle vs raw components
+## When to use
 
-Use **AI Bundle** when:
+- A Symfony application (FrameworkBundle) that should get AI services from YAML
+  instead of `new Platform(...)` calls.
+- Services that should become agent tools automatically through `#[AsTool]`.
+- Tools that only some users may call (`#[IsGrantedTool]`).
+- Processors registered with `#[AsInputProcessor]` / `#[AsOutputProcessor]`.
+- Seeing platform, tool, agent, store and message-store calls in the Profiler.
+- Handing a remote MCP server's tools to an agent (`mcp_server`).
 
-- You are in a Symfony app (or bundle) using the FrameworkBundle.
-- You want YAML-configured services (no manual `new Platform(...)` calls).
-- You want auto-discovery of `#[AsTool]` methods on your services.
-- You want security gating via `#[IsGrantedTool]` on tool methods/classes.
-- You want the Profiler / data collector showing platform calls, tool calls, agent calls, store calls, and message-store calls per request : automatically enabled when `kernel.debug` is true.
+## When not to use
 
-Use **raw components** (`symfony-ai-platform`, `symfony-ai-agent`, `symfony-ai-store`, `symfony-ai-chat`) when:
+- Plain PHP without the Symfony framework: use `symfony-ai-platform`,
+  `symfony-ai-agent`, `symfony-ai-store` or `symfony-ai-chat` directly.
+- Building an MCP server inside the application: use `symfony-mcp-bundle`.
+- Letting a coding assistant inspect the running application: use `symfony-ai-mate`.
 
-- You are in a non-Symfony app.
-- You want minimal dependencies (no `symfony/framework-bundle`).
+## Prerequisites
 
-## Installation
+PHP 8.2+, Symfony 7.3+ or 8.x with `symfony/framework-bundle`, the bundle, the
+components it should wire, and a platform bridge:
 
 ```bash
 composer require symfony/ai-bundle
-# Plus the components you will use
 composer require symfony/ai-platform symfony/ai-agent symfony/ai-store symfony/ai-chat
 composer require symfony/ai-open-ai-platform
 # OPENAI_API_KEY=sk-...
 ```
 
-The bundle requires `symfony/framework-bundle` and either `symfony/security-core` is optional (`#[IsGrantedTool]`), `symfony/validator` (for `ValidateToolCallArgumentsListener` and structured-output validator subscriber) is optional. The bundle uses `willBeAvailable()` to remove services for missing optional packages : `AiBundle::loadExtension()`.
+Optional: `symfony/security-core` for `#[IsGrantedTool]`, `symfony/validator`
+for `ValidateToolCallArgumentsListener` and the structured-output validator.
+The bundle removes the services of missing optional packages
+(`AiBundle::loadExtension()`), and `services.yaml` must keep
+`_defaults: { autoconfigure: true }`.
 
-## Quick reference
+## Examples
 
 `config/packages/ai.yaml`:
 
@@ -90,6 +104,8 @@ ai:
             message_store: 'ai.message_store.memory.support'
 ```
 
+A tool, discovered through its attribute and injected into the agent:
+
 ```php
 namespace App\AI;
 
@@ -105,11 +121,9 @@ class WeatherService
 }
 ```
 
-That's it. The bundle auto-discovers `WeatherService` via the `#[AsTool]` attribute (`AiBundle::loadExtension()`), registers it as a tool, wires the agent + platform, and injects everything via DI.
+## Configuration keys
 
-## Real config keys (top-level)
-
-Source: `config/options.php`. The canonical root keys are:
+Source: `config/options.php`. The root keys are:
 
 | Key | Purpose |
 | --- | --- |
@@ -124,59 +138,97 @@ Source: `config/options.php`. The canonical root keys are:
 | `ai.chat` | Chat = (agent, message_store) |
 | `ai.message_store` | Persistent message stores (cache, doctrine, memory, redis, …) |
 
-**There is no `ai.profiler.*` key.** The data collector is added automatically when `kernel.debug` is true; see `AiBundle::loadExtension()` and `DebugCompilerPass::process()` (no `ai.profiler.*` YAML exists).
-
-**Processors are never listed under `ai.agent.*.input_processors` / `output_processors`.** They are auto-tagged via `#[AsInputProcessor]` / `#[AsOutputProcessor]` attributes, or auto-registered when a service implements `InputProcessorInterface` / `OutputProcessorInterface` (see `AiBundle::loadExtension()`).
-
-**The only `fault_tolerance` key is `fault_tolerant_toolbox` (boolean, default `true`).** There is no `max_retries` or `circuit_breaker_threshold`.
-
-**The agent key is `prompt:` accepting a string or array (`{ text | file, include_tools, enable_translation, translation_domain }`), not `system_prompt:`.**
-
-**Store configuration is grouped by provider. The provider key (`pinecone`) is the parent key, not `bridge`.** Example: `ai.store.pinecone.default` (NOT `ai.store.<name>.bridge: pinecone`).
-
-**`ai.chat.<name>` only takes `agent:` and `message_store:` keys.** There is no `ai.chat.<name>.chat_store.*`.
-
-**`ai.platform.ollama` uses `endpoint:`, not `base_url:`.** `ai.platform.openai` and `ai.platform.anthropic` do NOT take `base_url:`.
-
-See `references/config.md` for the full tree.
-
 ## Key gotchas
 
-- **Autoconfiguration must be enabled** in `services.yaml`. The bundle relies on `_defaults: { autoconfigure: true }`. Without it, `#[AsTool]`, `#[AsInputProcessor]`, `#[AsOutputProcessor]`, and `#[IsGrantedTool]` are never registered.
-- **Env var interpolation.** Use `'%env(VAR)%'` not `'%VAR%'` : the latter reads container parameters and is empty in production for env-only vars.
-- **`#[IsGrantedTool]` always throws on denial.** `IsGrantedToolAttributeListener::__invoke()` unconditionally throws `AccessDeniedException`; there is no `throwOnDenied: true` option. Remove the attribute or change the security expression if you want to allow graceful denial.
-- **Security dependency missing.** If `symfony/security-core` is not installed, the listener is removed at compile time and `#[IsGrantedTool]` throws `InvalidArgumentException` at container build time (`AiBundle::loadExtension()`). Install `symfony/security-core` to enable it.
-- **Processor ordering.** Built-in processors use priorities: `SystemPromptInputProcessor` = `-30`, `MemoryInputProcessor` = `-40` (`AiBundle::processAgentConfig()`). Higher priority runs first. Tool calling is not a tagged processor : the bundle wires the toolbox directly onto the `Agent` service's `$toolbox` argument (with `$maxToolCalls`, `$excludeToolMessages`, `$includeSources`, `$eventDispatcher`).
-- **Processor scope.** `#[AsInputProcessor(agent: '...')]` binds to a specific agent service id; `agent: null` (default) applies to all agents. `ProcessorCompilerPass::process()` matches either exact service id or null.
-- **Profiling is on `kernel.debug`, not a YAML key.** When `kernel.debug` is false, `ai.data_collector` and `ai.traceable_toolbox` are removed. Do not try to enable the profiler via YAML.
-- **`tools: enabled` is opt-in.** Default is no tools. Set `tools: true` (or `enabled: true`) to auto-register every `#[AsTool]` service, or pass an explicit `services:` list to constrain which tools an agent sees (the `ai.agent.<name>.tools` node of `config/options.php`).
-- **`fault_tolerant_toolbox` defaults to `true`.** A failing tool call becomes a structured denial that the LLM sees : disable only if you want uncaught exceptions.
-- **No `ai.profiler.*` config, no `ai.agent.*.system_prompt`, no `ai.store.*.bridge`.** These keys do not exist in `config/options.php`; see `references/config.md` for the real tree.
+- **Keys that do not exist**: there is no `ai.profiler.*` (the collector follows
+  `kernel.debug`), no `ai.agent.*.system_prompt` (the key is `prompt:`, a string
+  or `{ text | file, include_tools, enable_translation, translation_domain }`),
+  no `ai.agent.*.input_processors` (processors come from attributes or
+  interfaces), and no `ai.store.<name>.bridge` (the provider is the parent key:
+  `ai.store.pinecone.default`).
+- **`ai.chat.<name>` only takes `agent:` and `message_store:`.**
+- **`ai.platform.ollama` uses `endpoint:`**; `openai` and `anthropic` take no `base_url:`.
+- **Env vars use `'%env(VAR)%'`**, not `'%VAR%'`, which reads a container
+  parameter and is empty in production for env-only values.
+- **Tools are opt-in.** Without `tools: true` (or `enabled: true`) the agent has
+  no tools; an explicit `services:` list narrows them.
+- **`#[IsGrantedTool]` always throws `AccessDeniedException` on denial**
+  (`IsGrantedToolAttributeListener::__invoke()`); there is no `throwOnDenied`
+  option.
+- **Processor order and scope.** Built-in priorities: `SystemPromptInputProcessor`
+  = `-30`, `MemoryInputProcessor` = `-40` (`AiBundle::processAgentConfig()`);
+  higher runs first. `#[AsInputProcessor(agent: '…')]` binds to one agent
+  service id, `agent: null` to all.
+- **`fault_tolerant_toolbox` defaults to `true`**: a failing tool call becomes a
+  structured error the LLM sees. It is the only fault-tolerance key.
 
-## Common tasks
+## Troubleshooting
 
-- **Register a platform**: add `ai.platform.<provider>` (e.g. `openai`, `anthropic`, `ollama`). Each provider has its own required keys (`api_key` for hosted providers, `endpoint` for ollama). See `references/config.md`.
-- **Register an agent**: add `ai.agent.<name>` with `platform`, `model`, optional `tools`, `prompt`, `speech`. See `references/config.md`.
-- **Gate a tool with security**: add `#[IsGrantedTool]` on the method or class. See `references/security.md`.
-- **Custom processor auto-tagging**: implement `InputProcessorInterface`/`OutputProcessorInterface` for global hooks, or `#[AsInputProcessor(agent: '…')]` for scoped. See `references/processors.md`.
-- **Build a RAG pipeline**: configure `ai.vectorizer` + `ai.store.<provider>.<name>`, then `ai.indexer` (with a loader or `source`) and `ai.retriever`. See `references/config.md`.
-- **Persistent chat**: configure `ai.message_store.<provider>.<name>` (e.g. `doctrine`, `cache`, `redis`) and `ai.chat.<name>` referencing the agent + message_store service ids. See `references/config.md`.
-- **Multi-agent routing**: configure agents under `ai.agent.<name>` and orchestration under `ai.multi_agent.<name>` with `orchestrator`, `fallback`, and `handoffs`. See `references/config.md`.
-- **Debug in dev**: the Profiler data collector appears in the Web Debug Toolbar as soon as any AI component is invoked; no setup needed. Since 0.14 agent calls, platform invocations and tool executions also show in the profiler's performance timeline, and an async job is rendered as its handle.
-- **Expose a remote MCP server's tools to an agent** (0.14): declare the connection under `mcp.clients` (`mcp-bundle`), then add `- mcp_server: '<client>.<server>'` to the agent's `tools:` list. Requires `symfony/ai-mcp-tool`. See `references/config.md` → `ai.agent`.
-- **Run tool calls concurrently** (0.14): `tools: { execution_strategy: fiber, services: [...] }`.
-- **Resolve async jobs in a worker** (0.14): inject `Symfony\AI\Platform\Job\JobRunner` and `JobClientInterface $<platform>` (e.g. `$openai`). See `references/config.md` → `ai.platform`.
+| Error | Cause | Fix |
+| --- | --- | --- |
+| `… platform configuration requires "symfony/ai-…-platform" package. Try running "composer require …".` | The bridge for a configured platform is not installed. | Run the `composer require` from the message. |
+| `Agent configuration requires "symfony/ai-agent" package. …` (same for store, chat, message store, vectorizer, indexer, retriever) | The YAML configures a component that is not installed. | Install the named component. |
+| `Using #[IsGrantedTool] attribute requires additional dependencies. Try running "composer install symfony/security-core".` | `symfony/security-core` is missing. | `composer require symfony/security-core`. |
+| `The "mcp_server" tool configuration requires "symfony/ai-mcp-tool" package. …` (or `"symfony/mcp-bundle"`) | `mcp_server` tools need both packages. | Install both, then declare the connection under `mcp.clients`. |
+| `Unrecognized option "system_prompt" under "ai.agent.default"` | A key that does not exist (see Key gotchas). | Use the real key: `prompt:`, `endpoint:`, `ai.store.<provider>.<name>`. |
+| `The service "ai.chat.support" has a dependency on a non-existent service "ai.message_store.memory.support".` | A chat references a message store that is not declared. | Declare it under `ai.message_store.<type>.<name>` first. |
+| The agent never calls a `#[AsTool]` service | Autoconfiguration is off, or `tools` is not enabled for that agent. | Keep `autoconfigure: true`; set `tools: true` or list the service. |
+
+## Limitations
+
+- The bundle is experimental: configuration keys change between minor
+  versions. Pin `symfony/ai-bundle` and read `UPGRADE.md` in the monorepo
+  before upgrading.
+- Symfony 7.3+ or 8.x with FrameworkBundle only.
+- The Profiler integration has no YAML switch: it exists only when
+  `kernel.debug` is true.
+- A `MultiAgent` cannot receive processors (`ProcessorCompilerPass` skips it).
+
+## Usage
+
+- **Register a platform**: add `ai.platform.<provider>` with its required keys
+  (`api_key` for hosted providers, `endpoint` for ollama).
+- **Register an agent**: add `ai.agent.<name>` with `platform`, `model`,
+  optional `tools`, `prompt`, `speech`.
+- **Gate a tool**: add `#[IsGrantedTool]` on the method or class.
+- **Add a processor**: implement `InputProcessorInterface` /
+  `OutputProcessorInterface` for every agent, or `#[AsInputProcessor(agent: '…')]`
+  for one.
+- **Build a RAG pipeline**: configure `ai.vectorizer` and
+  `ai.store.<provider>.<name>`, then `ai.indexer` (a loader or `source`) and
+  `ai.retriever`.
+- **Persist a chat**: configure `ai.message_store.<provider>.<name>` (e.g.
+  `doctrine`, `cache`, `redis`) and `ai.chat.<name>` referencing the agent and
+  message-store service ids.
+- **Route between agents**: configure agents under `ai.agent.<name>` and the
+  orchestration under `ai.multi_agent.<name>` (`orchestrator`, `fallback`, `handoffs`).
+- **Debug in dev**: the data collector appears in the Web Debug Toolbar as soon
+  as an AI component runs; agent calls, platform invocations and tool
+  executions also show in the performance timeline.
+- **Give an agent a remote MCP server's tools**: declare the connection under
+  `mcp.clients` (`symfony-mcp-bundle`), then add `- mcp_server: '<client>.<server>'`
+  to the agent's `tools:` list.
+- **Run tool calls concurrently**: `tools: { execution_strategy: fiber, services: [...] }`.
+- **Resolve async jobs in a worker**: inject `Symfony\AI\Platform\Job\JobRunner`
+  and `JobClientInterface $<platform>` (e.g. `$openai`).
 
 ## References
 
-- **YAML config reference**: [references/config.md](references/config.md)
-- **Processors reference**: [references/processors.md](references/processors.md)
-- **Security reference**: [references/security.md](references/security.md)
-- **Patterns**: [references/patterns.md](references/patterns.md)
-- **Gotchas**: [references/gotchas.md](references/gotchas.md)
+- Read [`references/config.md`](references/config.md) when writing or fixing
+  `ai.yaml`: the full option tree, per-provider keys, `ai.agent` tools,
+  `mcp_server`, async jobs.
+- Read [`references/processors.md`](references/processors.md) when adding or
+  ordering input/output processors.
+- Read [`references/security.md`](references/security.md) when restricting
+  tools with `#[IsGrantedTool]`.
+- Read [`references/patterns.md`](references/patterns.md) when the user wants a
+  complete, working configuration for a scenario.
+- Read [`references/gotchas.md`](references/gotchas.md) when the container
+  fails to compile or a service is missing and the cause is not above.
 
 ## See also
 
-- `symfony-mcp-bundle` skill : for MCP server registration inside your Symfony app
-- `symfony-ai-agent` skill : for the underlying Agent framework
-- `symfony-ai-platform`, `symfony-ai-store`, `symfony-ai-chat` skills : for raw usage without the bundle
+- `symfony-mcp-bundle`: an MCP server inside the application, and `mcp.clients`.
+- `symfony-ai-agent`: the agent framework the bundle configures.
+- `symfony-ai-platform`, `symfony-ai-store`, `symfony-ai-chat`: the components
+  without the bundle.

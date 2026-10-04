@@ -222,8 +222,8 @@ All exceptions under `Symfony\AI\Platform\Exception\`:
 | `UnexpectedResultTypeException` | `as*()` typed accessor saw the wrong subtype         |
 | `ValidationException`           | final, structured-output Validator raised violations; `getViolations(): object` (returns the wrapped `ConstraintViolationListInterface` but the public signature is `: object`) |
 
-Names that **do not exist** in this codebase (hallucinated in the previous
-skill revision): `UnsupportedModelOperationException`,
+Names that **do not exist** in this codebase (they come from training data or
+other libraries): `UnsupportedModelOperationException`,
 `ResultTypeMismatchException`, `StreamUnsupportedException`,
 `MissingPropertyException`, `TypeMismatchException`.
 

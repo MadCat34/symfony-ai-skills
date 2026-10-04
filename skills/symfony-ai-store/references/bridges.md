@@ -4,6 +4,20 @@ Source of truth: `https://github.com/symfony/ai/tree/main/src/store/src/Bridge/`
 
 Each bridge exposes a concrete class : `Store`, `SearchStore` (AzureSearch), or `VecStore` (Sqlite with `sqlite-vec`) : implementing `StoreInterface`, and usually `ManagedStoreInterface` as well.
 
+## Contents
+
+- Bridge table (24 packages, managed or not)
+- Grouped by category
+  - Cloud-managed
+  - SQL / NoSQL databases
+  - Search engines
+  - Vector-native engines
+  - Caching / ephemeral
+- `StoreFactory`
+- Picking a backend
+
+## Bridge table
+
 | # | Bridge | Class | Implements `ManagedStoreInterface` | Notes |
 |---|---|---|---|---|
 | 1 | AzureSearch | `Bridge\AzureSearch\SearchStore` | no | REST/HTTP. Class name is `SearchStore`, not `Store`. |
@@ -32,17 +46,6 @@ Each bridge exposes a concrete class : `Store`, `SearchStore` (AzureSearch), or 
 | 24 | Weaviate | `Bridge\Weaviate\Store` | yes | HTTP API. |
 
 Total: **24 bridges**. Two implementations for Sqlite (`Store` for FTS5-only hybrid; `VecStore` for sqlite-vec).
-
-## Contents
-
-- Grouped by category
-  - Cloud-managed
-  - SQL / NoSQL databases
-  - Search engines
-  - Vector-native engines
-  - Caching / ephemeral
-- `StoreFactory`
-- Picking a backend
 
 ## Grouped by category
 
