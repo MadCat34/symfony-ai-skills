@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: 0.14.1
+  version: 0.14.2
   tags: symfony, php, ai, agent, tool-calling, function-calling, memory, multi-agent, mcp
 ---
 

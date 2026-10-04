@@ -8,7 +8,7 @@
 
 > 💡 **Inspiration** : Symfony AI Skills is heavily inspired by [Symfony UX Skills](https://github.com/smnandre/symfony-ux-skills) by Simon André.
 
-Symfony AI skills for Claude, Gemini, Codex, and any [agentskills.io](https://agentskills.io/specification)-compatible agent : **Platform**, **Agent**, **Chat**, **Store**, **AI Bundle**, **MCP Bundle**, **Mate**. Seven skills, versioned against the [symfony/ai](https://github.com/symfony/ai) monorepo.
+Symfony AI skills for Claude, Gemini, Codex, and any [agentskills.io](https://agentskills.io/specification)-compatible agent : **Platform**, **Agent**, **Chat**, **Store**, **AI Bundle**, **MCP Bundle**, **Mate**. Seven skills, versioned against the [symfony/ai](https://github.com/symfony/ai) monorepo: `0.14.x` targets symfony/ai 0.14 (verified against 0.14.1), and the patch number counts releases of the skills.
 
 ## Skills
 

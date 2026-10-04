@@ -8,7 +8,7 @@
     {
       "name": "symfony-ai-skills",
       "description": "Symfony AI skills for Claude, Gemini, Codex, and any agentskills.io-compatible agent — Platform, Agent, Chat, Store, AI Bundle, MCP Bundle, Mate.",
-      "version": "0.14.1",
+      "version": "0.14.2",
       "author": {
         "name": "MadCat34",
         "email": "madcat34@gmail.com",

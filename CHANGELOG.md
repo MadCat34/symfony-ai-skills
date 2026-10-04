@@ -1,8 +1,10 @@
 # Changelog
 
-Versions of this documentation suite are tagged against the [symfony/ai](https://github.com/symfony/ai) monorepo. See README § Maintenance for the refresh policy.
+Versions of this documentation suite are tagged against the [symfony/ai](https://github.com/symfony/ai) monorepo: `major.minor` is the symfony/ai line the skills target, and the patch number counts releases of the skills within that line (so `0.14.2` is the second release for symfony/ai 0.14, not a symfony/ai 0.14.2). See README § Maintenance for the refresh policy.
 
-## [Unreleased]
+## [0.14.2] - 2026-10-04
+
+Skills for `symfony/ai` 0.14, still verified against 0.14.1 (no upstream release since). Breaking for users: one skill removed and every other skill renamed; a manual install needs the cleanup described in `INSTALL.md`.
 
 - **Removed the `symfony-ai` orchestrator skill.** The host agent already routes on every skill's `name` and `description`; the orchestrator added a load hop, its broad description ("how do I add AI to my Symfony app", "combine RAG with a chat session") competed with `store` and `chat`, and its copy of the routing table had drifted (it still called Mate an MCP dev server). Its three anti-patterns moved to the skills they belong to: vendor SDKs such as `openai-php/client` (`platform`), embeddings in a MySQL `JSON` column (`store`), hand-rolled session-file chat state (`chat`). CI no longer special-cases it; `AGENTS.md`, `GEMINI.md`, `README.md` and `llms.txt` drop it.
 - `mcp-bundle` : the bundle requires `mcp/sdk ^0.8.1`, not `^0.7`.

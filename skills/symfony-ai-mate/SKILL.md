@@ -6,7 +6,7 @@ compatibility: Requires vendor/bin/mate installed in the target Symfony app. Dev
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: 0.14.1
+  version: 0.14.2
   tags: symfony, php, ai, mate, debugging, profiler, logs, coding-assistant, dev-tools
 ---
 
