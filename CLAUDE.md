@@ -43,9 +43,9 @@ One deliberate remaining asymmetry: GitLab jobs use `rules: changes:` to run onl
 
 Enforced by CI or by convention; breaking one silently breaks skill loading in the consuming agent.
 
-- **`name:` in SKILL.md frontmatter == directory name.** Hard CI failure otherwise.
+- **`name:` in SKILL.md frontmatter == directory name.** Hard CI failure otherwise. Names mirror the Composer package (`symfony/ai-platform` → `symfony-ai-platform`, `symfony/mcp-bundle` → `symfony-mcp-bundle`): generic names such as `chat` or `store` collided with other skills in flat skill directories (`cp -r skills/* ~/.claude/skills/`).
 - **`SKILL.md` stays under 500 lines** (currently 144–247). References carry the bulk; the SKILL.md is a router.
-- **Reference filenames come from a closed whitelist**: `api`, `patterns`, `gotchas`, `bridges`, `embeddings`, `config`, `processors`, `security`. Adding a ninth name means editing *three* places: the `case` statement in `.gitlab-ci.yml`'s `lint:references` job, the same statement in `.github/workflows/ci.yml`'s `lint-references` job, and the justification table in `README.md` ("Reference naming convention").
+- **Reference filenames come from a closed whitelist**: `api-reference`, `patterns`, `gotchas`, `bridges`, `embeddings`, `config`, `processors`, `security`. Adding a ninth name means editing *three* places: the `case` statement in `.gitlab-ci.yml`'s `lint:references` job, the same statement in `.github/workflows/ci.yml`'s `lint-references` job, and the justification table in `README.md` ("Reference naming convention").
 - **Every `symfony/ai-*` and `symfony/mcp-*` package name appearing anywhere under `skills/` must resolve on Packagist.** A typo in a bridge package name fails `check:composer`.
 - **Never cite source line numbers** (`lines 361-367`, `File.php:55`). They drift every release. Anchor to a stable symbol instead: `Class::method()`, a service id (`ai.data_collector` in `config/services.php`), or a config node path (the `ai.agent.<name>.tools` node of `config/options.php`). By convention, not CI-enforced; `grep -rnE '\blines? [0-9]+|\.php:[0-9]+' skills` must stay empty.
 
@@ -55,14 +55,14 @@ Enforced by CI or by convention; breaking one silently breaks skill loading in t
 
 There is deliberately **no orchestrator skill**. The host agent already sees every skill's `name` and `description` before loading any of them, so a meta-skill restating the routing would only add a load hop, compete with sibling descriptions for broad questions, and drift out of sync (the former `symfony-ai` orchestrator still described Mate as an MCP server two releases after it stopped being one). Cross-component knowledge lives in each skill's "See also" section instead.
 
-1. `skills/<component>/SKILL.md` — ~150–240 lines: when to use vs. the alternative, install block, five-line quick reference, architecture sketch, top gotchas, then a **References** section whose bullets are written as instructions to the agent ("read `references/api.md` **when** …"). The conditional phrasing is deliberate — it keeps references out of context until needed.
+1. `skills/<component>/SKILL.md` — ~150–240 lines: when to use vs. the alternative, install block, five-line quick reference, architecture sketch, top gotchas, then a **References** section whose bullets are written as instructions to the agent ("read `references/api-reference.md` **when** …"). The conditional phrasing is deliberate — it keeps references out of context until needed.
 2. `skills/<component>/references/*.md` — 110–840 lines of API surface, catalogues, runnable patterns, trap lists.
 
 ### Descriptions are the routing mechanism
 
 The `description:` frontmatter field is the only thing the host agent sees before deciding to load a skill. Each follows a fixed shape: `Use when <primary intent>` → `Also trigger when the user asks "<verbatim question>"` (several) → `Triggers on <class/symbol names>` → `Do NOT trigger when <sibling skill's territory>`.
 
-The negative clause is load-bearing. `mcp-bundle` (build an MCP server *inside* your app) and `mate` (let *your* assistant introspect a running app) are the pair most often confused, so their descriptions exclude each other explicitly. Editing one description without checking its siblings is the main way routing regresses.
+The negative clause is load-bearing. `symfony-mcp-bundle` (build an MCP server *inside* your app) and `symfony-ai-mate` (let *your* assistant introspect a running app) are the pair most often confused, so their descriptions exclude each other explicitly. Editing one description without checking its siblings is the main way routing regresses.
 
 ### Evals
 
@@ -80,16 +80,16 @@ Keep `AGENTS.md` and `GEMINI.md` in sync with each other and consumer-facing. Do
 
 ## Which skill to use
 
-- **Invoke any LLM through one unified interface** (chat, completions, embeddings, structured output, tool calling) : `platform`
-- **Build a tool-calling agent with memory or sub-agents** : `agent`
-- **Build a stateful chat session persisted across requests** : `chat`
-- **Store or query documents in a vector store for RAG / semantic search** : `store`
-- **Configure AI components via YAML, register tools with attributes, or wire Symfony Security / Profiler** : `ai-bundle`
-- **Build an MCP server inside a Symfony app (tools, prompts, resources)** : `mcp-bundle`
-- **Let your AI assistant introspect / debug a running Symfony app via Mate (dev tool)** : `mate`
+- **Invoke any LLM through one unified interface** (chat, completions, embeddings, structured output, tool calling) : `symfony-ai-platform`
+- **Build a tool-calling agent with memory or sub-agents** : `symfony-ai-agent`
+- **Build a stateful chat session persisted across requests** : `symfony-ai-chat`
+- **Store or query documents in a vector store for RAG / semantic search** : `symfony-ai-store`
+- **Configure AI components via YAML, register tools with attributes, or wire Symfony Security / Profiler** : `symfony-ai-bundle`
+- **Build an MCP server inside a Symfony app (tools, prompts, resources)** : `symfony-mcp-bundle`
+- **Let your AI assistant introspect / debug a running Symfony app via Mate (dev tool)** : `symfony-ai-mate`
 
 ## Key rules
 
 - Symfony AI is **experimental** : `BC breaks` possible. Check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading.
-- For RAG, you need BOTH `platform` (for embeddings) AND `store` (for the vector DB). Load both skills.
-- For MCP server inside your app → `mcp-bundle`. For letting an AI assistant read your app's logs/profiler → `mate`. Never both at once.
+- For RAG, you need BOTH `symfony-ai-platform` (for embeddings) AND `symfony-ai-store` (for the vector DB). Load both skills.
+- For an MCP server inside your app → `symfony-mcp-bundle`. For letting an AI assistant read your app's logs/profiler → `symfony-ai-mate`. Never both at once.

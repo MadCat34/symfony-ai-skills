@@ -3,8 +3,10 @@
 ## Repository purpose
 
 This is a content repository, not a Symfony application. It packages seven
-agentskills.io-compatible Markdown skills for Symfony AI: `platform`, `agent`,
-`chat`, `store`, `ai-bundle`, `mcp-bundle`, and `mate`, one per component.
+agentskills.io-compatible Markdown skills for Symfony AI: `symfony-ai-platform`,
+`symfony-ai-agent`, `symfony-ai-chat`, `symfony-ai-store`, `symfony-ai-bundle`,
+`symfony-mcp-bundle`, and `symfony-ai-mate`, one per component, each named
+after its Composer package.
 There is deliberately no orchestrator skill: the host agent already routes on
 every skill's `name` and `description`.
 
@@ -30,14 +32,14 @@ Each component skill uses progressive disclosure:
 Skill frontmatter descriptions are the routing mechanism. Keep descriptions
 specific, include the required negative routing clause (`Do NOT trigger`),
 and update sibling descriptions when changing overlapping boundaries. In
-particular, `mcp-bundle` means building an MCP server inside a Symfony app,
-whereas `mate` means letting an assistant inspect a running app; these must
+particular, `symfony-mcp-bundle` means building an MCP server inside a Symfony app,
+whereas `symfony-ai-mate` means letting an assistant inspect a running app; these must
 remain mutually exclusive.
 
 The `SKILL.md` files are routers and must stay below 500 lines. References
 carry the detailed material. Every reference file must be linked from its
 skill's `## References` section. Reference names are intentionally limited to:
-`api`, `patterns`, `gotchas`, `bridges`, `embeddings`, `config`, `processors`,
+`api-reference`, `patterns`, `gotchas`, `bridges`, `embeddings`, `config`, `processors`,
 and `security`. Adding another name requires updating both CI files and the
 README convention table.
 
@@ -47,7 +49,7 @@ repository details. Installation and distribution changes should also account
 for `.claude-plugin/`, `gemini-extension.json`, `INSTALL.md`, and the plain
 `skills/` layout.
 
-The `platform`, `agent`, and `store` skills have eval fixtures under
+The `symfony-ai-platform`, `symfony-ai-agent`, and `symfony-ai-store` skills have eval fixtures under
 `evals/`; these describe routing behavior but are not automatically run by
 CI.
 
@@ -76,10 +78,10 @@ done
 # Validate one skill (the targeted equivalent of the CI loop).
 git clone --depth=1 https://github.com/agentskills/agentskills.git /tmp/skills-ref
 python3 -m pip install --quiet -e /tmp/skills-ref/skills-ref
-skills-ref validate skills/platform
+skills-ref validate skills/symfony-ai-platform
 ```
 
-For the upstream check, replace `skills/platform` with the skill being
+For the upstream check, replace `skills/symfony-ai-platform` with the skill being
 changed. `test:skills-ref` is informational in CI
 (`allow_failure` / `continue-on-error`).
 

@@ -6,54 +6,54 @@
 
 ### Platform — invoke any LLM
 
-- [Platform](skills/platform/SKILL.md): Unified LLM invocation (chat, structured output, tool calling, embeddings, failover).
-- [Platform API Reference](skills/platform/references/api.md)
-- [Platform Bridges](skills/platform/references/bridges.md): All 43 bridges: providers (OpenAI, Anthropic, Azure, Gemini, VertexAI, Ollama, Mistral, etc.) plus the failover and cache decorators.
-- [Platform Embeddings](skills/platform/references/embeddings.md)
-- [Platform Patterns](skills/platform/references/patterns.md)
-- [Platform Gotchas](skills/platform/references/gotchas.md)
+- [Platform](skills/symfony-ai-platform/SKILL.md): Unified LLM invocation (chat, structured output, tool calling, embeddings, failover).
+- [Platform API Reference](skills/symfony-ai-platform/references/api-reference.md)
+- [Platform Bridges](skills/symfony-ai-platform/references/bridges.md): All 43 bridges: providers (OpenAI, Anthropic, Azure, Gemini, VertexAI, Ollama, Mistral, etc.) plus the failover and cache decorators.
+- [Platform Embeddings](skills/symfony-ai-platform/references/embeddings.md)
+- [Platform Patterns](skills/symfony-ai-platform/references/patterns.md)
+- [Platform Gotchas](skills/symfony-ai-platform/references/gotchas.md)
 
 ### Agent — tool-calling, memory, multi-agent
 
-- [Agent](skills/agent/SKILL.md): Build autonomous AI agents with input/output processors.
-- [Agent API Reference](skills/agent/references/api.md)
-- [Agent Patterns](skills/agent/references/patterns.md)
-- [Agent Gotchas](skills/agent/references/gotchas.md)
+- [Agent](skills/symfony-ai-agent/SKILL.md): Build autonomous AI agents with input/output processors.
+- [Agent API Reference](skills/symfony-ai-agent/references/api-reference.md)
+- [Agent Patterns](skills/symfony-ai-agent/references/patterns.md)
+- [Agent Gotchas](skills/symfony-ai-agent/references/gotchas.md)
 
 ### Chat — stateful conversation
 
-- [Chat](skills/chat/SKILL.md): Send messages to an Agent and persist the conversation.
-- [Chat API Reference](skills/chat/references/api.md)
-- [Chat Patterns](skills/chat/references/patterns.md)
-- [Chat Gotchas](skills/chat/references/gotchas.md)
+- [Chat](skills/symfony-ai-chat/SKILL.md): Send messages to an Agent and persist the conversation.
+- [Chat API Reference](skills/symfony-ai-chat/references/api-reference.md)
+- [Chat Patterns](skills/symfony-ai-chat/references/patterns.md)
+- [Chat Gotchas](skills/symfony-ai-chat/references/gotchas.md)
 
 ### Store — vector DB and RAG
 
-- [Store](skills/store/SKILL.md): Store and query documents in a vector database. Requires a Platform for embeddings.
-- [Store API Reference](skills/store/references/api.md)
-- [Store Bridges](skills/store/references/bridges.md): All 24 supported vector stores.
-- [Store Patterns](skills/store/references/patterns.md)
-- [Store Gotchas](skills/store/references/gotchas.md)
+- [Store](skills/symfony-ai-store/SKILL.md): Store and query documents in a vector database. Requires a Platform for embeddings.
+- [Store API Reference](skills/symfony-ai-store/references/api-reference.md)
+- [Store Bridges](skills/symfony-ai-store/references/bridges.md): All 24 supported vector stores.
+- [Store Patterns](skills/symfony-ai-store/references/patterns.md)
+- [Store Gotchas](skills/symfony-ai-store/references/gotchas.md)
 
 ### AI Bundle — Symfony integration
 
-- [AI Bundle](skills/ai-bundle/SKILL.md): YAML config, attributes (#[AsTool], #[IsGrantedTool]), profiler.
-- [AI Bundle Config](skills/ai-bundle/references/config.md)
-- [AI Bundle Processors](skills/ai-bundle/references/processors.md)
-- [AI Bundle Security](skills/ai-bundle/references/security.md)
-- [AI Bundle Patterns](skills/ai-bundle/references/patterns.md)
-- [AI Bundle Gotchas](skills/ai-bundle/references/gotchas.md)
+- [AI Bundle](skills/symfony-ai-bundle/SKILL.md): YAML config, attributes (#[AsTool], #[IsGrantedTool]), profiler.
+- [AI Bundle Config](skills/symfony-ai-bundle/references/config.md)
+- [AI Bundle Processors](skills/symfony-ai-bundle/references/processors.md)
+- [AI Bundle Security](skills/symfony-ai-bundle/references/security.md)
+- [AI Bundle Patterns](skills/symfony-ai-bundle/references/patterns.md)
+- [AI Bundle Gotchas](skills/symfony-ai-bundle/references/gotchas.md)
 
 ### MCP Bundle — MCP server in your app
 
-- [MCP Bundle](skills/mcp-bundle/SKILL.md): Build an MCP server inside a Symfony app (tools, prompts, resources).
-- [MCP Bundle API Reference](skills/mcp-bundle/references/api.md)
-- [MCP Bundle Patterns](skills/mcp-bundle/references/patterns.md)
-- [MCP Bundle Gotchas](skills/mcp-bundle/references/gotchas.md)
+- [MCP Bundle](skills/symfony-mcp-bundle/SKILL.md): Build an MCP server inside a Symfony app (tools, prompts, resources).
+- [MCP Bundle API Reference](skills/symfony-mcp-bundle/references/api-reference.md)
+- [MCP Bundle Patterns](skills/symfony-mcp-bundle/references/patterns.md)
+- [MCP Bundle Gotchas](skills/symfony-mcp-bundle/references/gotchas.md)
 
 ### Mate — dev tool for AI assistants to introspect your app
 
-- [Mate](skills/mate/SKILL.md): CLI the coding agent invokes to read your Symfony app's logs, profiler, container (not an MCP server since 0.13). Dev only.
-- [Mate API Reference](skills/mate/references/api.md)
-- [Mate Patterns](skills/mate/references/patterns.md)
-- [Mate Gotchas](skills/mate/references/gotchas.md)
+- [Mate](skills/symfony-ai-mate/SKILL.md): CLI the coding agent invokes to read your Symfony app's logs, profiler, container (not an MCP server since 0.13). Dev only.
+- [Mate API Reference](skills/symfony-ai-mate/references/api-reference.md)
+- [Mate Patterns](skills/symfony-ai-mate/references/patterns.md)
+- [Mate Gotchas](skills/symfony-ai-mate/references/gotchas.md)

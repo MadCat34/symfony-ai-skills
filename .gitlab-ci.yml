@@ -55,7 +55,7 @@ lint:references:
             [ -e "$f" ] || continue
             base=$(basename "$f" .md)
             case "$base" in
-              api|patterns|gotchas|bridges|embeddings|config|processors|security) ;;
+              api-reference|patterns|gotchas|bridges|embeddings|config|processors|security) ;;
               *) echo "WARN $f: unexpected reference name '$base'"; fail=1 ;;
             esac
           done

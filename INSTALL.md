@@ -53,9 +53,13 @@ Verify:
 2. The skill's `name` field in its `SKILL.md` frontmatter equals its directory name (kebab-case).
 3. The `description` field is non-empty and starts with "Use when..." or "Use this skill when...".
 
+### "The same skill shows up twice after an upgrade"
+
+Since the skills were renamed after their Composer packages (`platform` became `symfony-ai-platform`, and so on) and the `symfony-ai` orchestrator was removed, a manual copy of a previous version leaves the old directories next to the new ones. Remove the old copies from `~/.claude/skills/` (`platform`, `agent`, `chat`, `store`, `ai-bundle`, `mcp-bundle`, `mate`, `symfony-ai`), after checking that each one really came from this repository: these generic names may also belong to other skills. Plugin and extension installs are updated in place.
+
 ### "The agent loads the wrong skill"
 
-Skills with overlapping triggers (e.g. `mcp-bundle` ↔ `mate`) use mutually-exclusive clauses in their descriptions. If you edited one, ensure the other still excludes it explicitly.
+Skills with overlapping triggers (e.g. `symfony-mcp-bundle` ↔ `symfony-ai-mate`) use mutually-exclusive clauses in their descriptions. If you edited one, ensure the other still excludes it explicitly.
 
 ### "The agent's responses are stale"
 
