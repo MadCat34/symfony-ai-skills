@@ -19,3 +19,10 @@ package-lock.json
 # Generated docs
 /docs/superpowers/specs/
 /docs/superpowers/plans/
+
+# Local validation tooling (kept out of the repository for now) and its outputs
+/bin/
+/reports/
+/.skillevaluator-policy.yaml
+/.skillspector-baseline.yaml
+/skills/*/evals/results/
