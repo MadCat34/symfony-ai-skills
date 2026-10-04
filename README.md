@@ -88,7 +88,7 @@ When citing the Symfony AI source, never use line numbers (`lines 361-367`, `Fil
 
 ### Optimisation methodology
 
-Per the [optimizing-descriptions](https://agentskills.io/skill-creation/optimizing-descriptions) guide, skill descriptions are optimised iteratively. **v1 ships with manual review only**; the description-tuning loop is not automated. To contribute, follow the procedure in the spec and submit a PR.
+Per the [optimizing-descriptions](https://agentskills.io/skill-creation/optimizing-descriptions) guide, skill descriptions are optimised iteratively against the routing prompts in `skills/*/evals/evals.json`: each prompt runs through `claude -p` with only these skills loaded, and the first skill the agent loads is compared with the expected one (the command is in `CLAUDE.md` → Evals). The loop is manual, not part of CI. To contribute, run the prompts before and after your change and include both results in the PR.
 
 ## CI
 
