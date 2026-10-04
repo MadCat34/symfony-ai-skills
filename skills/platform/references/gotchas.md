@@ -85,15 +85,8 @@ Access embedding data via `getData()`/`getDimensions()`, not public properties. 
 
 ## 4. `ResultInterface` has only three methods : not `asText()`
 
-```php
-interface ResultInterface extends MetadataAwareInterface
-{
-    public function getContent(): string|iterable|object|null;
-    public function getRawResult(): ?RawResultInterface;
-    public function setRawResult(RawResultInterface $rawResult): void;
-}
-```
-
+`ResultInterface` exposes only `getContent()`, `getRawResult()`, and
+`setRawResult()` (full signature in `references/api.md` § `DeferredResult`).
 All `asText()`, `asObject()`, `asVectors()`, `asToolCalls()`, `asStream()`
 etc. live on `DeferredResult`. Reading `$result->getContent()` directly is
 fine if you want to introspect, but to get a typed value go through

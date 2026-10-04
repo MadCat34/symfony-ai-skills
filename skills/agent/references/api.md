@@ -305,16 +305,8 @@ interface ToolExecutorInterface
     public function execute(array $toolCalls): \Generator;
 }
 
+// FiberToolExecutor (since 0.14) has the identical shape
 final class SequentialToolExecutor implements ToolExecutorInterface
-{
-    public function __construct(
-        private readonly ToolboxInterface $toolbox,
-    );
-
-    public function execute(array $toolCalls): \Generator;
-}
-
-final class FiberToolExecutor implements ToolExecutorInterface   // since 0.14
 {
     public function __construct(
         private readonly ToolboxInterface $toolbox,
