@@ -102,7 +102,7 @@ foreach ($store->query(new VectorQuery($queryVector)) as $hit) {
 
 In production replace `InMemoryStore` with one of the 24 vector-store bridges
 (`store` skill). `StoreInterface::query(QueryInterface $query, array $options = []): iterable`
-yields `VectorDocument` objects (`getId()`, `getVector()`, `getMetadata()`,
+yields `VectorDocumentInterface` objects (`getId()`, `getVector()`, `getMetadata()`,
 `getScore()`); which query types a given store accepts is reported by its
 `supports()` method — see `store` skill for the per-bridge matrix.
 

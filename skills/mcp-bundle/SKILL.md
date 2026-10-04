@@ -35,7 +35,7 @@ Use **Mate** (see `mate` skill) when:
 composer require symfony/mcp-bundle
 ```
 
-The bundle pulls `mcp/sdk ^0.7` as a hard dependency. `mcp/sdk` is the source of every attribute, every transport, and the `Mcp\Server` runtime : the bundle only adds Symfony glue (autoconfiguration, compiler pass, controller, command, profiler, route loader, DI container).
+The bundle pulls `mcp/sdk ^0.8.1` as a hard dependency. `mcp/sdk` is the source of every attribute, every transport, and the `Mcp\Server` runtime : the bundle only adds Symfony glue (autoconfiguration, compiler pass, controller, command, profiler, route loader, DI container).
 
 For UI-resource MCP Apps (the `#[AsMcpApp]` flow), also install Twig:
 
@@ -169,7 +169,7 @@ php bin/console mcp:server weather
 
 The argument is required as soon as more than one server enables STDIO (one process can only serve one of them — the transport owns the process' STDIN/STDOUT); with exactly one STDIO-enabled server it can be omitted. The command constructs an SDK `Mcp\Server\Transport\StdioTransport` and runs the named server with it. It is intended to be launched by an MCP-compatible client (Claude Code, Cursor, etc.) : the client spawns the process and pipes JSON-RPC over stdin/stdout.
 
-The HTTP and STDIO transports are independent. A session id from one is meaningless to the other. STDIO does not use the session store service : sessions live in the SDK transport itself.
+The HTTP and STDIO transports are independent. A session id from one is meaningless to the other.
 
 ## MCP clients (consuming remote MCP servers)
 

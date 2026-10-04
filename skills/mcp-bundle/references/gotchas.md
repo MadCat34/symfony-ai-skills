@@ -137,7 +137,9 @@ For long-running STDIO servers in production (rare : usually editors spawn per s
 
 The bundle's `registerMcpAttributes()` autoconfig throws `LogicException` when the attribute is on a class that has no `__invoke()` method:
 
-> The class "X" uses #[McpTool] as a class-level attribute but has no "__invoke()" method. Add an__invoke() method or move the attribute to a method.
+> The class "X" uses #[Mcp\Capability\Attribute\McpTool] as a class-level attribute but has no "__invoke()" method. Add an __invoke() method or move the attribute to a method.
+
+The attribute is printed with its full class name (`McpPrompt`, `McpResource` and `McpResourceTemplate` produce the same message).
 
 This surfaces at container compile time, not at runtime : fix the class or move the attribute to a method.
 

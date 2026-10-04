@@ -10,9 +10,10 @@ metadata:
 
 # Platform
 
-Unified abstraction over 43 LLM / multimodal providers living under
-`Symfony\AI\Platform\Bridge\*`. One `Platform` service, one `invoke()` call site,
-many providers.
+Unified abstraction over the 43 bridges living under
+`Symfony\AI\Platform\Bridge\*` (LLM and multimodal providers, plus the
+`Failover` and `Cache` decorators). One `Platform` service, one `invoke()` call
+site, many providers.
 
 ## When to use Platform vs a vendor SDK directly
 
@@ -21,7 +22,7 @@ Use **Platform** when you want:
 - A single call site that can switch providers by changing one factory line
 - Tool / function calling normalised across providers
 - Structured output (JSON schema validation, optional Validator integration)
-- Embeddings + vector search behind one interface
+- Embeddings behind the same interface (storing and searching them is the Store component's job)
 - Multi-provider failover with rate-limited retries
 - Cross-provider observability via `TraceablePlatform`
 
@@ -87,8 +88,8 @@ Platform (Symfony\AI\Platform\Platform)
            └── …
 ```
 
-- `Platform::invoke()` fires `ModelRoutingEvent`, lets a `ModelRouter` (default
-  `CatalogBasedModelRouter`) pick the right `Provider`, dispatches
+- `Platform::invoke()` fires `ModelRoutingEvent`, lets a `ModelRouterInterface`
+  (default `CatalogBasedModelRouter`) pick the right `Provider`, dispatches
   `InvocationEvent`, then `ResultEvent`. A subscriber can rewrite the
   `DeferredResult` between conversion and consumption : that is how
   `PlatformSubscriber` (structured output) and `ValidatorSubscriber` plug in.

@@ -12,7 +12,7 @@
 
 - [Platform](skills/platform/SKILL.md): Unified LLM invocation (chat, structured output, tool calling, embeddings, failover).
 - [Platform API Reference](skills/platform/references/api.md)
-- [Platform Bridges](skills/platform/references/bridges.md): All 43 supported providers (OpenAI, Anthropic, Azure, Gemini, VertexAI, Ollama, Mistral, etc.).
+- [Platform Bridges](skills/platform/references/bridges.md): All 43 bridges: providers (OpenAI, Anthropic, Azure, Gemini, VertexAI, Ollama, Mistral, etc.) plus the failover and cache decorators.
 - [Platform Embeddings](skills/platform/references/embeddings.md)
 - [Platform Patterns](skills/platform/references/patterns.md)
 - [Platform Gotchas](skills/platform/references/gotchas.md)
@@ -57,7 +57,7 @@
 
 ### Mate — dev tool for AI assistants to introspect your app
 
-- [Mate](skills/mate/SKILL.md): Standalone MCP dev server so the AI assistant can read your Symfony app's logs, profiler, container. Dev only.
+- [Mate](skills/mate/SKILL.md): CLI the coding agent invokes to read your Symfony app's logs, profiler, container (not an MCP server since 0.13). Dev only.
 - [Mate API Reference](skills/mate/references/api.md)
 - [Mate Patterns](skills/mate/references/patterns.md)
 - [Mate Gotchas](skills/mate/references/gotchas.md)

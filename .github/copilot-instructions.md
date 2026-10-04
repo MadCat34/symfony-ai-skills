@@ -68,24 +68,9 @@ for f in skills/*/SKILL.md; do
   [ "$n" = "$d" ] || echo "FAIL $f: name='$n' != dir='$d'"
 done
 
-# Validate description quality and reference links.
-bash scripts/lint-descriptions.sh
-bash scripts/check-references-links.sh
+# Reference filenames must come from the approved whitelist.
+ls skills/*/references/*.md
 
-# Check all copy-pasteable PHP blocks (requires PHP on PATH).
-bash scripts/check-snippets.sh
-
-# Check all documented Symfony AI symbols against a local monorepo checkout.
-SYMFONY_AI_SRC=../symfony-ai bash scripts/check-symbols.sh
-
-# Optional: compare documented method signatures with the monorepo.
-# Install component dependencies first if reflection is desired.
-SYMFONY_AI_SRC=../symfony-ai bash scripts/check-method-signatures.sh
-```
-
-The remaining CI checks are package and upstream validation:
-
-```bash
 # Check every cited symfony/ai-* and symfony/mcp-* package on Packagist.
 for p in $(grep -rhoE 'symfony/(ai|mcp)-[a-z0-9-]+' skills/ | sort -u); do
   curl -s -o /dev/null -w "$p %{http_code}\n" \
@@ -99,12 +84,7 @@ skills-ref validate skills/platform
 ```
 
 For the upstream check, replace `skills/platform` with the skill being
-changed. `skills/symfony-ai` is not a valid target for this command.
-
-The symbol check skips cleanly if `SYMFONY_AI_SRC` is absent, but CI clones
-the monorepo and runs it. The PHP snippet check deliberately excludes
-`references/api.md`, whose bodyless signatures are catalogues rather than
-standalone PHP programs. `test:skills-ref` is informational in CI
+changed. `skills/symfony-ai` is not a valid target for this command. `test:skills-ref` is informational in CI
 (`allow_failure` / `continue-on-error`).
 
 ## Source and maintenance conventions
@@ -112,8 +92,8 @@ standalone PHP programs. `test:skills-ref` is informational in CI
 - Package names cited under `skills/` must exist on Packagist; the check covers
   both `symfony/ai-*` and `symfony/mcp-*`.
 - Every referenced `Symfony\AI\*` symbol must resolve in the matching
-  component under the Symfony AI monorepo. Deliberately absent symbols belong
-  in `scripts/known-absent-symbols.txt`.
+  component under the Symfony AI monorepo. This is checked by hand against a
+  local checkout; no CI job enforces it.
 - Prefer canonical examples and terminology from the upstream component
   source. Preserve the distinction between reusable component documentation
   and Symfony bundle integration.

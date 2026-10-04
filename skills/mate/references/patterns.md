@@ -138,7 +138,7 @@ When the assistant cannot see Mate tools:
 ```bash
 # 1. Verify Mate is installed and on PATH
 vendor/bin/mate --version
-# Symfony AI Mate 0.13.0
+# Symfony AI Mate 0.14.0
 
 # 2. Verify the DI container builds and discover runs
 vendor/bin/mate discover

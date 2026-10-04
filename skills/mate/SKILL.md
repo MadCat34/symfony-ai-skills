@@ -11,7 +11,7 @@ metadata:
 
 # Mate
 
-> ⚠️ **DEV TOOL ONLY : never deploy Mate to production.** Mate exposes your application internals (logs, container, profiler, environment) to the AI assistant. That is fine in dev; catastrophic in prod.
+> ⚠ **DEV TOOL ONLY : never deploy Mate to production.** Mate exposes your application internals (logs, container, profiler, environment) to the AI assistant. That is fine in dev; catastrophic in prod.
 
 Mate is a plain command-line assistant (`vendor/bin/mate`) that exposes project-aware development tools directly to a coding agent (Claude Code, Codex, Cursor, …) and to developers. The agent runs `mate` commands itself — tool schemas are read on demand via `tools:inspect`/`--help` instead of being loaded up front. **Mate does not run an MCP server and does not speak the MCP protocol** : it is a CLI the agent invokes, not a process the editor connects to.
 

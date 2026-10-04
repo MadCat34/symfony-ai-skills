@@ -97,7 +97,7 @@ GitLab CI runs on every push:
 
 - `lint:skills` : every `SKILL.md` has valid YAML frontmatter (`name` + `description`).
 - `lint:references` : every `references/*.md` filename matches the approved scheme.
-- `check:composer` : every `symfony/ai-*` package cited exists on Packagist.
+- `check:composer` : every `symfony/ai-*` and `symfony/mcp-*` package cited exists on Packagist.
 - `test:skills-ref` : clones and runs the official `agentskills/skills-ref` upstream suite. `allow_failure: true` (upstream divergence is informational).
 
 ## License

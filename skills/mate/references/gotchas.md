@@ -47,7 +47,7 @@ If `extra.ai-mate.extension === false`, discovery skips the package. Absent or `
 
 `WRONG`: `return ['symfony/ai-symfony-mate-extension', 'symfony/ai-monolog-mate-extension'];`
 
-`CORRECT`: `ExtensionConfigSynchronizer::writeExtensionsFile()` emits a string-keyed map with `['enabled' => bool]` values. `ContainerFactory::getEnabledExtensions()` walks the map and filters by `$config['enabled']`.
+`CORRECT`: `Skill\SkillStateRepository::write()`, the sole writer of `mate/extensions.php`, emits a string-keyed map with `['enabled' => bool]` values. `ContainerFactory::getEnabledExtensions()` walks the map and filters by `$config['enabled']`.
 
 ```php
 <?php
@@ -114,7 +114,7 @@ Use `Symfony\AI\Mate\Container\MateHelper::disableFeatures()` (`src/Container/Ma
 
 `WRONG`: `vendor/bin/mate serve [--force-keep-alive]`, `vendor/bin/mate stop`, an `mcp.json`/`.mcp.json` config file, an "editor MCP configuration" step.
 
-`CORRECT`: 0.13 removed the `mcp/sdk` dependency, the `ServeCommand`/`StopCommand` classes, and the whole MCP server runtime (`App.php` registers no such commands, and `App::VERSION` is `'0.13.0'`). Mate is a one-shot CLI the coding agent invokes directly, the same way it runs `git status`. `mate init` no longer generates `mcp.json`, `.mcp.json`, or the Codex wrappers (`bin/codex`, `bin/codex.bat`); it writes `mate/AGENT_INSTRUCTIONS.md` and a managed block in `AGENTS.md`/`CLAUDE.md` instead. If you're carrying these files over from a pre-0.13 project, delete `mcp.json`, `.mcp.json`, `bin/codex`, `bin/codex.bat`, and stop invoking `mate serve`/`mate stop`.
+`CORRECT`: 0.13 removed the `mcp/sdk` dependency, the `ServeCommand`/`StopCommand` classes, and the whole MCP server runtime (`App::build()` registers no such commands). Mate is a one-shot CLI the coding agent invokes directly, the same way it runs `git status`. `mate init` no longer generates `mcp.json`, `.mcp.json`, or the Codex wrappers (`bin/codex`, `bin/codex.bat`); it writes `mate/AGENT_INSTRUCTIONS.md` and a managed block in `AGENTS.md`/`CLAUDE.md` instead. If you're carrying these files over from a pre-0.13 project, delete `mcp.json`, `.mcp.json`, `bin/codex`, `bin/codex.bat`, and stop invoking `mate serve`/`mate stop`.
 
 ## 7. `discover` flags: `--composer` and `--ignore-missing-file` only
 
@@ -202,13 +202,13 @@ If you delete these by hand, `discover` will start treating the root project as 
 
 `WRONG`: `mate/config.php` has a top-level `secrets_exclusion` / `flat_structure` / `truncation` section.
 
-`CORRECT`: The only framework-supported way to disable a specific tool/resource/resource-template is the `mate.disabled_features` parameter, set via `Symfony\AI\Mate\Container\MateHelper::disableFeatures()` (see `src/Container/MateHelper.php`). The shape is `[extension => [feature => ['enabled' => false]]]`, and `FilteredDiscoveryLoader::isFeatureAllowed()` is the consumer.
+`CORRECT`: The only framework-supported way to disable a specific tool/resource/resource-template is the `mate.disabled_features` parameter, set via `Symfony\AI\Mate\Container\MateHelper::disableFeatures()` (see `src/Container/MateHelper.php`). The shape is `[extension => [feature => ['enabled' => false]]]`, and `CapabilityRegistry::isFeatureAllowed()` is the consumer.
 
 ## 16. Tool names are flat
 
 `WRONG`: tools are named like `symfony.profiler.get_last_requests` or `doctrine.query.run`.
 
-`CORRECT`: tool names are flat strings (e.g. `server-info`, `monolog-search`). `CapabilityCollector::formatTools()` keys the tools array by the bare attribute name. There is no dotted-namespace convention in this codebase.
+`CORRECT`: tool names are flat strings (e.g. `server-info`, `monolog-search`). `ReflectionDiscoverer` keys the tools by the bare attribute name (`$instance->name`). There is no dotted-namespace convention in this codebase.
 
 ## 17. `.agents/skills/` is a real copy, not a symlink into `vendor/`
 

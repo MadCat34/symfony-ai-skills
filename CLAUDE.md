@@ -37,7 +37,7 @@ grep -rhoE 'symfony/(ai|mcp)-[a-z0-9-]+' skills/ | sort -u
 
 The `scripts/lint-descriptions.sh`, `scripts/check-references-links.sh`, `scripts/check-snippets.sh`, `scripts/check-symbols.sh`, `scripts/check-method-signatures.sh`, `scripts/reflect-signatures.php`, and `scripts/known-absent-symbols.txt` validation scripts (and their per-skill `check-snippets.sh` copies under `skills/{platform,agent,store}/scripts/`) that used to back the `lint:descriptions`, `lint:references-links`, `check:snippets`, and `check:symbols` jobs have been removed, along with those jobs, from this repo and its history.
 
-One deliberate remaining asymmetry: GitLab jobs use `rules: changes:` to run only when relevant paths change; GitHub Actions has no per-job path filter, so all eight jobs run on every push/PR. This is a platform difference, not a defect — replicating it in GitHub Actions would require an extra marketplace action (e.g. `dorny/paths-filter`) for a purely cosmetic CI-minutes saving.
+One deliberate remaining asymmetry: GitLab jobs use `rules: changes:` to run only when relevant paths change; GitHub Actions has no per-job path filter, so all four jobs run on every push/PR. This is a platform difference, not a defect — replicating it in GitHub Actions would require an extra marketplace action (e.g. `dorny/paths-filter`) for a purely cosmetic CI-minutes saving.
 
 ## Repository invariants
 
@@ -56,7 +56,7 @@ Enforced by CI or by convention; breaking one silently breaks skill loading in t
 
 1. `skills/symfony-ai/SKILL.md` — orchestrator. Decision tree plus composition table. Loaded when intent spans components or is unclear.
 2. `skills/<component>/SKILL.md` — ~150–240 lines: when to use vs. the alternative, install block, five-line quick reference, architecture sketch, top gotchas, then a **References** section whose bullets are written as instructions to the agent ("read `references/api.md` **when** …"). The conditional phrasing is deliberate — it keeps references out of context until needed.
-3. `skills/<component>/references/*.md` — 100–670 lines of API surface, catalogues, runnable patterns, trap lists.
+3. `skills/<component>/references/*.md` — 110–840 lines of API surface, catalogues, runnable patterns, trap lists.
 
 ### Descriptions are the routing mechanism
 

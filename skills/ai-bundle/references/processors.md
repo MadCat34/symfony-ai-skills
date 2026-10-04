@@ -109,7 +109,7 @@ There is no `remove`/`disable` key. Two ways to opt out:
 1. **Skip the autoconfiguration** by marking the class `final` but registering it manually with `autoconfigure: false` in `services.yaml` and not tagging it.
 2. **Use the `agent:` filter** on the attribute so it never reaches the agent you care about.
 
-Built-in processors (`SystemPromptInputProcessor`, `MemoryInputProcessor`, `ToolProcessor`) are not optional individually : they are created only when the corresponding YAML key (`prompt:`, `memory:`, `tools.enabled:`) is set, so omitting those keys is how you opt out.
+Built-in processors (`SystemPromptInputProcessor`, `MemoryInputProcessor`) are not optional individually : they are created only when the corresponding YAML key (`prompt:`, `memory:`) is set, so omitting those keys is how you opt out. Tools are not a processor: `tools.enabled:` wires the toolbox straight onto the `Agent` service.
 
 ## See also
 

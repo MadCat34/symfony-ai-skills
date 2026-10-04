@@ -2,7 +2,7 @@
 
 All facts below come from `src/Command/*.php`, `src/default.config.php`, `src/Container/ContainerFactory.php`, `src/Service/ExtensionConfigSynchronizer.php`, `src/Skill/SkillInstaller.php`, `src/Discovery/ComposerExtensionDiscovery.php`, `src/Discovery/ReflectionDiscoverer.php`, `src/Encoding/ResponseEncoder.php`, `src/Attribute/{MateTool,MateResource,MateResourceTemplate}.php`, `src/Capability/ServerInfo.php`, `src/Container/MateHelper.php`, `src/Command/Trait/EnsuresToonFormatAvailabilityTrait.php`, `src/App.php`, and the bridge `composer.json` files at `src/Bridge/Symfony/composer.json` and `src/Bridge/Monolog/composer.json`.
 
-`vendor/bin/mate` is the wrapper (`bin/mate` + `bin/mate.php`); it locates the project's `vendor/autoload.php`, builds the DI container via `ContainerFactory`, and runs `App::build($container)` which registers all commands shown below. Mate is a **plain CLI**, not an MCP server : there is no `mcp/sdk` dependency, no `serve`/`stop` command, and no protocol handshake anywhere in this codebase (`App::VERSION` is `'0.13.0'`).
+`vendor/bin/mate` is the wrapper (`bin/mate` + `bin/mate.php`); it locates the project's `vendor/autoload.php`, builds the DI container via `ContainerFactory`, and runs `App::build($container)` which registers all commands shown below. Mate is a **plain CLI**, not an MCP server : there is no `mcp/sdk` dependency, no `serve`/`stop` command, and no protocol handshake anywhere in this codebase.
 
 ---
 
@@ -429,7 +429,7 @@ return static function (ContainerConfigurator $container): void {
 };
 ```
 
-The data structure produced is `mate.disabled_features = ['vendor/buggy-extension' => ['broken-tool' => ['enabled' => false], ...], ...]`, and `FilteredDiscoveryLoader::isFeatureAllowed()` consults it.
+The data structure produced is `mate.disabled_features = ['vendor/buggy-extension' => ['broken-tool' => ['enabled' => false], ...], ...]`, and `CapabilityRegistry::isFeatureAllowed()` consults it.
 
 ---
 
@@ -520,4 +520,4 @@ This is what makes the built-in `server-info` tool and the bundled `system-infor
 
 ## Helper: `MateHelper::disableFeatures()`
 
-`src/Container/MateHelper.php`. Accepts a map of `extension => [feature, ...]` and sets the `mate.disabled_features` parameter with the `{enabled: false}` shape that `FilteredDiscoveryLoader::isFeatureAllowed()` expects. Must be called once per config (later calls overwrite earlier ones).
+`src/Container/MateHelper.php`. Accepts a map of `extension => [feature, ...]` and sets the `mate.disabled_features` parameter with the `{enabled: false}` shape that `CapabilityRegistry::isFeatureAllowed()` expects. Must be called once per config (later calls overwrite earlier ones).

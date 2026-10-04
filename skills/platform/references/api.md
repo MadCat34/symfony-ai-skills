@@ -43,7 +43,7 @@ Symfony\AI\Platform\
 ├── ProviderInterface
 ├── ResultConverterInterface
 ├── TraceablePlatform               (decorator; records calls)
-├── Bridge\…                        (43 provider packages — see bridges.md)
+├── Bridge\…                        (43 bridge packages — see bridges.md)
 │
 ├── Event\                          (InvocationEvent, ResultEvent, …)
 ├── EventListener\                  (StringToMessageBagListener, TemplateRendererListener)
