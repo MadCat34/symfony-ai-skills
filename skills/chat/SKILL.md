@@ -20,6 +20,7 @@ Use **Chat** when you want:
 - One Agent instance reused across multiple users/sessions, with each session identified by its own `MessageStore` instance.
 - Streaming responses (`Chat::stream()`) that persist the final assistant message into the store.
 - A swap-out infrastructure (in-memory in tests, Redis in dev, DBAL in prod) without touching call sites.
+- To stop hand-rolling conversation state in session files : a `MessageStoreInterface` bridge (Doctrine, Redis, …) persists it for you.
 
 Use **raw Agent** when:
 

@@ -48,7 +48,6 @@ jobs:
         fail=0
         for dir in skills/*/; do
           name=$(basename "$dir")
-          if [ "$name" = "symfony-ai" ]; then continue; fi
           if [ -d "$dir/references" ]; then
             for f in "$dir"/references/*.md; do
               [ -e "$f" ] || continue
@@ -108,10 +107,6 @@ jobs:
         for d in "$GITHUB_WORKSPACE"/skills/*/; do
           [ -d "$d" ] || continue
           name=$(basename "$d")
-          # symfony-ai is the orchestrator meta-skill, not a single validatable skill.
-          case "$name" in
-            symfony-ai) continue ;;
-          esac
           echo "::group::Validating $name"
           skills-ref validate "$d" || fail=1
           echo "::endgroup::"

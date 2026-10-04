@@ -21,6 +21,7 @@ Use **Store** when:
 - You want to swap vector DB backends without rewriting the application (Pinecone ↔ Postgres ↔ Qdrant).
 - You want the standard transformers (chunking, batching, throttling).
 - You are building a RAG agent (combine with `agent` skill).
+- You are tempted to keep embeddings in a MySQL `JSON` column : a JSON column has no vector index and no similarity search, so every query becomes a full scan in PHP.
 
 Use **raw vector DB client** when:
 

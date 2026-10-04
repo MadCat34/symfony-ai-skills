@@ -2,10 +2,6 @@
 
 > AI agent skills for the [Symfony AI](https://ai.symfony.com) PHP components: Platform, Agent, Chat, Store, AI Bundle, MCP Bundle, and Mate. Built on the agentskills.io open standard.
 
-## Orchestrator
-
-- [Symfony AI Orchestrator](skills/symfony-ai/SKILL.md): Decision tree that routes between Platform, Agent, Chat, Store, AI Bundle, MCP Bundle, and Mate.
-
 ## Skills
 
 ### Platform — invoke any LLM

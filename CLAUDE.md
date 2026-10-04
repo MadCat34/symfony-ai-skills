@@ -2,11 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-This project uses the [Symfony AI](https://ai.symfony.com) stack : components for invoking LLMs, building AI agents, RAG, and MCP servers in PHP/Symfony. Eight agent skills are installed; pick by what you are trying to do.
+This project uses the [Symfony AI](https://ai.symfony.com) stack : components for invoking LLMs, building AI agents, RAG, and MCP servers in PHP/Symfony. Seven agent skills are installed; pick by what you are trying to do. When a task spans several components, load each matching skill.
 
 ## What this repository is
 
-A **content repository**, not an application. It packages eight [agentskills.io](https://agentskills.io/specification)-compatible skills documenting the [Symfony AI](https://github.com/symfony/ai) PHP stack, shipped simultaneously as a Claude Code plugin (`.claude-plugin/`), a Gemini CLI extension (`gemini-extension.json`), and a plain `skills/` directory for Codex and others.
+A **content repository**, not an application. It packages seven [agentskills.io](https://agentskills.io/specification)-compatible skills documenting the [Symfony AI](https://github.com/symfony/ai) PHP stack, shipped simultaneously as a Claude Code plugin (`.claude-plugin/`), a Gemini CLI extension (`gemini-extension.json`), and a plain `skills/` directory for Codex and others.
 
 There is no `composer.json`, no `package.json`, no build step. Everything under `skills/` is Markdown; the only executable code is the PHP snippets embedded in fenced `php` blocks, which are lint-checked, never run.
 
@@ -30,10 +30,10 @@ ls skills/*/references/*.md
 # check:composer — every symfony/ai-* and symfony/mcp-* package cited must exist on Packagist
 grep -rhoE 'symfony/(ai|mcp)-[a-z0-9-]+' skills/ | sort -u
 
-# test:skills-ref — validate every skill (except symfony-ai) against the upstream agentskills/skills-ref suite; allowed to fail, informational only
+# test:skills-ref — validate every skill against the upstream agentskills/skills-ref suite; allowed to fail, informational only
 ```
 
-`test:skills-ref` clones `agentskills/agentskills` fresh, `pip install -e`s its `skills-ref` package, then loops over `skills/*/` calling `skills-ref validate` per directory, skipping `symfony-ai` in both CI files — this exclusion logic used to live only inside GitHub's job (GitLab called an upstream `scripts/run-against.sh` wrapper instead, whose own exclusion behavior wasn't visible from this repo); both now run the identical explicit loop. The job is `allow_failure`/`continue-on-error`, so it never blocks a merge — it exists to catch spec drift against the upstream skills-ref suite.
+`test:skills-ref` clones `agentskills/agentskills` fresh, `pip install -e`s its `skills-ref` package, then loops over `skills/*/` calling `skills-ref validate` per directory; both CI files run the identical explicit loop. The job is `allow_failure`/`continue-on-error`, so it never blocks a merge — it exists to catch spec drift against the upstream skills-ref suite.
 
 The `scripts/lint-descriptions.sh`, `scripts/check-references-links.sh`, `scripts/check-snippets.sh`, `scripts/check-symbols.sh`, `scripts/check-method-signatures.sh`, `scripts/reflect-signatures.php`, and `scripts/known-absent-symbols.txt` validation scripts (and their per-skill `check-snippets.sh` copies under `skills/{platform,agent,store}/scripts/`) that used to back the `lint:descriptions`, `lint:references-links`, `check:snippets`, and `check:symbols` jobs have been removed, along with those jobs, from this repo and its history.
 
@@ -44,19 +44,19 @@ One deliberate remaining asymmetry: GitLab jobs use `rules: changes:` to run onl
 Enforced by CI or by convention; breaking one silently breaks skill loading in the consuming agent.
 
 - **`name:` in SKILL.md frontmatter == directory name.** Hard CI failure otherwise.
-- **`SKILL.md` stays under 500 lines** (currently 80–317). References carry the bulk; the SKILL.md is a router.
+- **`SKILL.md` stays under 500 lines** (currently 144–247). References carry the bulk; the SKILL.md is a router.
 - **Reference filenames come from a closed whitelist**: `api`, `patterns`, `gotchas`, `bridges`, `embeddings`, `config`, `processors`, `security`. Adding a ninth name means editing *three* places: the `case` statement in `.gitlab-ci.yml`'s `lint:references` job, the same statement in `.github/workflows/ci.yml`'s `lint-references` job, and the justification table in `README.md` ("Reference naming convention").
-- **`symfony-ai` is excluded** from `lint:references` and from `skills-ref validate` — it is a meta-skill with no references.
 - **Every `symfony/ai-*` and `symfony/mcp-*` package name appearing anywhere under `skills/` must resolve on Packagist.** A typo in a bridge package name fails `check:composer`.
 - **Never cite source line numbers** (`lines 361-367`, `File.php:55`). They drift every release. Anchor to a stable symbol instead: `Class::method()`, a service id (`ai.data_collector` in `config/services.php`), or a config node path (the `ai.agent.<name>.tools` node of `config/options.php`). By convention, not CI-enforced; `grep -rnE '\blines? [0-9]+|\.php:[0-9]+' skills` must stay empty.
 
 ## Architecture
 
-### Progressive disclosure, three levels
+### Progressive disclosure, two levels
 
-1. `skills/symfony-ai/SKILL.md` — orchestrator. Decision tree plus composition table. Loaded when intent spans components or is unclear.
-2. `skills/<component>/SKILL.md` — ~150–240 lines: when to use vs. the alternative, install block, five-line quick reference, architecture sketch, top gotchas, then a **References** section whose bullets are written as instructions to the agent ("read `references/api.md` **when** …"). The conditional phrasing is deliberate — it keeps references out of context until needed.
-3. `skills/<component>/references/*.md` — 110–840 lines of API surface, catalogues, runnable patterns, trap lists.
+There is deliberately **no orchestrator skill**. The host agent already sees every skill's `name` and `description` before loading any of them, so a meta-skill restating the routing would only add a load hop, compete with sibling descriptions for broad questions, and drift out of sync (the former `symfony-ai` orchestrator still described Mate as an MCP server two releases after it stopped being one). Cross-component knowledge lives in each skill's "See also" section instead.
+
+1. `skills/<component>/SKILL.md` — ~150–240 lines: when to use vs. the alternative, install block, five-line quick reference, architecture sketch, top gotchas, then a **References** section whose bullets are written as instructions to the agent ("read `references/api.md` **when** …"). The conditional phrasing is deliberate — it keeps references out of context until needed.
+2. `skills/<component>/references/*.md` — 110–840 lines of API surface, catalogues, runnable patterns, trap lists.
 
 ### Descriptions are the routing mechanism
 
@@ -87,10 +87,9 @@ Keep `AGENTS.md` and `GEMINI.md` in sync with each other and consumer-facing. Do
 - **Configure AI components via YAML, register tools with attributes, or wire Symfony Security / Profiler** : `ai-bundle`
 - **Build an MCP server inside a Symfony app (tools, prompts, resources)** : `mcp-bundle`
 - **Let your AI assistant introspect / debug a running Symfony app via Mate (dev tool)** : `mate`
-- **Not sure which one fits** : `symfony-ai` (orchestrator)
 
 ## Key rules
 
 - Symfony AI is **experimental** : `BC breaks` possible. Check `UPGRADE.md` in the [symfony/ai monorepo](https://github.com/symfony/ai) before upgrading.
-- For RAG, you need BOTH `platform` (for embeddings) AND `store` (for the vector DB). Open with `symfony-ai` if unsure which to start with.
+- For RAG, you need BOTH `platform` (for embeddings) AND `store` (for the vector DB). Load both skills.
 - For MCP server inside your app → `mcp-bundle`. For letting an AI assistant read your app's logs/profiler → `mate`. Never both at once.

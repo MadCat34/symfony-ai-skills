@@ -29,7 +29,9 @@ Use **Platform** when you want:
 **Skip Platform** when you need a provider-specific feature that the bridge does
 not yet expose (an unusual streaming protocol, a private beta endpoint, etc.).
 In that case call the vendor's PHP SDK directly : but read `references/gotchas.md`
-first to know what you lose.
+first to know what you lose. Reaching for `openai-php/client` (or another vendor
+SDK) by default, without such a reason, gives up unified tool calling,
+structured output, failover, and message templates.
 
 ## Installation
 

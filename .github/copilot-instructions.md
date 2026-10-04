@@ -2,13 +2,11 @@
 
 ## Repository purpose
 
-This is a content repository, not a Symfony application. It packages eight
-agentskills.io-compatible Markdown skills for Symfony AI:
-
-- `symfony-ai` is the orchestrator that routes ambiguous or cross-component
-  requests.
-- `platform`, `agent`, `chat`, `store`, `ai-bundle`, `mcp-bundle`, and `mate`
-  document the individual Symfony AI components.
+This is a content repository, not a Symfony application. It packages seven
+agentskills.io-compatible Markdown skills for Symfony AI: `platform`, `agent`,
+`chat`, `store`, `ai-bundle`, `mcp-bundle`, and `mate`, one per component.
+There is deliberately no orchestrator skill: the host agent already routes on
+every skill's `name` and `description`.
 
 The same content is distributed as a Claude Code plugin, a Gemini CLI
 extension, and a plain `skills/` directory for Codex and other compatible
@@ -24,10 +22,9 @@ before updating documentation; do not rely on memory for API details.
 
 Each component skill uses progressive disclosure:
 
-1. `skills/symfony-ai/SKILL.md` chooses the relevant component(s).
-2. A component's `SKILL.md` provides routing, installation, a compact quick
+1. A component's `SKILL.md` provides routing, installation, a compact quick
    reference, architecture, gotchas, and conditional links to references.
-3. `skills/<component>/references/` contains the detailed API catalogue,
+2. `skills/<component>/references/` contains the detailed API catalogue,
    patterns, gotchas, and component-specific material.
 
 Skill frontmatter descriptions are the routing mechanism. Keep descriptions
@@ -52,8 +49,7 @@ for `.claude-plugin/`, `gemini-extension.json`, `INSTALL.md`, and the plain
 
 The `platform`, `agent`, and `store` skills have eval fixtures under
 `evals/`; these describe routing behavior but are not automatically run by
-CI. The `symfony-ai` orchestrator is intentionally excluded from
-reference-name and upstream skills-ref validation.
+CI.
 
 ## Validation commands
 
@@ -84,7 +80,7 @@ skills-ref validate skills/platform
 ```
 
 For the upstream check, replace `skills/platform` with the skill being
-changed. `skills/symfony-ai` is not a valid target for this command. `test:skills-ref` is informational in CI
+changed. `test:skills-ref` is informational in CI
 (`allow_failure` / `continue-on-error`).
 
 ## Source and maintenance conventions
