@@ -49,9 +49,8 @@ repository details. Installation and distribution changes should also account
 for `.claude-plugin/`, `gemini-extension.json`, `INSTALL.md`, and the plain
 `skills/` layout.
 
-The `symfony-ai-platform`, `symfony-ai-agent`, and `symfony-ai-store` skills have eval fixtures under
-`evals/`; these describe routing behavior but are not automatically run by
-CI.
+Every skill has eval fixtures under `evals/`; these describe routing
+behavior but are not automatically run by CI.
 
 ## Validation commands
 

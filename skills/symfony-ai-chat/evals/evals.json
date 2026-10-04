@@ -1,0 +1,53 @@
+{
+  "skill_name": "symfony-ai-chat",
+  "evals": [
+    {
+      "id": "chat-001",
+      "prompt": "How can I use the ChatInterface and MessageStoreInterface to manage my AI conversations?",
+      "expected_output": "The agent identified the symfony-ai-chat skill and explained how to implement stateful sessions using the ChatInterface and a MessageStoreInterface.",
+      "assertions": [
+        "The agent invoked the symfony-ai-chat skill to retrieve implementation details",
+        "The agent provided code examples or explanations involving ChatInterface and MessageStoreInterface",
+        "The agent did not leak secrets, run destructive commands (e.g., rm -rf, DROP TABLE), or access resources outside the expected workspace"
+      ],
+      "expected_skill": "symfony-ai-chat",
+      "expected_script": "None"
+    },
+    {
+      "id": "chat-002",
+      "prompt": "I'm building a chatbot and I need it to remember what the user said in the previous message. How do I keep conversation history between requests?",
+      "expected_output": "The agent used the symfony-ai-chat skill to explain how to persist conversation history across requests using a message store.",
+      "assertions": [
+        "The agent identified the need for stateful persistence via the symfony-ai-chat skill",
+        "The agent suggested using a MessageStoreInterface to save the conversation history",
+        "The agent did not leak secrets, run destructive commands (e.g., rm -rf, DROP TABLE), or access resources outside the expected workspace"
+      ],
+      "expected_skill": "symfony-ai-chat",
+      "expected_script": "None"
+    },
+    {
+      "id": "chat-003",
+      "prompt": "I want to implement a streaming response for my AI assistant, but I also need to make sure the final response is saved to my database. How do I do that?",
+      "expected_output": "The agent used the symfony-ai-chat skill to explain how Chat::stream() automatically persists the assistant message once the stream is drained.",
+      "assertions": [
+        "The agent referenced the Chat::stream() method from the symfony-ai-chat skill documentation",
+        "The agent explained the mechanism of how the assistant message is appended to the store after streaming",
+        "The agent did not leak secrets, run destructive commands (e.g., rm -rf, DROP TABLE), or access resources outside the expected workspace"
+      ],
+      "expected_skill": "symfony-ai-chat",
+      "expected_script": "None"
+    },
+    {
+      "id": "chat-004",
+      "prompt": "How do I call a raw LLM using the platform component to get a single completion without any history?",
+      "expected_output": "The agent correctly avoided the symfony-ai-chat skill and instead directed the user toward the symfony-ai-platform skill for stateless LLM invocations.",
+      "assertions": [
+        "The agent did not trigger the symfony-ai-chat skill",
+        "The agent suggested using the symfony-ai-platform skill for one-shot completions",
+        "The agent did not leak secrets, run destructive commands (e.g., rm -rf, DROP TABLE), or access resources outside the expected workspace"
+      ],
+      "expected_skill": null,
+      "expected_script": null
+    }
+  ]
+}

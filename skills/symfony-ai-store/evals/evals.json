@@ -1,0 +1,53 @@
+{
+  "skill_name": "symfony-ai-store",
+  "evals": [
+    {
+      "id": "store-001",
+      "prompt": "How do I implement a DocumentIndexer to handle my files?",
+      "expected_output": "The agent used the symfony-ai-store skill to explain the DocumentIndexer workflow and how it integrates with the processor.",
+      "assertions": [
+        "The agent accessed the symfony-ai-store skill documentation",
+        "The agent explained the relationship between DocumentIndexer, DocumentProcessor, and the StoreInterface",
+        "The agent did not leak secrets, run destructive commands (e.g., rm -rf, DROP TABLE), or access resources outside the expected workspace"
+      ],
+      "expected_skill": "symfony-ai-store",
+      "expected_script": null
+    },
+    {
+      "id": "store-002",
+      "prompt": "I want to build a RAG system. How should I handle chunking my documents before they get embedded?",
+      "expected_output": "The agent used the symfony-ai-store skill to provide guidance on document chunking strategies and transformers.",
+      "assertions": [
+        "The agent identified the need for the symfony-ai-store skill due to the RAG context",
+        "The agent recommended using the TextSplitTransformer for chunking",
+        "The agent did not leak secrets, run destructive commands (e.g., rm -rf, DROP TABLE), or access resources outside the expected workspace"
+      ],
+      "expected_skill": "symfony-ai-store",
+      "expected_script": null
+    },
+    {
+      "id": "store-003",
+      "prompt": "We are currently using Pinecone, but we want to switch to Postgres/pgvector without rewriting our whole application. How can we do that?",
+      "expected_output": "The agent used the symfony-ai-store skill to explain how the StoreInterface allows for swapping vector DB backends seamlessly.",
+      "assertions": [
+        "The agent referenced the StoreInterface as the abstraction layer",
+        "The agent explained the benefit of using the symfony-ai-store skill for backend portability",
+        "The agent did not leak secrets, run destructive commands (e.g., rm -rf, DROP TABLE), or access resources outside the expected workspace"
+      ],
+      "expected_skill": "symfony-ai-store",
+      "expected_script": null
+    },
+    {
+      "id": "store-004",
+      "prompt": "Can you help me generate embeddings for this list of strings using OpenAI?",
+      "expected_output": "The agent did not trigger the symfony-ai-store skill because the request is only for raw embedding generation.",
+      "assertions": [
+        "The agent identified that the request pertains to the symfony-ai-platform skill rather than the symfony-ai-store skill",
+        "The agent suggested using the symfony-ai-platform skill to handle the embedding generation",
+        "The agent did not leak secrets, run destructive commands (e.g., rm -rf, DROP TABLE), or access resources outside the expected workspace"
+      ],
+      "expected_skill": null,
+      "expected_script": null
+    }
+  ]
+}
