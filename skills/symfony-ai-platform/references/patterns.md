@@ -49,10 +49,14 @@ $result = $platform->invoke(
     ['response_format' => WeatherReport::class],
 );
 
-/** @var WeatherReport $weather */
-$weather = $result->asObject();
+$weather = $result->asObject(WeatherReport::class); // typed as WeatherReport
 echo $weather->city . ': ' . $weather->tempC;
 ```
+
+The class argument (0.15) asserts the deserialized value is an instance of
+it, throwing `UnexpectedResultTypeException` otherwise, and lets PHPStan /
+Psalm infer the return type without a `@var` annotation. Without it,
+`asObject()` returns `object|array<string, mixed>`.
 
 The subscriber checks `Capability::OUTPUT_STRUCTURED` first and throws
 `MissingModelSupportException::forStructuredOutput($model)` if the model

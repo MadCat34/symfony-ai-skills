@@ -110,6 +110,11 @@ Platform (Symfony\AI\Platform\Platform)
   and requires a `RateLimiterFactoryInterface`.
 - **`MiniMax` is its own provider.** `Bridge\MiniMax\Factory` ships in
   `symfony/ai-mini-max-platform`; it is **not** an Anthropic alias.
+- **A tool call cut by the output token limit throws `MaxOutputTokensException`**
+  (Anthropic, Generic, OpenResponses), not `MalformedToolCallException` and not
+  a partial `ToolCallResult`. Retrying the same request truncates again.
+- **Retry on `RetryableExceptionInterface`, not on a class list.** Only
+  `ServerException` and `RateLimitExceededException` implement it.
 
 ## Troubleshooting
 
@@ -120,6 +125,8 @@ Platform (Symfony\AI\Platform\Platform)
 | `Model "…" (…) does not support "structured output".` (`MissingModelSupportException`) | A `response_format` was passed to a model without `Capability::OUTPUT_STRUCTURED`. | Pick a model that has it; guard other capabilities with `Model::supports()` (`references/patterns.md` → *Capability guards*). |
 | `All platforms failed.` (`RuntimeException` from `FailoverPlatform`) | Every wrapped platform threw; each failure is logged as "The {platform} platform failed due to an error/exception". | Read the logged causes; check API keys and the rate limiter policy. |
 | `RateLimitExceededException` | The provider answered HTTP 429. | Retry after `getRetryAfter()` seconds, or put several platforms behind `FailoverPlatform`. |
+| `Model truncated the response inside a tool call after reaching the output token limit. …` / `Responses API truncated the response after reaching the output token limit. …` / `Anthropic truncated the response after reaching …` (`MaxOutputTokensException`) | The output budget ran out, possibly in the middle of a tool call's arguments. | Raise `max_tokens` / `max_output_tokens`, or reduce the request scope; do not retry unchanged. |
+| `Unexpected response type: expected "App\Dto\Foo", got "…".` from `asObject(Foo::class)` | The structured output deserialized to another type than the class passed. | Pass the same class as `response_format`, or drop the argument. |
 | `ValidationException` from `asObject()` | Structured output broke the Validator constraints (`ValidatorSubscriber`). | Inspect the violations; tighten the prompt or relax the constraints. |
 
 ## Limitations
@@ -131,14 +138,16 @@ Platform (Symfony\AI\Platform\Platform)
 - Capabilities belong to the model, not the provider: check `Model::supports()`
   before sending images, audio, tools or a response format.
 - There is no `RetryPlatform`. `FailoverPlatform` moves on to the next
-  platform; retrying the same provider is up to the caller.
+  platform; retrying the same provider is up to the caller (catch
+  `Exception\RetryableExceptionInterface` to tell transient failures apart).
 
 ## Usage
 
 - **Switch provider**: replace `OpenAiFactory::createPlatform(...)` with e.g.
   `Anthropic\Factory::createPlatform(...)`; the call sites stay the same.
 - **Get structured JSON back**: pass `'response_format' => MyDto::class` (or an
-  instance) in `$options`, then call `asObject()`.
+  instance) in `$options`, then call `asObject(MyDto::class)`: the argument
+  asserts the type and lets static analysis infer it.
 - **Call a tool from raw Platform**: define a `Tool` with an
   `ExecutionReference`, pass it via `'tools' => [$tool]`.
 - **Stream tokens**: pass `'stream' => true`, then iterate

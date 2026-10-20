@@ -196,6 +196,19 @@ call parts). The id is needed when replying with
 tool calls as a `MultiPartResult` with one `ToolCallResult` part per call,
 use `MultiPartResult::asToolCallResult()` to flatten.
 
+**Truncated tool calls (0.15).** When the output token limit cuts a tool call,
+the Anthropic, Generic Completions and OpenResponses converters throw
+`MaxOutputTokensException`, buffered and streamed alike. Before 0.15 a cut
+leaving broken JSON threw `MalformedToolCallException`, and a cut leaving
+parsable arguments returned a `ToolCallResult` with partial arguments and the
+`LENGTH` finish reason. A `ToolCallResult` never carries `LENGTH` any more, so
+code catching `MalformedToolCallException` for truncation must catch
+`MaxOutputTokensException` instead (both extend `Exception\RuntimeException`).
+
+The OpenResponses converter yields one `ToolCall` per `call_id`: a buffered
+response listing the same `call_id` twice now produces a single call, as the
+streamed path already did.
+
 ## 12. The actual exception catalogue
 
 All exceptions under `Symfony\AI\Platform\Exception\`:
@@ -203,6 +216,7 @@ All exceptions under `Symfony\AI\Platform\Exception\`:
 | Exception                       | Notes                                               |
 |---------------------------------|------------------------------------------------------|
 | `ExceptionInterface`            | marker for everything below                         |
+| `RetryableExceptionInterface`   | 0.15, extends `ExceptionInterface`; marks a transient failure (provider error, throttling) worth retrying. Implemented by `ServerException` and `RateLimitExceededException` only |
 | `RuntimeException`              | platform base, extends `\RuntimeException`           |
 | `LogicException`                | final, extends `\LogicException`                     |
 | `InvalidArgumentException`      | extends `\InvalidArgumentException`                  |
@@ -214,13 +228,33 @@ All exceptions under `Symfony\AI\Platform\Exception\`:
 | `ContentFilterException`        | extends `InvalidArgumentException`                   |
 | `ExceedContextSizeException`    | extends `InvalidArgumentException`                   |
 | `IncompleteStreamException`     | provider stream ended without terminal event : retry |
-| `MaxOutputTokensException`      | output hit the token ceiling : surface, don't retry  |
-| `MalformedToolCallException`    | provider returned malformed tool-call JSON           |
+| `MaxOutputTokensException`      | output hit the token ceiling : surface, don't retry. Since 0.15 also thrown when the limit cuts a tool call (Anthropic, Generic, OpenResponses; buffered and streamed) |
+| `MalformedToolCallException`    | a tool call the model **finished** carries broken JSON arguments (a truncated one is `MaxOutputTokensException`) |
+| `JobFailedException`            | an async job ended FAILED/EXPIRED/CANCELLED; `getStatus(): JobStatus` (gotcha 21) |
+| `JobTimeoutException`           | `JobRunner::wait()` ran out of budget; the job may still be running |
 | `MissingModelSupportException`  | final, has `forToolCalling()`, `forAudioInput()`, `forImageInput()`, `forStructuredOutput()` |
-| `RateLimitExceededException`    | final, `getRetryAfter(): ?int`                       |
-| `ServerException`               | NOT final (subclassable); HTTP 5xx or mid-stream server error : `getStatusCode(): ?int` |
+| `RateLimitExceededException`    | final, `getRetryAfter(): ?int`; implements `RetryableExceptionInterface` |
+| `ServerException`               | NOT final (subclassable); HTTP 5xx or mid-stream server error : `getStatusCode(): ?int`; implements `RetryableExceptionInterface` |
 | `UnexpectedResultTypeException` | `as*()` typed accessor saw the wrong subtype         |
 | `ValidationException`           | final, structured-output Validator raised violations; `getViolations(): object` (returns the wrapped `ConstraintViolationListInterface` but the public signature is `: object`) |
+
+A queue consumer (Messenger retry strategy, custom loop) should branch on the
+interface rather than on a class list:
+
+```php
+use Symfony\AI\Platform\Exception\ExceptionInterface;
+use Symfony\AI\Platform\Exception\RetryableExceptionInterface;
+use Symfony\Component\Messenger\Exception\UnrecoverableMessageHandlingException;
+
+try {
+    $text = $platform->invoke($model, $messages)->asText();
+} catch (RetryableExceptionInterface $e) {
+    throw $e; // ServerException, RateLimitExceededException: Messenger's retry strategy retries it
+} catch (ExceptionInterface $e) {
+    // AuthenticationException, BadRequestException, ContentFilterException, MaxOutputTokensException, …
+    throw new UnrecoverableMessageHandlingException($e->getMessage(), previous: $e);
+}
+```
 
 Names that **do not exist** in this codebase (they come from training data or
 other libraries): `UnsupportedModelOperationException`,

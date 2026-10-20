@@ -47,7 +47,7 @@ Symfony\AI\Platform\
 │
 ├── Event\                          (InvocationEvent, ResultEvent, …)
 ├── EventListener\                  (StringToMessageBagListener, TemplateRendererListener)
-├── Exception\                      (18 exceptions + ExceptionInterface — see gotchas.md)
+├── Exception\                      (20 exceptions + ExceptionInterface + RetryableExceptionInterface — see gotchas.md)
 ├── FinishReason\                   (FinishReason class + FinishReasonCase enum)
 ├── Job\                            (JobHandle, JobRunner, JobClientInterface, JobStatus,
 │                                   JobStateCase — asynchronous provider jobs, since 0.14)
@@ -201,7 +201,12 @@ final class DeferredResult
 
     // Typed accessors — each throws UnexpectedResultTypeException on mismatch
     public function asText(): string;
-    public function asObject(): object;
+    /**
+     * @template T of object
+     * @param class-string<T>|null $class asserts the structured output is an instance of it (0.15)
+     * @return ($class is null ? object|array<string, mixed> : T)
+     */
+    public function asObject(?string $class = null): object|array;
     public function asBinary(): string;
     public function asFile(string $path): void;
     public function asDataUri(?string $mimeType = null): string;

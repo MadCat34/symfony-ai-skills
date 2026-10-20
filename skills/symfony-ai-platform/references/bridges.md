@@ -26,7 +26,7 @@ read the `name` field of each `composer.json`.
 | Dir               | Composer package                          | Notes                                           |
 | ----------------- | ----------------------------------------- | ----------------------------------------------- |
 | AiMlApi           | `symfony/ai-ai-ml-api-platform`           | AI/ML API                                       |
-| Albert            | `symfony/ai-albert-platform`              | Etalab Albert (French gov)                      |
+| Albert            | `symfony/ai-albert-platform`              | Etalab Albert (French gov); `impacts` metadata  |
 | AmazeeAi          | `symfony/ai-amazee-ai-platform`           | Amazee.AI                                       |
 | Anthropic         | `symfony/ai-anthropic-platform`           | Claude (Haiku, Sonnet, Opus)                    |
 | Azure             | `symfony/ai-azure-platform`               | Azure OpenAI + Meta + Responses                 |
@@ -45,7 +45,7 @@ read the `name` field of each `composer.json`.
 | ElevenLabs        | `symfony/ai-eleven-labs-platform`         | ElevenLabs TTS                                  |
 | Failover          | `symfony/ai-failover-platform`            | `FailoverPlatform` decorator                    |
 | Fireworks         | `symfony/ai-fireworks-platform`           | Fireworks AI: chat + embeddings + rerank        |
-| Gemini            | `symfony/ai-gemini-platform`              | Google Gemini direct                            |
+| Gemini            | `symfony/ai-gemini-platform`              | Google Gemini direct; `service_tier` option     |
 | Generic           | `symfony/ai-generic-platform`             | OpenAI-compatible completions + embed           |
 | Higgsfield        | `symfony/ai-higgsfield-platform`          | Higgsfield image/video generation (async jobs)  |
 | HuggingFace       | `symfony/ai-hugging-face-platform`        | HF Inference API (multi-task)                   |
@@ -91,11 +91,16 @@ These target major commercial APIs and require a vendor API key.
   `Reranker` with models `rerank-v3.5`, `rerank-v4.0-fast`, `rerank-v4.0-pro`,
   `rerank-english-v3.0`, `rerank-multilingual-v3.0`).
 - `symfony/ai-deep-seek-platform` : DeepSeek.
-- `symfony/ai-gemini-platform` : Google Gemini direct.
+- `symfony/ai-gemini-platform` : Google Gemini direct. Since 0.15 accepts the
+  `service_tier` option (priority inference), sent at the request root, not in
+  `generationConfig`.
 - `symfony/ai-vertex-ai-platform` : Vertex AI (Embeddings + Gemini).
 - `symfony/ai-perplexity-platform` : Perplexity search-augmented LLM.
 - `symfony/ai-ai-ml-api-platform` : AI/ML API.
-- `symfony/ai-albert-platform` : Etalab Albert (French government).
+- `symfony/ai-albert-platform` : Etalab Albert (French government). Environmental
+  impacts come back as the `impacts` result metadata, `['kWh' => float, 'kgCO2eq' => float]`
+  (0.15; it was `carbon`, with `['kWh']['min']`): `$result->getMetadata()->get('impacts')['kWh']`.
+  Streamed results only carry it once the stream is consumed.
 - `symfony/ai-amazee-ai-platform` : Amazee.AI.
 - `symfony/ai-cerebras-platform` : Cerebras inference.
 - `symfony/ai-mini-max-platform` : MiniMax (its own provider; **not** an
