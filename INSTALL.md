@@ -36,6 +36,31 @@ codex --skills-dir ./symfony-ai-skills/skills
 
 Codex reads `AGENTS.md` at the project root and individual `SKILL.md` files.
 
+## GitHub Copilot
+
+```bash
+copilot plugin marketplace add MadCat34/symfony-ai-skills
+copilot plugin install symfony-ai-skills@symfony-ai-skills
+```
+
+Verify: `copilot plugin list` should show `symfony-ai-skills`. Copilot CLI reads the same `.claude-plugin/marketplace.json` as Claude Code.
+
+## Kilo Code
+
+```bash
+gh skill install MadCat34/symfony-ai-skills --all --agent universal --scope user
+```
+
+Installs the seven skills to `~/.agents/skills/`, which Kilo Code loads by default. Needs the GitHub CLI with `gh skill` (in preview).
+
+## OpenCode
+
+```bash
+gh skill install MadCat34/symfony-ai-skills --all --agent opencode --scope user
+```
+
+Installs the seven skills to `~/.config/opencode/skills/`. Needs the GitHub CLI with `gh skill` (in preview).
+
 ## Manual copy (any agent that reads skills from `~/.claude/skills/`)
 
 ```bash

@@ -50,6 +50,18 @@ gemini extension install ./symfony-ai-skills
 codex --skills-dir ./symfony-ai-skills/skills
 ```
 
+### GitHub Copilot, Kilo Code, OpenCode
+
+```bash
+# GitHub Copilot
+copilot plugin marketplace add MadCat34/symfony-ai-skills
+copilot plugin install symfony-ai-skills@symfony-ai-skills
+# Kilo Code (installs to ~/.agents/skills/)
+gh skill install MadCat34/symfony-ai-skills --all --agent universal --scope user
+# OpenCode
+gh skill install MadCat34/symfony-ai-skills --all --agent opencode --scope user
+```
+
 ### Manual copy
 
 ```bash

@@ -26,3 +26,5 @@ package-lock.json
 /.skillevaluator-policy.yaml
 /.skillspector-baseline.yaml
 /skills/*/evals/results/
+/.superpowers/
+/.playwright-mcp/
