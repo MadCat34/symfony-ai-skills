@@ -30,11 +30,11 @@ Each bridge exposes a concrete class : `Store`, `SearchStore` (AzureSearch), or 
 | 8 | MariaDb | `Bridge\MariaDb\Store` | yes | Uses its own `Distance` enum. |
 | 9 | Meilisearch | `Bridge\Meilisearch\Store` | yes | Native `semanticRatio` support (hybrid). |
 | 10 | Milvus | `Bridge\Milvus\Store` | yes | HTTP API; scoped client, build via `StoreFactory`. |
-| 11 | MongoDb | `Bridge\MongoDb\Store` | yes | Atlas Vector Search index must be pre-created. |
+| 11 | MongoDb | `Bridge\MongoDb\Store` | yes | Atlas Vector Search; `setup()` creates the index from `embeddingsDimension` (1536) and `similarity` (`Similarity::Euclidean`). |
 | 12 | Neo4j | `Bridge\Neo4j\Store` | yes | Vector indexes via Neo4j; scoped client, build via `StoreFactory`. |
 | 13 | OpenSearch | `Bridge\OpenSearch\Store` | yes | k-NN plugin; scoped client, build via `StoreFactory`. |
 | 14 | Pinecone | `Bridge\Pinecone\Store` | yes | Serverless; `setup()` requires `dimension` option. |
-| 15 | Postgres | `Bridge\Postgres\Store` | yes | Requires `pgvector` extension. Uses its own `Distance` enum. |
+| 15 | Postgres | `Bridge\Postgres\Store` | yes | Requires `pgvector` 0.5.0+ (`hnsw` index). Uses its own `Distance` enum. |
 | 16 | Qdrant | `Bridge\Qdrant\Store` | yes | HTTP API. |
 | 17 | Redis | `Bridge\Redis\Store` | yes | Uses its own `Distance` enum (Redis-stack). |
 | 18 | S3Vectors | `Bridge\S3Vectors\Store` | yes | AWS S3 Vectors (preview). |
@@ -51,7 +51,7 @@ Total: **24 bridges**. Two implementations for Sqlite (`Store` for FTS5-only hyb
 
 ### Cloud-managed
 
-- **AzureSearch** : REST, semantic ranking; lifecycle is Azure-side.
+- **AzureSearch** : REST, semantic ranking; lifecycle is Azure-side. `query()` reads `limit` (default 5) and, since 0.15, runs an approximate (HNSW) vector query; pass `['exhaustive' => true]` for the previous exact KNN.
 - **Cloudflare** : Workers AI Vectorize (HTTP, preview API).
 - **Pinecone** : serverless or pod-based; requires `dimension` in `setup()` options.
 - **S3Vectors** : AWS S3 Vectors (preview service).
@@ -60,9 +60,9 @@ Total: **24 bridges**. Two implementations for Sqlite (`Store` for FTS5-only hyb
 
 - **ClickHouse** : HTTP API; vector columns.
 - **MariaDb** : native vector type.
-- **MongoDb** : Atlas Vector Search.
+- **MongoDb** : Atlas Vector Search. `new Store($client, $db, $collection, $indexName, similarity: Similarity::Cosine)` (0.15) picks the similarity of the index `setup()` creates; `setup(['fields' => …])` adds filter fields only and rejects an entry for the vector path.
 - **Neo4j** : vector indexes.
-- **Postgres** : pgvector extension; the canonical self-hosted choice.
+- **Postgres** : pgvector extension; the canonical self-hosted choice. `setup()` builds an `hnsw` index with the opclass of the distance (0.15).
 - **Redis** : Redis Stack / RediSearch.
 - **Sqlite** : two stacks (`Store` with FTS5 hybrid; `VecStore` with `sqlite-vec`).
 - **Supabase** : REST against pgvector (no `ManagedStoreInterface`).

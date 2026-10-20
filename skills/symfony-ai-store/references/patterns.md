@@ -85,10 +85,10 @@ $store = new Store(
 
 // Create extension + table + index (run once)
 $store->setup([
-    'vector_type'  => 'vector',
-    'vector_size'  => 1536,    // match OpenAI text-embedding-3-small
-    'index_method' => 'hnsw',
-    'index_opclass' => 'vector_cosine_ops',
+    'vector_type' => 'vector',
+    'vector_size' => 1536,    // match OpenAI text-embedding-3-small
+    // index_method defaults to 'hnsw' (0.15) and index_opclass to the one of
+    // the store distance: vector_cosine_ops here, since distance is Cosine
 ]);
 
 $platform = OpenAiFactory::createPlatform($_ENV['OPENAI_API_KEY']);
@@ -124,6 +124,18 @@ CREATE TABLE IF NOT EXISTS "documents" (
 );
 CREATE INDEX IF NOT EXISTS "documents_embedding_idx"
     ON "documents" USING hnsw ("embedding" vector_cosine_ops);
+```
+
+The opclass is `<vector_type>_<distance>_ops`: `cosine`, `ip` (inner product),
+`l1` or `l2`, so `halfvec_l2_ops` for a `halfvec` column with the default
+`Distance::L2`. Before 0.15 `setup()` created an `ivfflat` index with
+`vector_cosine_ops` whatever the distance, and the AI bundle forced the same
+values. `IF NOT EXISTS` keeps such an index after the upgrade; recreate it to
+match the distance:
+
+```sql
+DROP INDEX "documents_embedding_idx";
+CREATE INDEX "documents_embedding_idx" ON "documents" USING hnsw ("embedding" vector_l2_ops);
 ```
 
 `Postgres\Store::query()` returns matches ordered by distance (lower is better). Pass `['limit' => N]` to cap the result set. The option name on this bridge is `limit`, not `maxItems` : bridge-specific options are not part of the `StoreInterface` contract.

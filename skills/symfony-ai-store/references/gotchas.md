@@ -98,7 +98,7 @@ Rules:
 
 - Never compare raw scores across systems.
 
-- For Postgres, the metric is set at index-creation time via the `index_opclass` option in `setup()` (`vector_cosine_ops`, `vector_l2_ops`, `vector_ip_ops`).
+- For Postgres, the metric is the store's `Distance` constructor argument; since 0.15 `setup()` derives the index operator class from it (`vector_cosine_ops`, `vector_ip_ops`, `vector_l1_ops`, `vector_l2_ops`). Passing an `index_opclass` that disagrees with the distance builds an index the queries cannot use.
 
 - For `InMemory\Store` and `Cache\Store`, scores come from `DistanceCalculator` and match the configured `DistanceStrategy`.
 

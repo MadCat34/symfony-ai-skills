@@ -156,6 +156,10 @@ Inside a Symfony app (`symfony-ai-bundle`), five commands manage stores:
    be a long string: size the column or field for it.
 5. **Check support before querying.** Some bridges are text-only or
    vector-only: call `$store->supports(VectorQuery::class)` first.
+6. **Postgres `setup()` builds an `hnsw` index** (0.15, was `ivfflat`) whose
+   operator class follows the store's `Distance` (`vector_l2_ops` for the
+   default `L2`). It needs pgvector 0.5.0+, and an index that already exists is
+   kept: drop it to rebuild it with the new defaults.
 
 ## Troubleshooting
 
@@ -167,6 +171,9 @@ Inside a Symfony app (`symfony-ai-bundle`), five commands manage stores:
 | `Query type "…" is not supported by store "…"` (`UnsupportedQueryTypeException`) | The bridge cannot run that query type. | Check `$store->supports(…)`; for hybrid search use a bridge that supports `HybridQuery` or a `CombinedStore`. |
 | `Semantic ratio must be between 0.0 and 1.0, got …` | `HybridQuery` received a ratio outside `[0.0, 1.0]`. | Pass a ratio between 0 and 1 (0.5 by default). |
 | `For using the DirectoryLoader, the Symfony Finder component is required. …` (same pattern for `MarkdownLoader`, RSS, JSON loaders) | An optional dependency of the loader is missing. | Run the `composer require` named in the message. |
+| `The "…" vector type is not supported, use "vector" or "halfvec".` (`InvalidArgumentException`) | Postgres `setup()` got another `vector_type` (e.g. `bit`, `sparsevec`). | Use `vector`, or `halfvec` above 2,000 dimensions. |
+| `The "ivfflat" index method does not support the L1 distance, use "hnsw".` | Postgres `setup(['index_method' => 'ivfflat'])` with `Distance::L1` and no `index_opclass`. | Drop `index_method` (defaults to `hnsw`) or change the distance. |
+| `The "fields" option cannot define the vector field "…", use the "embeddingsDimension" and "similarity" arguments of the store instead.` | MongoDB `setup(['fields' => …])` lists the vector path. | Keep only filter fields in `fields`; set the vector index through the `Store` constructor. |
 | Results look unrelated after a model or provider change | Documents were embedded with the previous model. | Re-index everything with the new model. |
 
 ## Limitations
