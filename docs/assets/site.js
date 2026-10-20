@@ -124,3 +124,60 @@ async function factCheck() {
   }
 }
 if (!reduced) factCheck();
+
+/* routing demo: a real eval prompt, a beam to the skill it routes to, then the one reference it opens */
+function drawBeam(chip) {
+  const board = $('board').getBoundingClientRect(), prompt = $('prompt').getBoundingClientRect(), t = chip.getBoundingClientRect();
+  const x1 = prompt.left - board.left + Math.min(prompt.width * 0.35, 320), y1 = prompt.bottom - board.top;
+  const x2 = t.left - board.left + t.width / 2, y2 = t.top - board.top;
+  const path = $('beamPath');
+  path.setAttribute('d', `M${x1},${y1} C${x1},${y1 + 40} ${x2},${y2 - 50} ${x2},${y2}`);
+  path.style.stroke = getComputedStyle(chip).getPropertyValue('--c');
+  const length = path.getTotalLength();
+  path.style.transition = 'none';
+  path.style.strokeDasharray = `${length}`;
+  path.style.strokeDashoffset = reduced ? '0' : `${length}`;
+  path.getBoundingClientRect();
+  if (!reduced) { path.style.transition = 'stroke-dashoffset .7s cubic-bezier(.2,.7,.2,1)'; path.style.strokeDashoffset = '0'; }
+}
+
+function showRoute(route) {
+  const board = $('board'), chip = $('chip-' + route.skill), tree = chip.querySelector('.tree');
+  board.classList.add('routing');
+  chip.querySelector('.tree-ref').innerHTML = `└ ${route.ref} <span class="hl">opened</span>`;
+  chip.classList.add('hit');
+  drawBeam(chip);
+  return tree;
+}
+
+function resetRoutes() {
+  $('board').classList.remove('routing');
+  $('beamPath').style.strokeDashoffset = '9999';
+  document.querySelectorAll('#board .chip').forEach(c => {
+    c.classList.remove('hit');
+    const tree = c.querySelector('.tree');
+    tree.classList.remove('open'); tree.style.height = '0';
+  });
+}
+
+function openTree(tree) {
+  tree.style.height = tree.scrollHeight + 'px';
+  tree.classList.add('open');
+}
+
+async function routeLoop() {
+  const routes = json('routes'), text = $('ptext');
+  if (reduced) { text.textContent = routes[0].q; openTree(showRoute(routes[0])); return; }
+  for (let k = 0; ; k++) {
+    const route = routes[k % routes.length];
+    resetRoutes();
+    text.textContent = '';
+    for (const ch of route.q) { text.textContent += ch; await sleep(18 + Math.random() * 24); }
+    await sleep(450);
+    const tree = showRoute(route);
+    await sleep(750);
+    openTree(tree);
+    await sleep(3600);
+  }
+}
+onVisible($('route'), routeLoop);
