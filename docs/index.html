@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>symfony-ai-skills · Agent skills for Symfony AI</title>
+<meta name="description" content="Seven agent skills that teach Claude Code, Codex, Copilot and any agentskills.io agent the real Symfony AI API, checked against the symfony/ai source.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="symfony-ai-skills · Agent skills for Symfony AI">
+<meta property="og:description" content="Stop your agent from inventing Symfony AI. Seven skills, checked against the symfony/ai source.">
+<meta name="theme-color" content="#f6f6f1">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<div class="field" id="field" aria-hidden="true"></div>
+<main>
+<header id="hd">
+  <a class="brand" href="#">symfony-ai-skills <span class="badge">v0.15.0</span></a>
+  <nav>
+    <a href="#route">How it routes</a>
+    <a href="#specs">Specs</a>
+    <a href="#faq">FAQ</a>
+    <a href="https://github.com/MadCat34/symfony-ai-skills">GitHub ↗</a>
+    <a class="btn-sm" href="#install">Get started</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div>
+    <a class="pill" href="#specs"><b>new</b> symfony/ai 0.15 support →</a>
+    <h1 id="h1">Stop your agent from inventing <span class="acc">Symfony AI.</span></h1>
+    <p class="lede">Seven skills for Claude Code, Codex, Copilot and any <a href="https://agentskills.io">agentskills.io</a> agent. Every class, config node and error message comes from the symfony/ai source, so the code your agent writes <em>actually exists</em>.</p>
+    <div class="cta">
+      <a class="btn" href="#install">$ install</a>
+      <a class="btn ghost" href="#route">see how it routes →</a>
+    </div>
+  </div>
+
+  <div class="editor" id="editor">
+    <div class="ed-top">
+      <span id="ed-file">PromptBuilder.php</span>
+      <div class="who"><span id="ed-who-without">without skills</span><span id="ed-who-with" class="on">with skills</span></div>
+    </div>
+    <div class="ed-body" id="ed-code">
+      <div class="scan"></div>
+      <div class="ln"><i>1</i><span>$bag = new MessageBag(</span></div>
+      <div class="ln"><i>2</i><span>    Message::<span class="tok good">forSystem</span>('You are terse.'),</span></div>
+      <div class="ln"><i>3</i><span>    Message::ofUser($question),</span></div>
+      <div class="ln"><i>4</i><span>);</span></div>
+    </div>
+    <div class="ed-foot"><span id="ed-status">✓ fixed by the skill</span><span class="src show" id="ed-src">src/platform/src/Message/Message.php</span></div>
+  </div>
+</section>
+
+<div class="works">
+  <span>Works with</span>
+  <b>Claude Code</b><b>Gemini CLI</b><b>OpenAI Codex</b><b>GitHub Copilot</b><b>Kilo Code</b><b>OpenCode</b>
+  <a href="https://agentskills.io">any agentskills.io agent ↗</a>
+</div>
+
+<section class="route" id="route">
+  <h2 class="reveal">Your agent loads<br>only what the question needs.</h2>
+  <p class="sub reveal" style="--d:100ms">The host agent reads seven short descriptions, picks one skill, then opens a single reference file when it has to. These are real prompts from the routing evals.</p>
+  <div class="prompt" id="prompt"><span class="u">you ›</span> <span id="ptext">I want to build a RAG system. How should I handle chunking my documents before they get embedded?</span><span class="caret"></span></div>
+  <div class="board" id="board">
+    <svg class="beam" id="beam" aria-hidden="true"><path id="beamPath"/></svg>
+    <div class="chip" id="chip-platform" style="--c:#d97706"><div><small>LLM calls</small><b>symfony-ai-platform</b></div><div class="tree"><div class="tree-skill">├ SKILL.md <span class="hl">loaded</span></div><div class="tree-ref">└ …</div></div></div>
+    <div class="chip" id="chip-agent" style="--c:#2f6b4f"><div><small>tools · memory</small><b>symfony-ai-agent</b></div><div class="tree"><div class="tree-skill">├ SKILL.md <span class="hl">loaded</span></div><div class="tree-ref">└ …</div></div></div>
+    <div class="chip" id="chip-chat" style="--c:#b4235a"><div><small>history</small><b>symfony-ai-chat</b></div><div class="tree"><div class="tree-skill">├ SKILL.md <span class="hl">loaded</span></div><div class="tree-ref">└ …</div></div></div>
+    <div class="chip" id="chip-store" style="--c:#2563eb"><div><small>RAG · vectors</small><b>symfony-ai-store</b></div><div class="tree"><div class="tree-skill">├ SKILL.md <span class="hl">loaded</span></div><div class="tree-ref">└ …</div></div></div>
+    <div class="chip" id="chip-bundle" style="--c:#9a6a12"><div><small>ai.yaml</small><b>symfony-ai-bundle</b></div><div class="tree"><div class="tree-skill">├ SKILL.md <span class="hl">loaded</span></div><div class="tree-ref">└ …</div></div></div>
+    <div class="chip" id="chip-mcp" style="--c:#0e7490"><div><small>MCP server</small><b>symfony-mcp-bundle</b></div><div class="tree"><div class="tree-skill">├ SKILL.md <span class="hl">loaded</span></div><div class="tree-ref">└ …</div></div></div>
+    <div class="chip" id="chip-mate" style="--c:#6d7f1f"><div><small>debug the app</small><b>symfony-ai-mate</b></div><div class="tree"><div class="tree-skill">├ SKILL.md <span class="hl">loaded</span></div><div class="tree-ref">└ …</div></div></div>
+  </div>
+</section>
+
+<section class="block spec" id="specs">
+  <div>
+    <div class="kicker reveal">Specs</div>
+    <h2 class="reveal" style="--d:80ms">Everything in the box.</h2>
+    <p class="sub reveal" style="--d:160ms">Plain Markdown, no runtime, no API key. Your agent reads it like any other skill.</p>
+  </div>
+  <dl class="sheet reveal" style="--d:120ms">
+    <div class="row"><dt>Targets</dt><dd>symfony/ai 0.15</dd></div>
+    <div class="row"><dt>Skills</dt><dd>platform, agent, chat, store, ai-bundle, mcp-bundle, mate</dd></div>
+    <div class="row"><dt>Format</dt><dd><a href="https://agentskills.io/specification">agentskills.io specification ↗</a></dd></div>
+    <div class="row"><dt>Agents</dt><dd>Claude Code, Gemini CLI, OpenAI Codex, GitHub Copilot, Kilo Code, OpenCode</dd></div>
+    <div class="row"><dt>Ships as</dt><dd>Claude Code plugin · Gemini CLI extension · plain <code>skills/</code> directory</dd></div>
+    <div class="row"><dt>Validation</dt><dd><span class="ok">skills-ref validate ✓ 7/7</span></dd></div>
+    <div class="row"><dt>License</dt><dd>MIT</dd></div>
+  </dl>
+</section>
+
+<section class="install" id="install">
+  <div>
+    <h2 class="reveal">Install in<br>your agent.</h2>
+    <p class="verified reveal" style="--d:100ms">verified against <b>symfony/ai <span id="version">0.15</span></b> · skills-ref ✓ · 7/7 skills</p>
+  </div>
+  <div>
+    <div class="tabs" id="tabs" role="tablist" aria-label="Agent">
+      <button role="tab" data-agent="Claude Code" aria-selected="true" tabindex="0">Claude Code</button>
+      <button role="tab" data-agent="Gemini CLI" aria-selected="false" tabindex="-1">Gemini CLI</button>
+      <button role="tab" data-agent="Codex" aria-selected="false" tabindex="-1">Codex</button>
+      <button role="tab" data-agent="GitHub Copilot" aria-selected="false" tabindex="-1">GitHub Copilot</button>
+      <button role="tab" data-agent="Kilo Code" aria-selected="false" tabindex="-1">Kilo Code</button>
+      <button role="tab" data-agent="OpenCode" aria-selected="false" tabindex="-1">OpenCode</button>
+      <button role="tab" data-agent="Any agent" aria-selected="false" tabindex="-1">Any agent</button>
+    </div>
+    <div class="term" id="term" role="tabpanel">
+      <button class="copy" id="copy" type="button">copy</button>
+      <div id="term-out">
+        <div class="cmd"><span class="p">$</span> claude plugin marketplace add MadCat34/symfony-ai-skills</div>
+        <div class="cmd"><span class="p">$</span> claude plugin install symfony-ai-skills@symfony-ai-skills</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block spec" id="faq">
+  <div>
+    <div class="kicker reveal">FAQ</div>
+    <h2 class="reveal" style="--d:80ms">Questions</h2>
+  </div>
+  <div class="faq">
+    <details class="reveal"><summary>Is this an official Symfony project?</summary><p>No. It is an independent, MIT-licensed project that documents the open-source symfony/ai components.</p></details>
+    <details class="reveal" style="--d:60ms"><summary>Which version of Symfony AI does it cover?</summary><p>symfony/ai 0.15. Symfony AI is experimental and breaks between minor versions, so each skills release targets one symfony/ai line.</p></details>
+    <details class="reveal" style="--d:120ms"><summary>Do I need an API key or an MCP server?</summary><p>No. The skills are Markdown files that your coding agent reads when a question needs them. Nothing runs in your application.</p></details>
+    <details class="reveal" style="--d:180ms"><summary>Which agents are supported?</summary><p>Claude Code (plugin), Gemini CLI (extension), OpenAI Codex, GitHub Copilot, Kilo Code, OpenCode, and any agent that reads <a href="https://agentskills.io">agentskills.io</a> skills from a directory.</p></details>
+  </div>
+</section>
+</main>
+
+<footer>
+  <span>symfony-ai-skills · MIT</span>
+  <a href="https://agentskills.io">Built on the agentskills.io format</a>
+  <a href="https://github.com/MadCat34/symfony-ai-skills">github.com/MadCat34/symfony-ai-skills</a>
+</footer>
+
+<script type="application/json" id="fact-cases">
+[
+  {"file": "PromptBuilder.php", "lines": ["$bag = new MessageBag(", "    Message::§('You are terse.'),", "    Message::ofUser($question),", ");"], "bad": "ofSystem", "good": "forSystem", "src": "src/platform/src/Message/Message.php"},
+  {"file": "SupportController.php", "lines": ["$reply = $chat->§;", "", "return $this->json($reply);"], "bad": "send('Hello')", "good": "submit(Message::ofUser('Hello'))", "src": "src/chat/src/ChatInterface.php"},
+  {"file": "terminal", "lines": ["$ php bin/console §", "", "# serves the \"default\" MCP server over STDIO"], "bad": "mcp:serve", "good": "mcp:server default", "src": "src/mcp-bundle/src/Command/McpCommand.php"},
+  {"file": "Indexer.php", "lines": ["$result = $platform->invoke($model, $text);", "$vector = $result->§;"], "bad": "asVector()", "good": "asVectors()[0]", "src": "src/platform/src/Result/DeferredResult.php"},
+  {"file": "Answer.php", "lines": ["$deltas = $platform->§;"], "bad": "stream($model, $bag)", "good": "invoke($model, $bag, ['stream' => true])->asStream()", "src": "src/platform/src/PlatformInterface.php"}
+]
+</script>
+<script type="application/json" id="routes">
+[
+  {"q": "I want to build a RAG system. How should I handle chunking my documents before they get embedded?", "skill": "store", "ref": "references/patterns.md"},
+  {"q": "I'm building a feature where only users with the ROLE_ADMIN can call a specific AI tool. How should I implement this restriction in my Symfony project?", "skill": "bundle", "ref": "references/security.md"},
+  {"q": "The profiler is showing a very slow SQL query in my dev environment. Can you look into it?", "skill": "mate", "ref": "references/api-reference.md"},
+  {"q": "I need to switch my application from using OpenAI to Anthropic without rewriting all my LLM calling logic. How do I do that in PHP?", "skill": "platform", "ref": "references/bridges.md"},
+  {"q": "I want to build an MCP server inside my Symfony app that can be called over HTTP. How do I set that up?", "skill": "mcp", "ref": "references/patterns.md"}
+]
+</script>
+<script type="application/json" id="agents">
+{
+  "Claude Code": ["claude plugin marketplace add MadCat34/symfony-ai-skills", "claude plugin install symfony-ai-skills@symfony-ai-skills"],
+  "Gemini CLI": ["git clone https://github.com/MadCat34/symfony-ai-skills", "gemini extension install ./symfony-ai-skills"],
+  "Codex": ["git clone https://github.com/MadCat34/symfony-ai-skills", "codex --skills-dir ./symfony-ai-skills/skills"],
+  "GitHub Copilot": ["copilot plugin marketplace add MadCat34/symfony-ai-skills", "copilot plugin install symfony-ai-skills@symfony-ai-skills"],
+  "Kilo Code": ["gh skill install MadCat34/symfony-ai-skills --all --agent universal --scope user"],
+  "OpenCode": ["gh skill install MadCat34/symfony-ai-skills --all --agent opencode --scope user"],
+  "Any agent": ["git clone https://github.com/MadCat34/symfony-ai-skills", "cp -r symfony-ai-skills/skills/* ~/.claude/skills/"]
+}
+</script>
+</body>
+</html>
