@@ -180,7 +180,8 @@ async function routeLoop() {
     await sleep(3600);
   }
 }
-onVisible($('route'), routeLoop);
+// without motion the final state does not wait for the section to scroll into view
+if (reduced) routeLoop(); else onVisible($('route'), routeLoop);
 
 /* install terminal: the selected agent's commands type themselves in */
 const agents = json('agents'), tabs = [...document.querySelectorAll('#tabs [role=tab]')];
