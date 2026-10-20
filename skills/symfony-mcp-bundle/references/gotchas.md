@@ -10,15 +10,15 @@ Read this when a recipe misbehaves or you need the real defaults (transport, por
 - 4. Capability negotiation is automatic; do not hand-roll responses
 - 5. JSON-RPC errors, NOT Symfony HTTP errors
 - 6. STDIO stdout pollution breaks the protocol
-- 7. DNS rebinding protection on HTTP
+- 7. DNS rebinding protection on HTTP (hosts and origins)
 - 8. Auth via reverse proxy
 - 9. Resource template limitation
 - 10. Lifecycle / SIGTERM for STDIO
 - 11. Class-level attribute without `__invoke()` fails compilation
 - 12. Service registration AND a matching registry entry are both mandatory
-- 13. Default session store is `file`; check the directory
+- 13. Default session store is `file`; check the directory and the lock
 - 14. MCP Apps are enabled per server via the `apps` registry kind, not a boolean flag
-- 15. The 2026-07-28 revision breaks server-initiated requests, silently
+- 15. The 2026-07-28 revision breaks server-initiated requests, silently, on both sides
 - 16. Resource-subscription notifications are silently disabled by default
 - 17. The bundle is experimental
 
@@ -90,7 +90,7 @@ If you need to surface a structured error, the bundle's own exception types are 
 - Container compilation messages on stdout (`bin/console` debug output) will break the protocol in dev. The `mcp:server` command does NOT silence container build output : disable any `->setVerbose(true)` kernel options when running it under a client.
 - `var_dump(...)` in a tool method is fine for HTTP (response is parsed JSON) but fatal for STDIO.
 
-## 7. DNS rebinding protection on HTTP
+## 7. DNS rebinding protection on HTTP (hosts and origins)
 
 The SDK's `StreamableHttpTransport` ships `DnsRebindingProtectionMiddleware` enabled by default, restricted to localhost. The bundle's per-server `MiddlewareFactory` reads `mcp.servers.<name>.http.allowed_hosts`:
 
@@ -98,16 +98,21 @@ The SDK's `StreamableHttpTransport` ships `DnsRebindingProtectionMiddleware` ena
 - `list<string>`: replace with a `DnsRebindingProtectionMiddleware` restricted to those hostnames.
 - `false`: strip the middleware entirely (exposes a public MCP server : required when behind a reverse proxy on a public domain).
 
+Since `mcp/sdk` 0.9 the middleware always validates `Host` (a request without one is rejected) and checks `Origin` separately, against `mcp.servers.<name>.http.allowed_origins` (empty by default). A same-origin request always passes; any other `Origin` must be listed with scheme and port, even when its host is in `allowed_hosts`. Before 0.15 an origin passed as soon as its host was allowed, so a browser-based client (the MCP Inspector on `http://localhost:6274`, a web app on another port) starts failing after the upgrade until its origin is listed. `['*']` accepts any `Origin`.
+
 ```yaml
 mcp:
     servers:
         public:
             http:
                 allowed_hosts: ['mcp.example.com']   # restrict to a public hostname
+                allowed_origins: ['https://app.example.com', 'http://localhost:6274']
                 # or
                 # allowed_hosts: false                  # public server, no rebinding protection
             registry: ['App\Mcp\Public\']
 ```
+
+`allowed_origins` next to `allowed_hosts: false` is rejected at compile time: `The "allowed_origins" option has no effect when "allowed_hosts" is false, which disables the DNS rebinding protection.`
 
 ## 8. Auth via reverse proxy
 
@@ -153,7 +158,7 @@ A class carrying `#[McpTool]` (or any other capability attribute) MUST be a regi
 - For dev-only tools, use Symfony's `#[When('dev')]` attribute.
 - The service id / FQCN / namespace prefix is actually listed (or covered by `'*'`) in some server's `registry` — check the right `kind` (`tools`/`prompts`/`resources`/`resource_templates`/`apps`) if using the map form.
 
-## 13. Default session store is `file`; check the directory
+## 13. Default session store is `file`; check the directory and the lock
 
 ```yaml
 mcp:
@@ -167,6 +172,23 @@ mcp:
 Default store is `file`. Default directory is the Symfony cache directory, namespaced per server. In a Docker container with an ephemeral filesystem, sessions vanish on restart : switch to `framework` (Symfony's `SessionHandlerInterface`) or `cache` (PSR-16) for persistence across deploys. Two servers cannot share the same store : it is rejected at compile time.
 
 For multi-process setups (FrankenPHP, Roadrunner), use `cache` (with a shared pool like Redis) or `framework` (with a shared session handler) : the file store will not see sessions created by other workers.
+
+Two requests of the same session running at once (parallel tool calls from one client) are not serialized unless `session.lock` is enabled. `mcp/sdk` 0.9 already saves only the keys a request changed, but a handler that reads then writes the same session key can still lose an update. The lock makes them wait for each other:
+
+```yaml
+mcp:
+    servers:
+        demo:
+            session:
+                store: 'cache'
+                lock:
+                    enabled: true
+                    factory: 'lock.factory'           # required for any store but "file" (composer require symfony/lock)
+                    timeout: 30.0                     # seconds a request waits for the lock
+                    ttl: 300.0                        # must exceed the longest handler run
+```
+
+With `store: 'file'`, `lock: true` alone is enough : the lock is a `flock()` file next to the session files. Any other store without a `factory` fails at compile time: `Without "session.lock.factory" the session lock is a file next to the "file" store's sessions; any other store needs a LockFactory service.` A request that cannot get the lock within `timeout`, or hits a failing lock backend, is answered with HTTP `503` and a JSON-RPC error.
 
 `McpBundle::assertServersAreIsolated()` enforces a second, independent compile-time constraint : two HTTP-enabled servers cannot resolve to the same `http.path` either (`LogicException`: `The MCP servers "%s" and "%s" are both configured on the HTTP path "%s"...`). Since the default path is always derived from the server name, this only bites when two servers explicitly set the same `http.path` by hand.
 
@@ -189,9 +211,9 @@ mcp:
 
 An `#[AsMcpApp]` class not matched by any server's `apps` registry entry is simply not exposed (visible in `debug:mcp` as unassigned), same as any other capability kind.
 
-## 15. The 2026-07-28 revision breaks server-initiated requests, silently
+## 15. The 2026-07-28 revision breaks server-initiated requests, silently, on both sides
 
-Since 0.13, every HTTP server serves the 2026-07-28 revision in addition to the handshake era it already served, on the same endpoint : the SDK builds a dispatcher per era and the transport routes each request, so upgrading needs no config change. That revision removed server-initiated requests. If a tool, prompt, or resource handler calls `$gateway->sample()` or `$gateway->listRoots()`, it now fails for clients speaking the modern era :
+Since 0.13, every HTTP server serves the 2026-07-28 revision in addition to the handshake era it already served, on the same endpoint : the SDK builds a dispatcher per era and the transport routes each request, so upgrading needs no config change. Since 0.15 (`mcp/sdk` 0.9) STDIO servers do too: `StdioTransport` settles the era on the client's first request. That revision removed server-initiated requests. If a tool, prompt, or resource handler calls `$gateway->sample()` or `$gateway->listRoots()`, it now fails for clients speaking the modern era :
 
 > This protocol revision has no server-initiated requests.
 
@@ -205,7 +227,19 @@ Fixes:
 
 `$gateway->elicit()` survived (it is a multi-round-trip request, not server-initiated) and keeps working on both eras unchanged — except that a handler calling it **more than once** now needs `mcp.servers.<name>.request_state.key` set (>= 32 bytes) : with no session on the modern era, the answer to the first ask is signed and carried back through the client for the second round, and there is nowhere to keep it without that key.
 
-Roots, sampling, and MCP logging are deprecated by the same revision (SEP-2577). `mcp/sdk` 0.8 emits a deprecation notice for each configured handler, including `clients.<name>.forward_server_logs` (`true` by default) — expect that notice after upgrading even if you never call `sample()`/`listRoots()` yourself.
+**Client side (0.15).** An `mcp.clients.<name>` entry without `protocol_version` now speaks the SDK default, 2026-07-28: it probes with `server/discover` and falls back to the `initialize` handshake on 2025-11-25 only when the remote server does not speak the modern era. Against a server speaking both, the connection settles on 2026-07-28, and the remote server can no longer call the client's `roots` and `sampling` handlers. Pin the revision to keep them:
+
+```yaml
+mcp:
+    clients:
+        research:
+            protocol_version: '2025-11-25'
+            sampling: 'App\Mcp\SamplingHandler'
+```
+
+`ServerConnectionInterface::getProtocolVersion()` tells which revision a connection settled on.
+
+Roots, sampling, and MCP logging are deprecated by the same revision (SEP-2577). Since `mcp/sdk` 0.8 the SDK emits a deprecation notice for each configured handler, including `clients.<name>.forward_server_logs` (`true` by default) — expect that notice after upgrading even if you never call `sample()`/`listRoots()` yourself.
 
 ## 16. Resource-subscription notifications are silently disabled by default
 

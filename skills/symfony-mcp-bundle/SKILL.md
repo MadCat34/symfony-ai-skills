@@ -44,12 +44,14 @@ an HTTP controller, a STDIO command, `debug:mcp`, a Profiler collector, and the
 ## Prerequisites
 
 Symfony 7.3+ or 8.x with FrameworkBundle, and the bundle, which pulls
-`mcp/sdk ^0.8.1` (the source of every attribute, transport and the
-`Mcp\Server` runtime):
+`mcp/sdk ^0.9` (the source of every attribute, transport and the
+`Mcp\Server` runtime). SDK 0.9 breaks code written against it directly, e.g.
+`#[CompletionProvider(providerClass: …)]` is now `provider: …`:
 
 ```bash
 composer require symfony/mcp-bundle
 composer require symfony/twig-bundle   # only for template-based MCP Apps (#[AsMcpApp])
+composer require symfony/lock          # only for session.lock with a store other than "file"
 ```
 
 Classes carrying MCP attributes must be services with autoconfiguration
@@ -92,8 +94,10 @@ mcp:
             http:
                 path: '/mcp/weather'            # default: "/mcp/<name>"
                 allowed_hosts: ~                # null = SDK default (localhost only), list, or false
+                allowed_origins: []             # cross-origin clients, e.g. ['http://localhost:6274']
             session:
                 store: 'file'                   # file|memory|cache|framework, default "file"
+                lock: false                     # true serializes concurrent requests of one session
             registry: ['App\Mcp\Weather\']      # required: what this server exposes
 ```
 
@@ -115,7 +119,9 @@ mcp:
 - **HTTP (streamable)**, on by default: `mcp.server.<name>.controller` builds the
   SDK `StreamableHttpTransport` per request; SSE responses are streamed. The
   SDK's DNS-rebinding protection allows localhost only unless
-  `http.allowed_hosts` lists hosts (or is `false`). Sessions use the server's
+  `http.allowed_hosts` lists hosts (or is `false`); a request whose `Origin` is
+  neither the endpoint's own origin nor in `http.allowed_origins` (scheme, host
+  and port) is rejected. Sessions use the server's
   store, isolated per server by default (`%kernel.cache_dir%/mcp-sessions/<name>`).
 - **STDIO**, opt-in with `transports.stdio: true`: the client (Claude Code,
   Cursor, …) spawns `php bin/console mcp:server <name>` and pipes JSON-RPC over
@@ -140,6 +146,16 @@ mcp:
 - **The default session store is `file`.** On several processes (FrankenPHP,
   RoadRunner) or an ephemeral filesystem, switch to `cache` (shared pool) or
   `framework` (shared session handler).
+- **Concurrent requests of one session are not serialized by default.** Enable
+  `session.lock` (a `flock()` file next to the `file` store, or
+  `session.lock.factory: <LockFactory service>` for any other store).
+- **Browser-based clients need `http.allowed_origins`.** The MCP Inspector or a
+  web client on another origin is rejected even when its host is in
+  `allowed_hosts`; list each origin with scheme and port.
+- **Clients default to the 2026-07-28 revision.** An `mcp.clients` entry without
+  `protocol_version` settles on it against a server speaking both eras, and the
+  server can no longer reach its `roots` / `sampling` handlers; pin
+  `protocol_version: '2025-11-25'` to keep them.
 - **Resource templates are listed, not routed.** `#[McpResourceTemplate]`
   appears in `resources/templates/list`, but reading `users://{id}` still needs
   a handler that parses the URI.
@@ -156,6 +172,8 @@ mcp:
 | `The MCP servers "…" and "…" share the same session storage. …` | Two servers resolve to one session directory or cache prefix. | Give each server its own `session.directory` / `session.prefix`. |
 | `The MCP servers "…" and "…" are both configured on the HTTP path "…". …` | Two servers declare the same `http.path`. | Give each server its own path. |
 | `Several MCP servers expose the STDIO transport, name the one to run: …` | More than one server enables STDIO. | Run `php bin/console mcp:server <name>`. |
+| `The "allowed_origins" option has no effect when "allowed_hosts" is false, which disables the DNS rebinding protection.` | `allowed_origins` set next to `allowed_hosts: false`. | Drop `allowed_origins`, or list hosts instead of `false`. |
+| `Without "session.lock.factory" the session lock is a file next to the "file" store's sessions; any other store needs a LockFactory service.` | `session.lock` enabled on a `memory`, `cache` or `framework` store. | Set `session.lock.factory` to a `LockFactory` service id. |
 | A tool does not appear in the client | The service carries the attribute but no `registry` matches it. | Run `php bin/console debug:mcp`, then add the class to the server's registry. |
 | An editor connection hangs | The editor speaks STDIO while the server only serves HTTP, or the reverse. | Match `transports` to the client: editors spawn STDIO, hosted clients use HTTP. |
 
@@ -167,9 +185,9 @@ mcp:
 - No built-in authentication: protect HTTP endpoints at a reverse proxy or a
   firewall, and check permissions in each tool (`Security::isGranted()`); STDIO
   trusts the OS user that spawned the process.
-- Every HTTP server also answers the 2026-07-28 protocol revision, which has no
-  server-initiated requests: `$gateway->sample()` / `listRoots()` fail for
-  clients speaking it.
+- Every server, over HTTP and (since `mcp/sdk` 0.9) STDIO, also answers the
+  2026-07-28 protocol revision, which has no server-initiated requests:
+  `$gateway->sample()` / `listRoots()` fail for clients speaking it.
 - One STDIO process serves exactly one server.
 
 ## Usage
@@ -194,8 +212,8 @@ mcp:
   remote client, diagnostics.
 - Read [`references/gotchas.md`](references/gotchas.md) before touching
   transports, sessions or the registry, or when a recipe misbehaves: transport
-  mismatch, JSON-RPC error codes, DNS rebinding, auth, STDIO lifecycle,
-  protocol revisions, subscriptions.
+  mismatch, JSON-RPC error codes, DNS rebinding and origins, auth, STDIO
+  lifecycle, session locking, protocol revisions, subscriptions.
 
 ## See also
 

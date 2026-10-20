@@ -498,7 +498,9 @@ interface ServerConnectionInterface
     public function disconnect(): void;        // idempotent; reconnects transparently on next use
 
     public function getServerInfo(): ?\Mcp\Schema\Implementation;
+    public function getProtocolVersion(): ?\Mcp\Schema\Enum\ProtocolVersion;    // negotiated revision; null before the first request
     public function getInstructions(): ?string;
+    public function getServerCapabilities(): ?\Mcp\Schema\ServerCapabilities; // from initialize, or server/discover on 2026-07-28; null before connecting
     public function ping(): void;
 
     public function listTools(?string $cursor = null): \Mcp\Schema\Result\ListToolsResult;
@@ -518,8 +520,11 @@ interface ServerConnectionInterface
 
     public function complete(\Mcp\Schema\PromptReference|\Mcp\Schema\ResourceReference $ref, array $argument): \Mcp\Schema\Result\CompletionCompleteResult;
     public function setLoggingLevel(\Mcp\Schema\Enum\LoggingLevel $level): void;
+    public function sendRootsListChanged(): void;                               // tell the server this client's roots changed
 }
 ```
+
+`getServerCapabilities()` is new in 0.15: a class implementing `ServerConnectionInterface` itself must add it.
 
 A connection is opened lazily on first use (not on `get()`, not on client construction) and closed on kernel reset — callers never manage transports or the SDK's explicit connect/disconnect lifecycle directly. Iterating an `McpClientInterface` (`foreach ($client as $name => $connection)`) does not open any connection either; only calling a method on a `ServerConnectionInterface` does.
 
@@ -557,6 +562,7 @@ mcp:
             http:
                 path: ~                                # default '/mcp/<name>'
                 allowed_hosts: ~                       # null=SDK default (localhost), list<string>, or false
+                allowed_origins: []                    # origins (scheme://host[:port]) accepted besides same-origin; ['*'] = any
 
             protocol_versions: []                      # narrows which revisions this server answers; [] = SDK default (all)
                                                         # a single handshake-era revision pins the handshake to it;
@@ -572,6 +578,11 @@ mcp:
                 cache_pool: 'cache.mcp.sessions'       # cache backend (PSR-16 wrapper around cache.app if missing)
                 prefix: ~                               # file/memory/cache/framework key prefix; default 'mcp-<name>-'
                 ttl: 3600                               # seconds, min 1
+                lock:                                   # canBeEnabled: `lock: true` is the shorthand
+                    enabled: false                      # serializes the concurrent requests of one session
+                    factory: ~                          # LockFactory service id; unset = flock() file next to the "file" store
+                    timeout: 30.0                       # seconds to wait for a lock held by another request
+                    ttl: 300.0                          # seconds a factory lock lives; must exceed the longest handler run
 
             registry: []                               # REQUIRED: one list for every kind, or a map per kind
                                                         # (tools, prompts, resources, resource_templates, apps)
@@ -584,10 +595,10 @@ mcp:
                 version: '0.0.1'
                 description: ~
             forward_server_logs: true                   # forward remote log notifications to the "mcp" logger channel
-            protocol_version: ~                         # leave unset to keep the SDK default
+            protocol_version: ~                         # unset = SDK default: 2026-07-28, falling back to 2025-11-25
             capabilities:
-                roots: false
                 roots_list_changed: false
+            roots: ~                                    # service id implementing RootsCallbackInterface
             sampling: ~                                 # service id implementing SamplingCallbackInterface
             elicitation: ~                              # service id implementing ElicitationCallbackInterface
             init_timeout: 30                            # seconds, min 1
@@ -622,7 +633,11 @@ Notes:
 
 - Two servers must not resolve to the same session storage : rejected at compile time.
 
-- Every HTTP server now answers both the handshake era and the 2026-07-28 revision on the same endpoint, with no config change required. That revision drops server-initiated requests (`sample()`, `listRoots()` on the gateway your handler receives) : see `references/gotchas.md` #16. Set `protocol_versions: ['2025-11-25']` to refuse the modern era outright instead.
+- `allowed_origins` next to `allowed_hosts: false` is a configuration error (the protection it tunes is off). `session.lock` without a `factory` is a configuration error unless `store` is `file`.
+
+- A client without `protocol_version` probes with `server/discover` on 2026-07-28 and falls back to the `initialize` handshake on 2025-11-25 only when the server does not speak the modern era. Against a server speaking both, the server can no longer reach the client's `roots` and `sampling` handlers; set `protocol_version: '2025-11-25'` to keep them.
+
+- Every server answers both the handshake era and the 2026-07-28 revision, over HTTP on the same endpoint and, since `mcp/sdk` 0.9, over STDIO, with no config change required. That revision drops server-initiated requests (`sample()`, `listRoots()` on the gateway your handler receives) : see `references/gotchas.md` #15. Set `protocol_versions: ['2025-11-25']` to refuse the modern era outright instead.
 
 - `request_state.key` is only required for a modern-era server whose handler calls `elicit()` more than once (or returns an `InputRequiredResult`) : without a session, the answer to the first ask has to be signed and carried back through the client for the second round.
 
@@ -638,6 +653,7 @@ Notes:
 | `mcp.server.<name>.builder` | `Mcp\Server\Builder` | `configureServer()` (factory: `Mcp\Server::builder()`) |
 | `mcp.server.<name>` | `Mcp\Server` | `configureServer()` (factory: `mcp.server.<name>.builder->build()`); aliased for argument as `<name> server` |
 | `mcp.server.<name>.session.store` | one of `FileSessionStore` / `InMemorySessionStore` / `Psr16SessionStore` / `FrameworkSessionStore` | `configureServer()` |
+| `mcp.server.<name>.session.lock` | `Mcp\Server\Session\FileSessionLock` or `SymfonyLockSessionLock` (with `session.lock.factory`) | `configureSessionLock()`, only when `session.lock` is enabled |
 | `mcp.server.<name>.middleware_factory` | `Symfony\AI\McpBundle\Http\MiddlewareFactory` | `configureServer()` |
 | `mcp.server.<name>.controller` | `Symfony\AI\McpBundle\Controller\McpController` | `configureServer()`, only when `transports.http` |
 | `mcp.server.command` | `Symfony\AI\McpBundle\Command\McpCommand` | `configureServers()`, one shared instance for every STDIO-enabled server |
