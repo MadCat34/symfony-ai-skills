@@ -118,6 +118,10 @@ after it. Tool calling is **not** a processor: `Agent` runs its own loop once a
   remembered.
 - **An `Execution` is single-use and lazy.** Keep the result after consuming it;
   call the agent again for a new run.
+- **`McpToolbox` caches the remote tool list.** It implements `ResetInterface`;
+  call `reset()` between jobs in a long-running worker to pick up new tools.
+- **Match progress stages with `Progress::STAGE_*`** (`STAGE_MODEL_REQUEST`,
+  `STAGE_DELTA`, `STAGE_TOOL_CALL`, `STAGE_HANDOFF`), not raw strings.
 
 ## Troubleshooting
 

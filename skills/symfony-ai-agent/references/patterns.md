@@ -63,6 +63,7 @@ A `write`/`delete`/`move` tool like this lets the model overwrite or remove arbi
 Streaming, or observing the run, via the `Execution` that `call()` returns:
 
 ```php
+use Symfony\AI\Agent\Execution\Update\Progress;
 use Symfony\AI\Platform\Result\Stream\Delta\TextDelta;
 
 // Eager, unchanged — drives the execution and returns the final answer.
@@ -79,7 +80,14 @@ foreach ($result->getContent() as $delta) {
 // Observe every update (model requests, tool calls, deltas) without caring about streaming.
 foreach ($agent->call('What is the weather in Paris?') as $update) {
     // $update is an Execution\Update\Progress or the terminal Execution\Update\Result
+    if ($update instanceof Progress && Progress::STAGE_TOOL_CALL === $update->getStage()) {
+        echo 'Calling '.$update->getPayload()->getName().PHP_EOL; // payload is the ToolCall
+    }
 }
+
+// Structured output through an agent: the class argument asserts and types the result (0.15).
+$report = $agent->call('Weather in Paris?', ['response_format' => WeatherReport::class])
+    ->asObject(WeatherReport::class);
 ```
 
 ## 2. Static, retrieval-only memory (pre-seeded)

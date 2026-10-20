@@ -494,6 +494,8 @@ final class Execution implements \IteratorAggregate, ResultInterface
     public function getMetadata(): Metadata;
     public function getRawResult(): ?RawResultInterface;
     public function asStream(): \Generator;                     // yields DeltaInterface; throws LogicException when not streamed
+    public function asObject(?string $class = null): object|array; // 0.15: asserts and types the structured output (T when $class is given)
+    // plus asText(), asToolCalls(), asStreamedObject(), … from Platform's TypedResultTrait (asVectors/asReranking are private)
     public function isStreamed(): bool;                         // since 0.14: getContent() yields deltas
     public function cancel(): void;                             // since 0.14: stops it and cancels the active HTTP response
 }
@@ -502,7 +504,7 @@ final class Execution implements \IteratorAggregate, ResultInterface
 `Execution` is what `AgentInterface::call()` returns : a lazy execution that is also the `ResultInterface` it produces. Nothing runs until it is consumed, three ways:
 
 - **As a result** : `$execution->getContent()` (or `->getResult()`) drives the agent to completion and returns the answer.
-- **As a process** : `foreach ($execution as $update) { ... }` observes every `Update\Progress` (model requests, tool calls, streamed deltas) and the terminal `Update\Result`.
+- **As a process** : `foreach ($execution as $update) { ... }` observes every `Update\Progress` (model requests, tool calls, streamed deltas) and the terminal `Update\Result`. Match `Progress::getStage()` against the 0.15 constants instead of raw strings: `Progress::STAGE_MODEL_REQUEST` (`'model_request'`, payload: the model name), `STAGE_DELTA` (`'delta'`, payload: the `DeltaInterface`), `STAGE_TOOL_CALL` (`'tool_call'`, payload: the `ToolCall`) and `STAGE_HANDOFF` (`'handoff'`, payload: the `MultiAgent` handoff `Decision`). A decorator or custom agent may report any other non-empty stage string.
 - **With callbacks** : `$execution->onProgress($cb)->onResult($cb)->getResult()`.
 
 Consuming drives the agent, **including its side effects** : exceptions and side effects surface on `getContent()`/`getResult()`/iteration, not on the `call()` line itself. The final result is cached (`getContent()`/`getResult()`/`getMetadata()` are idempotent afterward), but **re-iterating an already-consumed execution throws `LogicException`** : call the agent again for a fresh execution. Code that type-checks the result (e.g. `... instanceof TextResult`) must call `->getResult()` first : `Execution` itself is not the typed result, it produces one.
@@ -821,6 +823,8 @@ Each is a class in `src/agent/src/Bridge/<Name>/` exposing one or more `#[AsTool
 | `Youtube\YoutubeTranscriber`        | `youtube_transcript`                                                        | no                        |
 
 `Mcp\McpToolbox` (package `symfony/ai-mcp-tool`, since 0.14) extends `AbstractToolbox` and exposes the tools of a remote MCP server through a `ToolsetInterface` (`ClientToolset($name, Mcp\Client, TransportInterface)`): `new Agent($platform, $model, toolbox: new McpToolbox($toolset))`. Combine it with local tools via `ChainToolbox`. A server whose tool listing fails is skipped for `retryAfter` seconds (default 60) instead of breaking the agent. In a Symfony app use the `mcp_server:` tool entry of `ai-bundle` instead.
+
+Since 0.15 `getTools()` copies a remote tool's MCP annotations into `Tool::getMetadata()`, keyed by their spec names (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`; `title` is dropped), so a `ToolCallRequested` listener can deny destructive calls: `$event->getDefinition()->getMetadataValue('destructiveHint', false)`. `McpToolbox` also implements `ResetInterface`: it caches the tool list once fetched, and `reset()` forgets it so the next listing asks the server again (a server marked unreachable is still skipped until its retry delay elapses). Call `reset()` between jobs in a long-running worker, or the agent keeps the tool list of the first request.
 
 `Filesystem\Filesystem`'s `write/append/copy/move/delete/mkdir` operations let the model mutate or remove files with no built-in confirmation — restrict writable paths with `Filesystem\PathValidator` and/or gate the call in a `ToolCallRequested` listener (`deny()`) before exposing it against a real filesystem.
 
