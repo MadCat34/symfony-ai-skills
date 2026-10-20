@@ -181,3 +181,67 @@ async function routeLoop() {
   }
 }
 onVisible($('route'), routeLoop);
+
+/* install terminal: the selected agent's commands type themselves in */
+const agents = json('agents'), tabs = [...document.querySelectorAll('#tabs [role=tab]')];
+let installRun = 0;
+
+const selectedAgent = () => tabs.find(t => t.getAttribute('aria-selected') === 'true').dataset.agent;
+
+async function showInstall(agent) {
+  const run = ++installRun, out = $('term-out');
+  tabs.forEach(t => {
+    const on = t.dataset.agent === agent;
+    t.setAttribute('aria-selected', String(on));
+    t.tabIndex = on ? 0 : -1;
+  });
+  out.textContent = '';
+  for (const command of agents[agent]) {
+    const line = document.createElement('div'), text = document.createElement('span');
+    line.className = 'cmd';
+    line.innerHTML = '<span class="p">$</span> ';
+    line.append(text);
+    out.append(line);
+    if (reduced) { text.textContent = command; continue; }
+    for (const ch of command) {
+      if (run !== installRun) return; // a newer tab took over the terminal
+      text.textContent += ch;
+      await sleep(14);
+    }
+    await sleep(160);
+  }
+}
+
+async function copyInstall() {
+  const button = $('copy'), text = agents[selectedAgent()].join('\n');
+  let label = 'copied ✓';
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // no clipboard API or permission denied: select the commands so the visitor can copy them
+    const range = document.createRange();
+    range.selectNodeContents($('term-out'));
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    label = 'selected';
+  }
+  button.textContent = label;
+  setTimeout(() => { button.textContent = 'copy'; }, 1400);
+}
+
+tabs.forEach((tab, i) => {
+  tab.addEventListener('click', () => showInstall(tab.dataset.agent));
+  tab.addEventListener('keydown', e => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    const next = tabs[(i + step + tabs.length) % tabs.length];
+    next.focus();
+    showInstall(next.dataset.agent);
+  });
+});
+$('copy').addEventListener('click', copyInstall);
+onVisible($('install'), () => {
+  if (!installRun) showInstall(selectedAgent()); // a tab already chosen keeps its run
+  scramble($('version'), '0.15', 700);
+});
