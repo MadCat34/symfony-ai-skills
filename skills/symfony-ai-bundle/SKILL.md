@@ -161,6 +161,9 @@ Source: `config/options.php`. The root keys are:
   service id, `agent: null` to all.
 - **`fault_tolerant_toolbox` defaults to `true`**: a failing tool call becomes a
   structured error the LLM sees. It is the only fault-tolerance key.
+- **`ai:store:setup` on Postgres builds an `hnsw` index** (0.15) with the
+  operator class of the store's `distance`; it needs pgvector 0.5.0+ and leaves
+  an existing index untouched (`references/config.md` → *`ai.store`*).
 
 ## Troubleshooting
 

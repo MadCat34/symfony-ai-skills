@@ -193,6 +193,7 @@ ai:
                 #       name: 'delegate'
                 #       description: 'Delegate to the default agent.'
                 #     - mcp_server: 'docs.readme'  # since 0.14: tools of a remote MCP server, "<client>.<server>" from mcp.clients
+                #                                  # its McpToolbox is tagged kernel.reset (0.15): the tool list is re-fetched per request/message
                 #       prefix: 'readme_'          # optional, only with mcp_server; default "<server>_"
                 # execution_strategy: fiber      # since 0.14: sequential (default) | fiber | custom ToolExecutorInterface service id
             exclude_tool_messages: false
@@ -288,9 +289,11 @@ ai:
                 setup_options:                 # only read by the `ai:store:setup` command
                     vector_type: 'vector'       # default
                     vector_size: 1536           # default
-                    index_method: 'ivfflat'     # default
-                    index_opclass: 'vector_cosine_ops'   # default
+                    # index_method: 'hnsw'      # unset = the store default, hnsw (0.15; was ivfflat)
+                    # index_opclass: ~          # unset = the opclass of `distance` (vector_cosine_ops here)
 ```
+
+Since 0.15 the bundle no longer sets `index_method` / `index_opclass`, so `ai:store:setup` creates an `hnsw` index with the operator class matching `distance` (before: `ivfflat` with `vector_cosine_ops` whatever the distance). HNSW needs pgvector 0.5.0+. An existing index is kept as is; drop it and rerun `ai:store:setup` to rebuild it.
 
 `dsn` and `dbal_connection` are mutually exclusive and one of them is required (validated at compile time). `username`/`password` are only meaningful with `dsn`.
 
@@ -309,6 +312,28 @@ ai:
                 api_key: '%env(MILVUS_API_KEY)%'
                 database: 'default'
                 collection: 'docs'
+```
+
+`redis` and `mongodb` store options read by `ai:store:setup` (0.15):
+
+```yaml
+ai:
+    store:
+        redis:
+            docs:
+                client: 'my.redis'          # OR connection_parameters: {...} — exactly one
+                index_name: 'docs'
+                distance: 'COSINE'          # COSINE | L2 | IP; default COSINE
+                setup_options:
+                    vector_size: 1536       # unset = the store default, 3072 (Gemini-sized)
+        mongodb:
+            docs:
+                client: 'MongoDB\Client'    # default
+                database: 'app'             # required
+                collection: 'docs'
+                index_name: 'vector_index'  # required
+                dimensions: 1536            # vector index size; store default 1536
+                similarity: 'cosine'        # euclidean | cosine | dotProduct; store default euclidean
 ```
 
 Other supported providers (schemas in `config/store/<provider>.php`, not individually detailed here): `azuresearch`, `chromadb`, `clickhouse`, `cloudflare`, `elasticsearch`, `manticoresearch`, `mariadb`, `meilisearch`, `milvus`, `mongodb`, `neo4j`, `opensearch`, `redis`, `s3vectors`, `sqlite`, `supabase`, `surrealdb`, `typesense`, `vektor`, `weaviate`. Read the corresponding `config/store/<provider>.php` file directly when configuring one of these — the shape follows the same pattern (provider name as parent key, named instances under it) but options differ per backend.
@@ -440,7 +465,7 @@ ai:
 
 ## Aliases auto-created by the bundle
 
-For each singleton platform, the bundle auto-aliases `PlatformInterface::class` when only one platform is configured (`AiBundle::loadExtension()`, `setAlias()` calls). Same for `AgentInterface::class`, `StoreInterface::class`, `MessageStoreInterface::class`, `ChatInterface::class`, `IndexerInterface::class`, `RetrieverInterface::class`. When several are configured, you must type-hint the named service (`ai.agent.default`, `ai.store.pinecone.default`, …) or use `#[Target('default')]`.
+For each singleton platform, the bundle auto-aliases `PlatformInterface::class` when only one platform is configured (`AiBundle::loadExtension()`, `setAlias()` calls). Since 0.15 every service tagged `ai.platform` also gets a `#[Target]` alias named after its tag (dots replaced by underscores): `#[Target('openai')]` for a singleton provider, `#[Target('cache_<name>')]` for a cache instance, `#[Target('<name>')]` for a failover instance. A failover service's `ai.platform` tag now carries its instance name instead of the hardcoded `failover`, which only matters to code reading that tag attribute. Same for `AgentInterface::class`, `StoreInterface::class`, `MessageStoreInterface::class`, `ChatInterface::class`, `IndexerInterface::class`, `RetrieverInterface::class`. When several are configured, you must type-hint the named service (`ai.agent.default`, `ai.store.pinecone.default`, …) or use `#[Target('default')]`.
 
 ## Removed when optional packages are missing
 
