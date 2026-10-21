@@ -21,20 +21,18 @@ claude --plugin-dir ./symfony-ai-skills
 ## Gemini CLI
 
 ```bash
-git clone https://github.com/MadCat34/symfony-ai-skills
-gemini extension install ./symfony-ai-skills
+gemini extensions install https://github.com/MadCat34/symfony-ai-skills
 ```
 
-Verify: `gemini extension list` should show `symfony-ai-skills`.
+Verify: `gemini extensions list` should show `symfony-ai-skills`.
 
 ## OpenAI Codex
 
 ```bash
-git clone https://github.com/MadCat34/symfony-ai-skills
-codex --skills-dir ./symfony-ai-skills/skills
+gh skill install MadCat34/symfony-ai-skills --all --agent codex --scope user
 ```
 
-Codex reads `AGENTS.md` at the project root and individual `SKILL.md` files.
+Installs the seven skills to `~/.agents/skills/`, the user-level directory Codex scans. Needs the GitHub CLI with `gh skill` (in preview). Codex also reads `AGENTS.md` at the project root.
 
 ## GitHub Copilot
 

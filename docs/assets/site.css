@@ -138,7 +138,7 @@ svg.beam path { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-das
 .term { position: relative; background: var(--code-bg); color: var(--code-ink); border-radius: 0 10px 10px 10px; padding: 22px 20px;
   font: 14px/1.9 var(--mono); min-height: 150px; box-shadow: 0 24px 48px -26px rgba(20, 22, 26, .35); }
 .term .cmd { white-space: pre-wrap; overflow-wrap: anywhere; padding-right: 64px; }
-.term .p { color: #7fd1c1; }
+.term .p { color: #7fd1c1; user-select: none; }
 .copy { position: absolute; top: 12px; right: 12px; cursor: pointer; font: 11px var(--mono); color: #8a8f88; background: transparent;
   border: 1px solid #3a3f3a; padding: 4px 9px; border-radius: 4px; }
 .copy:hover, .copy:focus-visible { color: var(--code-ink); border-color: var(--code-ink); }

@@ -38,16 +38,23 @@ claude plugin marketplace add MadCat34/symfony-ai-skills
 claude plugin install symfony-ai-skills@symfony-ai-skills
 ```
 
-### Universal install (no marketplace required)
+### Claude Code from a clone (no marketplace required)
 
 ```bash
 git clone https://github.com/MadCat34/symfony-ai-skills
-# Claude Code
 claude --plugin-dir ./symfony-ai-skills
-# Gemini CLI
-gemini extension install ./symfony-ai-skills
-# Codex
-codex --skills-dir ./symfony-ai-skills/skills
+```
+
+### Gemini CLI
+
+```bash
+gemini extensions install https://github.com/MadCat34/symfony-ai-skills
+```
+
+### OpenAI Codex
+
+```bash
+gh skill install MadCat34/symfony-ai-skills --all --agent codex --scope user
 ```
 
 ### GitHub Copilot, Kilo Code, OpenCode

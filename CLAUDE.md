@@ -74,7 +74,7 @@ The negative clause is load-bearing. `symfony-mcp-bundle` (build an MCP server *
 
 `CLAUDE.md`, `AGENTS.md`, and `GEMINI.md` were byte-identical before this file diverged. They are **not** interchangeable:
 
-- `GEMINI.md` is declared `contextFileName` in `gemini-extension.json` and is loaded into the *consuming user's* Gemini session on `gemini extension install`.
+- `GEMINI.md` is declared `contextFileName` in `gemini-extension.json` and is loaded into the *consuming user's* Gemini session on `gemini extensions install`.
 - `AGENTS.md` is read by Codex at the project root (see `INSTALL.md`).
 - `CLAUDE.md` (this file) is **not** shipped to consumers — `claude plugin install` loads `skills/` only — so it is free to be maintainer-facing.
 

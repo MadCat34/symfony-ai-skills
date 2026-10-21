@@ -46,8 +46,10 @@ addEventListener('scroll', () => $('hd').classList.toggle('scrolled', scrollY > 
     'Progress::STAGE_TOOL_CALL', 'ChatInterface::submit()', 'VectorQuery', 'HybridQuery', '#[AsTool]', '#[IsGrantedTool]',
     '#[McpTool]', 'mcp:server', 'ai:store:setup', 'RetryableExceptionInterface', 'MaxOutputTokensException', 'session.lock',
     'allowed_origins', 'vector_l2_ops', 'StoreInterface::query()', 'MultiAgent', 'Vectorizer', 'DocumentIndexer', 'vendor/bin/mate'];
+  // 11px monospace: ~6.6px per character, ~21px per line
+  const cells = (Math.max(screen.width, innerWidth) / 6.6) * (Math.max(screen.height, innerHeight, 1440) / 21);
   let s = '';
-  for (let i = 0; i < 220; i++) s += names[i % names.length] + '   ';
+  for (let i = 0; s.length < cells * 1.2; i++) s += names[i % names.length] + '   ';
   $('field').textContent = s;
   if (reduced) return;
   addEventListener('pointermove', e => {
@@ -152,7 +154,9 @@ function showRoute(route) {
 
 function resetRoutes() {
   $('board').classList.remove('routing');
-  $('beamPath').style.strokeDashoffset = '9999';
+  const path = $('beamPath');
+  path.style.transition = 'none';
+  path.removeAttribute('d');
   document.querySelectorAll('#board .chip').forEach(c => {
     c.classList.remove('hit');
     const tree = c.querySelector('.tree');
@@ -198,6 +202,7 @@ async function showInstall(agent) {
   });
   out.textContent = '';
   for (const command of agents[agent]) {
+    if (run !== installRun) return; // a newer tab took over between two lines
     const line = document.createElement('div'), text = document.createElement('span');
     line.className = 'cmd';
     line.innerHTML = '<span class="p">$</span> ';
