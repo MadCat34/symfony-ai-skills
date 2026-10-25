@@ -160,6 +160,9 @@ Inside a Symfony app (`symfony-ai-bundle`), five commands manage stores:
    operator class follows the store's `Distance` (`vector_l2_ops` for the
    default `L2`). It needs pgvector 0.5.0+, and an index that already exists is
    kept: drop it to rebuild it with the new defaults.
+7. **SurrealDB `setup()` builds an `HNSW` index** (0.15, was `MTREE`, which
+   SurrealDB 3 removed). On SurrealDB 2, a query against an old `MTREE` index
+   returns no results and **no error**: recreate the index.
 
 ## Troubleshooting
 
@@ -174,6 +177,7 @@ Inside a Symfony app (`symfony-ai-bundle`), five commands manage stores:
 | `The "…" vector type is not supported, use "vector" or "halfvec".` (`InvalidArgumentException`) | Postgres `setup()` got another `vector_type` (e.g. `bit`, `sparsevec`). | Use `vector`, or `halfvec` above 2,000 dimensions. |
 | `The "ivfflat" index method does not support the L1 distance, use "hnsw".` | Postgres `setup(['index_method' => 'ivfflat'])` with `Distance::L1` and no `index_opclass`. | Drop `index_method` (defaults to `hnsw`) or change the distance. |
 | `The "fields" option cannot define the vector field "…", use the "embeddingsDimension" and "similarity" arguments of the store instead.` | MongoDB `setup(['fields' => …])` lists the vector path. | Keep only filter fields in `fields`; set the vector index through the `Store` constructor. |
+| `You need MariaDB >=11.8 to use "Distance::Distance", VEC_DISTANCE() does not exist before.` (`InvalidArgumentException`) | MariaDB store built with `Distance::Distance` on a server older than 11.8. | Upgrade MariaDB or pick `Distance::Cosine` / `Distance::Euclidean`. |
 | Results look unrelated after a model or provider change | Documents were embedded with the previous model. | Re-index everything with the new model. |
 
 ## Limitations

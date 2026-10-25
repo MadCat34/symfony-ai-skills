@@ -104,7 +104,7 @@ Rules:
 
 ## 6. Reranker ordering : Cohere reranker model
 
-`Reranker` takes a `PlatformInterface` and a model. The platform-side model lives under `Symfony\AI\Platform\Bridge\<Provider>\Reranker`. For Cohere, this is `Symfony\AI\Platform\Bridge\Cohere\Reranker` (an empty `Model` subclass : pick a concrete model name such as `rerank-v3.5`). There is **no** Voyage reranker : `symfony/ai-voyage-platform` ships embeddings only. The one alternative is `Symfony\AI\Platform\Bridge\OpenRouter\RerankModel`.
+`Reranker` takes a `PlatformInterface` and a model. The platform-side model lives under `Symfony\AI\Platform\Bridge\<Provider>\Reranker`. For Cohere, this is `Symfony\AI\Platform\Bridge\Cohere\Reranker` (an empty `Model` subclass : pick a concrete model name such as `rerank-v3.5`). Alternatives: `Symfony\AI\Platform\Bridge\Voyage\Reranker` (since 0.15, e.g. `rerank-3`) and `Symfony\AI\Platform\Bridge\OpenRouter\RerankModel`.
 
 `Reranker::rerank()` reads text from `Metadata::KEY_TEXT` first, falling back to `Metadata::KEY_SOURCE`. Make sure your `Vectorizer` was constructed with `includeText: true` (otherwise metadata has no `_text` and the reranker sees empty strings).
 

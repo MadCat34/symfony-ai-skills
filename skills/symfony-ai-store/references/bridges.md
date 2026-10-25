@@ -40,7 +40,7 @@ Each bridge exposes a concrete class : `Store`, `SearchStore` (AzureSearch), or 
 | 18 | S3Vectors | `Bridge\S3Vectors\Store` | yes | AWS S3 Vectors (preview). |
 | 19 | Sqlite | `Bridge\Sqlite\Store` and `Bridge\Sqlite\VecStore` | yes | Two stacks: pure SQLite (FTS5) or `sqlite-vec`. |
 | 20 | Supabase | `Bridge\Supabase\Store` | no | REST/HTTP against pgvector; table pre-created by user; scoped client, build via `StoreFactory`. |
-| 21 | SurrealDb | `Bridge\SurrealDb\Store` | yes | HTTP/WebSocket. |
+| 21 | SurrealDb | `Bridge\SurrealDb\Store` | yes | HTTP/WebSocket; SurrealDB 3 supported, `HNSW` index (0.15). |
 | 22 | Typesense | `Bridge\Typesense\Store` | yes | HTTP API. |
 | 23 | Vektor | `Bridge\Vektor\Store` | yes | Local on-disk vector store (`centamiv/vektor`). |
 | 24 | Weaviate | `Bridge\Weaviate\Store` | yes | HTTP API. |
@@ -53,20 +53,20 @@ Total: **24 bridges**. Two implementations for Sqlite (`Store` for FTS5-only hyb
 
 - **AzureSearch** : REST, semantic ranking; lifecycle is Azure-side. `query()` reads `limit` (default 5) and, since 0.15, runs an approximate (HNSW) vector query; pass `['exhaustive' => true]` for the previous exact KNN.
 - **Cloudflare** : Workers AI Vectorize (HTTP, preview API).
-- **Pinecone** : serverless or pod-based; requires `dimension` in `setup()` options.
+- **Pinecone** : serverless or pod-based; requires `dimension` in `setup()` options (also `metric`, `cloud`, `region`; settable from the bundle's `setup_options` since 0.15).
 - **S3Vectors** : AWS S3 Vectors (preview service).
 
 ### SQL / NoSQL databases
 
 - **ClickHouse** : HTTP API; vector columns.
-- **MariaDb** : native vector type.
+- **MariaDb** : native vector type (MariaDB 11.7+, 11.8+ for `Distance::Distance`).
 - **MongoDb** : Atlas Vector Search. `new Store($client, $db, $collection, $indexName, similarity: Similarity::Cosine)` (0.15) picks the similarity of the index `setup()` creates; `setup(['fields' => …])` adds filter fields only and rejects an entry for the vector path.
 - **Neo4j** : vector indexes.
 - **Postgres** : pgvector extension; the canonical self-hosted choice. `setup()` builds an `hnsw` index with the opclass of the distance (0.15).
 - **Redis** : Redis Stack / RediSearch.
 - **Sqlite** : two stacks (`Store` with FTS5 hybrid; `VecStore` with `sqlite-vec`).
 - **Supabase** : REST against pgvector (no `ManagedStoreInterface`).
-- **SurrealDb** : multi-model (HTTP/WS).
+- **SurrealDb** : multi-model (HTTP/WS). Since 0.15 `setup()` creates an `HNSW` index (was `MTREE`, removed in SurrealDB 3) and `query()` uses the `<|k,EF|>` operator; tune it with `query($q, ['ef' => 100])` (default `max(40, limit)`). `setup(['forceDatabaseCreation' => true])` also creates the namespace and database, which SurrealDB 3 no longer does on first use. An existing `MTREE` index silently returns nothing: `REMOVE INDEX` it and rerun `setup()`.
 
 ### Search engines
 
