@@ -89,6 +89,11 @@ ai:
         typesafe:   { api_key: '%env(TYPESAFE_API_KEY)%' }
         venice:     { api_key: '%env(VENICE_API_KEY)%', endpoint: 'https://api.venice.ai/api/v1/' }
         higgsfield: { api_key: '%env(HIGGSFIELD_API_KEY)%', api_secret: '%env(HIGGSFIELD_API_SECRET)%', base_url: null, model_catalog: null }
+
+        huggingface:
+            api_key: '%env(HF_TOKEN)%'
+            provider: null        # 0.15: null (was 'hf-inference'); HF picks the provider; chat completion only
+            api_catalog: false    # 0.15: true resolves models through the Hub API (ModelApiCatalog)
 ```
 
 `config/platform/openai.php` exposes `api_key`, `region`, `http_client` only : there is **no `base_url`**. Same goes for `anthropic` (`api_key`, `version`, `http_client`, `cache_retention`) and most hosted providers.
@@ -252,6 +257,11 @@ ai:
                 namespace: null
                 filter: []
                 top_k: null
+                setup_options:               # 0.15, read by `ai:store:setup`
+                    dimension: 1536          # required when setup_options is set
+                    metric: 'cosine'         # cosine | euclidean | dotproduct
+                    cloud: 'aws'
+                    region: 'us-east-1'
 
         memory:
             default:
@@ -314,7 +324,7 @@ ai:
                 collection: 'docs'
 ```
 
-`redis` and `mongodb` store options read by `ai:store:setup` (0.15):
+`redis`, `mongodb`, `s3vectors` and `surrealdb` store options read by `ai:store:setup` (0.15):
 
 ```yaml
 ai:
@@ -334,6 +344,22 @@ ai:
                 index_name: 'vector_index'  # required
                 dimensions: 1536            # vector index size; store default 1536
                 similarity: 'cosine'        # euclidean | cosine | dotProduct; store default euclidean
+        s3vectors:
+            docs:
+                vector_bucket_name: 'my-bucket'
+                index_name: 'docs'
+                setup_options:
+                    dimension: 1536
+                    distance_metric: 'cosine'   # cosine | euclidean
+        surrealdb:
+            docs:
+                endpoint: '%env(SURREAL_URL)%'
+                username: 'root'
+                password: '%env(SURREAL_PASS)%'
+                namespace: 'app'
+                database: 'rag'
+                setup_options:
+                    force_database_creation: true   # SurrealDB 3 no longer creates them on first use
 ```
 
 Other supported providers (schemas in `config/store/<provider>.php`, not individually detailed here): `azuresearch`, `chromadb`, `clickhouse`, `cloudflare`, `elasticsearch`, `manticoresearch`, `mariadb`, `meilisearch`, `milvus`, `mongodb`, `neo4j`, `opensearch`, `redis`, `s3vectors`, `sqlite`, `supabase`, `surrealdb`, `typesense`, `vektor`, `weaviate`. Read the corresponding `config/store/<provider>.php` file directly when configuring one of these — the shape follows the same pattern (provider name as parent key, named instances under it) but options differ per backend.
