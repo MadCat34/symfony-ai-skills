@@ -39,6 +39,8 @@ The `scripts/lint-descriptions.sh`, `scripts/check-references-links.sh`, `script
 
 One deliberate remaining asymmetry: GitLab jobs use `rules: changes:` to run only when relevant paths change; GitHub Actions has no per-job path filter, so all four jobs run on every push/PR. This is a platform difference, not a defect — replicating it in GitHub Actions would require an extra marketplace action (e.g. `dorny/paths-filter`) for a purely cosmetic CI-minutes saving.
 
+The landing page is published by a fifth, GitHub-only workflow, `.github/workflows/pages.yml`: on every push to `main` touching `docs/**` (or by hand via `workflow_dispatch`), it uploads `docs/` as-is to GitHub Pages. It has no GitLab counterpart, and requires the repository Pages source to be set to "GitHub Actions".
+
 ## Repository invariants
 
 Enforced by CI or by convention; breaking one silently breaks skill loading in the consuming agent.

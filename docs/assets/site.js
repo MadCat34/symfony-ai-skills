@@ -1,4 +1,3 @@
-// Motion for the landing page. All content already lives in index.html; this file only animates it.
 'use strict';
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -7,7 +6,6 @@ const sleep = ms => new Promise(r => setTimeout(r, reduced ? 0 : ms));
 const json = id => JSON.parse($(id).textContent);
 const GLYPHS = 'abcdefghijklmnopqrstuvwxyz:$>_/\\{}[]()';
 
-// Characters cycle through code glyphs before settling on `to`, left to right.
 function scramble(el, to, durationMs) {
   if (reduced) { el.textContent = to; return Promise.resolve(); }
   const len = Math.max(el.textContent.length, to.length), t0 = performance.now();
@@ -15,7 +13,6 @@ function scramble(el, to, durationMs) {
     (function frame(now) {
       const p = Math.min(1, (now - t0) / durationMs);
       let s = '';
-      // spaces stay put so a decoding line keeps its word breaks and never overflows
       for (let i = 0; i < len; i++) s += i / len < p || /\s/.test(to[i] || '') ? (to[i] || '') : GLYPHS[Math.random() * GLYPHS.length | 0];
       el.textContent = s;
       if (p < 1) requestAnimationFrame(frame); else { el.textContent = to; resolve(); }
@@ -37,16 +34,13 @@ const highlight = s => esc(s).replace(
       : variable ? `<span class="hv">${variable}</span>` : keyword ? `<span class="hk">${keyword}</span>`
         : `<span class="hm">${fn}</span>`);
 
-/* header */
 addEventListener('scroll', () => $('hd').classList.toggle('scrolled', scrollY > 16), { passive: true });
 
-/* background field: real names, visible only around the pointer */
 (function field() {
   const names = ['DeferredResult::asObject()', 'Message::forSystem()', 'FailoverPlatform', 'McpToolbox::reset()',
     'Progress::STAGE_TOOL_CALL', 'ChatInterface::submit()', 'VectorQuery', 'HybridQuery', '#[AsTool]', '#[IsGrantedTool]',
     '#[McpTool]', 'mcp:server', 'ai:store:setup', 'RetryableExceptionInterface', 'MaxOutputTokensException', 'session.lock',
     'allowed_origins', 'vector_l2_ops', 'StoreInterface::query()', 'MultiAgent', 'Vectorizer', 'DocumentIndexer', 'vendor/bin/mate'];
-  // 11px monospace: ~6.6px per character, ~21px per line
   const cells = (Math.max(screen.width, innerWidth) / 6.6) * (Math.max(screen.height, innerHeight, 1440) / 21);
   let s = '';
   for (let i = 0; s.length < cells * 1.2; i++) s += names[i % names.length] + '   ';
@@ -58,7 +52,6 @@ addEventListener('scroll', () => $('hd').classList.toggle('scrolled', scrollY > 
   }, { passive: true });
 })();
 
-/* scroll reveal and headline */
 if (!reduced) {
   document.documentElement.classList.add('motion');
   const io = new IntersectionObserver(entries => entries.forEach(e => {
@@ -78,7 +71,6 @@ if (!reduced) {
   })();
 }
 
-/* fact-check editor: the agent types a call that does not exist, the scan finds it, the skill fixes it */
 async function factCheck() {
   const cases = json('fact-cases'), code = $('ed-code'), scan = code.querySelector('.scan');
   const status = $('ed-status'), src = $('ed-src'), without = $('ed-who-without'), withSkills = $('ed-who-with');
@@ -127,7 +119,6 @@ async function factCheck() {
 }
 if (!reduced) factCheck();
 
-/* routing demo: a real eval prompt, a beam to the skill it routes to, then the one reference it opens */
 function drawBeam(chip) {
   const board = $('board').getBoundingClientRect(), prompt = $('prompt').getBoundingClientRect(), t = chip.getBoundingClientRect();
   const x1 = prompt.left - board.left + Math.min(prompt.width * 0.35, 320), y1 = prompt.bottom - board.top;
@@ -184,10 +175,8 @@ async function routeLoop() {
     await sleep(3600);
   }
 }
-// without motion the final state does not wait for the section to scroll into view
 if (reduced) routeLoop(); else onVisible($('route'), routeLoop);
 
-/* install terminal: the selected agent's commands type themselves in */
 const agents = json('agents'), tabs = [...document.querySelectorAll('#tabs [role=tab]')];
 let installRun = 0;
 
@@ -202,7 +191,7 @@ async function showInstall(agent) {
   });
   out.textContent = '';
   for (const command of agents[agent]) {
-    if (run !== installRun) return; // a newer tab took over between two lines
+    if (run !== installRun) return;
     const line = document.createElement('div'), text = document.createElement('span');
     line.className = 'cmd';
     line.innerHTML = '<span class="p">$</span> ';
@@ -210,7 +199,7 @@ async function showInstall(agent) {
     out.append(line);
     if (reduced) { text.textContent = command; continue; }
     for (const ch of command) {
-      if (run !== installRun) return; // a newer tab took over the terminal
+      if (run !== installRun) return;
       text.textContent += ch;
       await sleep(14);
     }
@@ -224,7 +213,6 @@ async function copyInstall() {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
-    // no clipboard API or permission denied: select the commands so the visitor can copy them
     const range = document.createRange();
     range.selectNodeContents($('term-out'));
     getSelection().removeAllRanges();
@@ -248,6 +236,6 @@ tabs.forEach((tab, i) => {
 });
 $('copy').addEventListener('click', copyInstall);
 onVisible($('install'), () => {
-  if (!installRun) showInstall(selectedAgent()); // a tab already chosen keeps its run
+  if (!installRun) showInstall(selectedAgent());
   scramble($('version'), '0.15', 700);
 });
