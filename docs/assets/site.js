@@ -2,7 +2,8 @@
 
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = id => document.getElementById(id);
-const sleep = ms => new Promise(r => setTimeout(r, reduced ? 0 : ms));
+let paused = false, wake = [];
+const sleep = ms => new Promise(r => setTimeout(r, reduced ? 0 : ms)).then(() => paused && new Promise(r => wake.push(r)));
 const json = id => JSON.parse($(id).textContent);
 const GLYPHS = 'abcdefghijklmnopqrstuvwxyz:$>_/\\{}[]()';
 
@@ -36,6 +37,15 @@ const highlight = s => esc(s).replace(
 
 addEventListener('scroll', () => $('hd').classList.toggle('scrolled', scrollY > 16), { passive: true });
 
+$('motion').hidden = reduced;
+$('motion').addEventListener('click', e => {
+  paused = !paused;
+  document.documentElement.classList.toggle('paused', paused);
+  e.currentTarget.textContent = paused ? 'play' : 'pause';
+  e.currentTarget.setAttribute('aria-label', paused ? 'Play animations' : 'Pause animations');
+  if (!paused) wake.splice(0).forEach(r => r());
+});
+
 (function field() {
   const names = ['DeferredResult::asObject()', 'Message::forSystem()', 'FailoverPlatform', 'McpToolbox::reset()',
     'Progress::STAGE_TOOL_CALL', 'ChatInterface::submit()', 'VectorQuery', 'HybridQuery', '#[AsTool]', '#[IsGrantedTool]',
@@ -61,6 +71,7 @@ if (!reduced) {
 
   (async () => {
     const h1 = $('h1'), acc = h1.querySelector('.acc'), lead = document.createElement('span');
+    h1.setAttribute('aria-label', h1.textContent);
     lead.textContent = h1.firstChild.textContent;
     h1.firstChild.replaceWith(lead);
     const a = lead.textContent, b = acc.textContent;
@@ -68,6 +79,7 @@ if (!reduced) {
     await scramble(lead, a, 700);
     await scramble(acc, b, 500);
     acc.classList.add('mark');
+    h1.removeAttribute('aria-label');
   })();
 }
 
@@ -188,8 +200,10 @@ async function showInstall(agent) {
     const on = t.dataset.agent === agent;
     t.setAttribute('aria-selected', String(on));
     t.tabIndex = on ? 0 : -1;
+    if (on) $('term').setAttribute('aria-labelledby', t.id);
   });
   out.textContent = '';
+  out.setAttribute('aria-busy', 'true');
   for (const command of agents[agent]) {
     if (run !== installRun) return;
     const line = document.createElement('div'), text = document.createElement('span');
@@ -197,7 +211,7 @@ async function showInstall(agent) {
     line.innerHTML = '<span class="p">$</span> ';
     line.append(text);
     out.append(line);
-    if (reduced) { text.textContent = command; continue; }
+    if (reduced || paused) { text.textContent = command; continue; }
     for (const ch of command) {
       if (run !== installRun) return;
       text.textContent += ch;
@@ -205,6 +219,7 @@ async function showInstall(agent) {
     }
     await sleep(160);
   }
+  out.removeAttribute('aria-busy');
 }
 
 async function copyInstall() {

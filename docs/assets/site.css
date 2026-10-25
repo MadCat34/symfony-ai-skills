@@ -266,3 +266,14 @@ body { text-shadow: 0 0 2px var(--paper), 0 0 2px var(--paper), 0 0 4px var(--pa
 .btn, .btn-sm, .pill b, .who span, .tabs [role=tab], .chip { text-shadow: none; }
 .btn.ghost { background: var(--paper); }
 .btn.ghost:hover { background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--paper); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.btn:focus-visible, .btn-sm:focus-visible { clip-path: none; outline-color: var(--heading); }
+.skip { position: absolute; left: var(--gutter); top: -100px; z-index: 30; padding: 8px 14px; background: var(--accent); color: var(--on-accent); font: 700 13px var(--mono); text-shadow: none; }
+.skip:focus { top: 12px; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.pause { cursor: pointer; font: 12px var(--mono); color: var(--accent); background: transparent; border: 1px solid var(--rule); padding: 6px 10px; }
+.pause:hover { border-color: var(--accent); }
+html.paused *, html.paused *::before, html.paused *::after { animation-play-state: paused !important; }
+header { flex-wrap: wrap; row-gap: 10px; }
+.ln i { color: #6b8794; }
+.board.routing .chip { opacity: .65; }
