@@ -8,6 +8,7 @@ is not documented here.
 
 - Core namespaces
 - `PlatformInterface`
+  - Canonical options (`PlatformOptions`, 0.15)
 - `Platform` (concrete)
 - `Provider` (one inference backend)
 - `DeferredResult` (the real one)
@@ -43,7 +44,7 @@ Symfony\AI\Platform\
 ├── ProviderInterface
 ├── ResultConverterInterface
 ├── TraceablePlatform               (decorator; records calls)
-├── Bridge\…                        (43 bridge packages — see bridges.md)
+├── Bridge\…                        (44 bridge packages — see bridges.md)
 │
 ├── Event\                          (InvocationEvent, ResultEvent, …)
 ├── EventListener\                  (StringToMessageBagListener, TemplateRendererListener)
@@ -90,9 +91,10 @@ Symfony\AI\Platform\
 ├── StructuredOutput\               (PlatformSubscriber, ResponseFormatFactory,
 │   ├── Validator\                  (ValidatorSubscriber, ValidatorResultConverter)
 │   └── Streaming\                  (PartialJsonParser, PartialObjectStreamListener)
-├── Test\                           (InMemoryPlatform, MockModelCatalog, MockModelClient,
-│                                   MockPlatformFactory, MockResultConverter,
-│                                   ModelCatalogTestCase, ScriptedResponse)
+├── Test\                           (MockPlatformFactory, MockModelCatalog, MockModelClient,
+│                                   MockResultConverter, ModelCatalogTestCase,
+│                                   ScriptedResponse, Recording\, Replay\;
+│                                   InMemoryPlatform removed in 0.15)
 ├── TokenUsage\                     (TokenUsage, TokenUsageInterface, TokenUsageAggregation,
 │                                   StreamListener, TokenUsageExtractorInterface)
 ├── Tool\                           (Tool, ExecutionReference)
@@ -127,6 +129,26 @@ listener on `InvocationEvent`, so it runs only when a dispatcher was passed to
 registered on it. In the monorepo, only `ai-bundle` does that
 (service `ai.platform.string_to_message_bag_listener` in `config/services.php`). Standalone snippets built with
 `Factory::createPlatform($apiKey)` pass no dispatcher and get no upcasting.
+
+### Canonical options (`PlatformOptions`, 0.15)
+
+`PlatformOptions` holds option names that each bridge translates to its own
+wire field. Its only constant so far is `PlatformOptions::MAX_OUTPUT_TOKENS`
+(`'max_output_tokens'`): Anthropic and Bedrock Claude send it as `max_tokens`,
+Gemini as `maxOutputTokens`. Translated by the Anthropic, Bedrock (Claude and
+Nova), Gemini, Vertex AI (Gemini), Mistral and Generic completions bridges;
+OpenAI uses the name natively; **other bridges send it as is**, so check the
+provider field there. A provider-specific option passed alongside (`max_tokens`)
+wins over the canonical one. `Claude` sets its default of 1000 tokens through
+the canonical option.
+
+```php
+use Symfony\AI\Platform\PlatformOptions;
+
+$result = $platform->invoke('claude-sonnet-4-5', $messages, [
+    PlatformOptions::MAX_OUTPUT_TOKENS => 2048,
+]);
+```
 
 ## `Platform` (concrete)
 

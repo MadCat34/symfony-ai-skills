@@ -434,7 +434,7 @@ component, which exposes its own loop / fault-tolerance machinery).
 
 - `references/api-reference.md` : full signature catalogue (`DeferredResult`,
   `TokenUsage`, `FinishReason`, `Vector`, `MessageBag`)
-- `references/bridges.md` : all 43 bridges with Composer package names
+- `references/bridges.md` : all 44 bridges with Composer package names
 - `references/embeddings.md` : embeddings contract (different from text
   generation)
 - `references/gotchas.md` : provider quirks and exception catalogue

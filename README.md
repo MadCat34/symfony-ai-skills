@@ -83,7 +83,7 @@ We use the standard `{api-reference,patterns,gotchas}.md` scheme by default. For
 
 | Skill                 | Extra references                            | Justification                                                                                                                   |
 | --------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `symfony-ai-platform` | `bridges.md`, `embeddings.md`               | 43-bridge catalogue + embedding-specific contract are too large to fold into `api-reference.md`                                 |
+| `symfony-ai-platform` | `bridges.md`, `embeddings.md`               | 44-bridge catalogue + embedding-specific contract are too large to fold into `api-reference.md`                                 |
 | `symfony-ai-store`    | `bridges.md`                                | 24-store catalogue too large to fold into `api-reference.md`                                                                    |
 | `symfony-ai-bundle`   | `config.md`, `processors.md`, `security.md` | Three orthogonal subsystems; `config` covers YAML, `processors` covers the typed pipeline, `security` covers `#[IsGrantedTool]` |
 

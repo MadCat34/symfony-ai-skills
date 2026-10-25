@@ -13,7 +13,7 @@ metadata:
 
 ## Purpose
 
-One PHP abstraction over the 43 bridges living under
+One PHP abstraction over the 44 bridges living under
 `Symfony\AI\Platform\Bridge\*` (LLM and multimodal providers, plus the
 `Failover` and `Cache` decorators): one `Platform` service, one `invoke()` call
 site. Switching provider means changing the factory line, not the call sites.
@@ -164,7 +164,7 @@ Platform (Symfony\AI\Platform\Platform)
   user needs the namespace tree, exact method signatures, `DeferredResult`,
   `TokenUsage`, `FinishReason`, `Vector`, `MessageBag`, async jobs or batches.
 - Read [`references/bridges.md`](references/bridges.md) when the user picks a
-  provider or asks which packages exist for it (all 43 bridges, by category).
+  provider or asks which packages exist for it (all 44 bridges, by category).
 - Read [`references/embeddings.md`](references/embeddings.md) when the user
   generates embeddings, reranks, or wires a RAG skeleton.
 - Read [`references/patterns.md`](references/patterns.md) when the user wants

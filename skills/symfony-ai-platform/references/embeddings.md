@@ -124,8 +124,8 @@ spaces) : a mismatch crashes the store at insert time, not at query time.
 
 ## Reranking
 
-Reranking lives in **two** bridges, both shipped as separate Composer
-packages. There is **no** Voyage rerank in this codebase.
+Dedicated rerank models live in the Cohere, OpenRouter and (since 0.15) Voyage
+bridges; Fireworks and Together also rerank through `asReranking()`.
 
 ### Cohere (canonical)
 
@@ -160,6 +160,12 @@ foreach ($entries as $entry) {
 
 `Bridge\OpenRouter\RerankModel` plus a `Rerank/` subnamespace under
 `symfony/ai-open-router-platform`.
+
+### Voyage (0.15)
+
+`Bridge\Voyage\Reranker` (`rerank-3`, `rerank-3-lite`, `rerank-2.5`,
+`rerank-2.5-lite`, `rerank-2`, `rerank-2-lite`) takes the same `query` + `texts`
+payload: `$voyage->invoke('rerank-3', ['query' => $q, 'texts' => $texts])->asReranking()`.
 
 Typical pipeline: top-N from vector search → rerank → top-K to LLM context.
 

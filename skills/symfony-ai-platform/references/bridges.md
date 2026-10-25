@@ -1,6 +1,6 @@
 # Platform : Bridges
 
-All 43 platform bridges verified by reading every
+All 44 platform bridges verified by reading every
 `https://github.com/symfony/ai/tree/main/src/platform/src/Bridge/<Dir>/composer.json`.
 Each bridge is a separate Composer package : install only what you use.
 
@@ -38,6 +38,7 @@ read the `name` field of each `composer.json`.
 | Codex             | `symfony/ai-codex-platform`               | OpenAI Codex subprocess                         |
 | Cohere            | `symfony/ai-cohere-platform`              | Embeddings + Rerank + LLM + STT                 |
 | Decart            | `symfony/ai-decart-platform`              | Decart video                                    |
+| Decision          | `symfony/ai-decision-platform`            | Decision-model types (`Evaluation`, `Answers`)  |
 | DeepSeek          | `symfony/ai-deep-seek-platform`           | DeepSeek                                        |
 | Deepgram          | `symfony/ai-deepgram-platform`            | Deepgram STT                                    |
 | DockerModelRunner | `symfony/ai-docker-model-runner-platform` | Docker Model Runner                             |
@@ -48,26 +49,26 @@ read the `name` field of each `composer.json`.
 | Gemini            | `symfony/ai-gemini-platform`              | Google Gemini direct; `service_tier` option     |
 | Generic           | `symfony/ai-generic-platform`             | OpenAI-compatible completions + embed           |
 | Higgsfield        | `symfony/ai-higgsfield-platform`          | Higgsfield image/video generation (async jobs)  |
-| HuggingFace       | `symfony/ai-hugging-face-platform`        | HF Inference API (multi-task)                   |
+| HuggingFace       | `symfony/ai-hugging-face-platform`        | HF Inference Providers; model class per task    |
 | LmStudio          | `symfony/ai-lm-studio-platform`           | LM Studio local                                 |
 | Meta              | `symfony/ai-meta-platform`                | Llama (Llama.php + prompt converter)            |
 | MiniMax           | `symfony/ai-mini-max-platform`            | MiniMax provider (video / async TTS are jobs)   |
 | Mistral           | `symfony/ai-mistral-platform`             | Mistral + Embeddings + OCR                      |
 | ModelsDev         | `symfony/ai-models-dev-platform`          | models.dev catalogue aggregator                 |
-| Ollama            | `symfony/ai-ollama-platform`              | Ollama local                                    |
+| Ollama            | `symfony/ai-ollama-platform`              | Ollama local; decision models (0.15)            |
 | OpenAi            | `symfony/ai-open-ai-platform`             | OpenAI GPT + Embeddings + Image + TTS + Whisper |
 | OpenResponses     | `symfony/ai-open-responses-platform`      | OpenAI Responses API                            |
 | OpenRouter        | `symfony/ai-open-router-platform`         | OpenRouter aggregator + Rerank + Speech         |
 | Ovh               | `symfony/ai-ovh-platform`                 | OVHcloud AI Endpoints                           |
-| Perplexity        | `symfony/ai-perplexity-platform`          | Perplexity search LLM                           |
+| Perplexity        | `symfony/ai-perplexity-platform`          | Perplexity Agent API (presets; 0.15)            |
 | Replicate         | `symfony/ai-replicate-platform`           | Replicate (every call is an async job)          |
 | Scaleway          | `symfony/ai-scaleway-platform`            | Scaleway GenAI (LLM + Embeddings + Responses)   |
 | Together          | `symfony/ai-together-platform`            | Together: chat, embed, image, TTS, STT, rerank  |
 | TransformersPhp   | `symfony/ai-transformers-php-platform`    | TransformersPHP local pipeline                  |
-| TypeSafe          | `symfony/ai-type-safe-platform`           | TypeSafe typed-question evaluation (Jev models) |
+| TypeSafe          | `symfony/ai-type-safe-platform`           | TypeSafe decision models (Jev); needs Decision  |
 | Venice            | `symfony/ai-venice-platform`              | Venice AI: chat, embed, image, TTS, STT, video  |
 | VertexAi          | `symfony/ai-vertex-ai-platform`           | Vertex AI (Embeddings + Gemini)                 |
-| Voyage            | `symfony/ai-voyage-platform`              | Voyage embeddings                               |
+| Voyage            | `symfony/ai-voyage-platform`              | Voyage embeddings + rerank (0.15)               |
 
 ## Grouped by category
 
@@ -95,7 +96,13 @@ These target major commercial APIs and require a vendor API key.
   `service_tier` option (priority inference), sent at the request root, not in
   `generationConfig`.
 - `symfony/ai-vertex-ai-platform` : Vertex AI (Embeddings + Gemini).
-- `symfony/ai-perplexity-platform` : Perplexity search-augmented LLM.
+- `symfony/ai-perplexity-platform` : Perplexity search-augmented LLM. Since 0.15 it
+  extends the OpenResponses bridge and talks to the Agent API (`POST /v1/agent`):
+  invoke a preset (`fast`, `low`, `medium`, `high`, `xhigh`) or `perplexity/sonar`;
+  the `sonar*` names are deprecated and sent as a preset. Web search needs the
+  `web_search` tool (`'tools' => [['type' => 'web_search', 'filters' => [...]]]`),
+  where the former `search_*_filter` options now live; passing a Sonar-only
+  option throws `BadRequestException`. No document (PDF) input anymore.
 - `symfony/ai-ai-ml-api-platform` : AI/ML API.
 - `symfony/ai-albert-platform` : Etalab Albert (French government). Environmental
   impacts come back as the `impacts` result metadata, `['kWh' => float, 'kgCO2eq' => float]`
@@ -111,6 +118,10 @@ These target major commercial APIs and require a vendor API key.
   embeddings, image generation/editing/upscaling, TTS, STT, async video jobs).
 - `symfony/ai-type-safe-platform` : TypeSafe, evaluates typed questions
   (choice, score, …) against a state with the Jev models; not a chat LLM.
+- `symfony/ai-decision-platform` (0.15) : no transport, only the types shared by
+  decision-model providers (TypeSafe, Ollama): `Bridge\Decision\Evaluation`,
+  `Question\{ChoiceQuestion,ScoreQuestion,NoulQuestion}`, `Answer\Answers`.
+  They moved from `Bridge\TypeSafe\` without aliases: rewrite the imports.
 - `symfony/ai-decart-platform` : Decart video.
 - `symfony/ai-models-dev-platform` : models.dev catalogue aggregator (provides
   `ProviderRegistry` + `CapabilityMapper`, not its own HTTP transport).
@@ -130,7 +141,10 @@ plumbing.
 
 Inference you run yourself.
 
-- `symfony/ai-ollama-platform` : Ollama.
+- `symfony/ai-ollama-platform` : Ollama. Since 0.15 models with the `decision`
+  capability (Ollama >= 0.35.0) answer an `Evaluation` of the Decision bridge
+  (`POST /v1/systemone`, requires `symfony/ai-decision-platform`):
+  `$platform->invoke('nimble', new Evaluation($text, [...]))->asObject(Answers::class)`.
 - `symfony/ai-lm-studio-platform` : LM Studio.
 - `symfony/ai-docker-model-runner-platform` : Docker Model Runner.
 - `symfony/ai-transformers-php-platform` : TransformersPHP (PHP-native pipeline
@@ -158,7 +172,15 @@ Inference you run yourself.
 
 - `symfony/ai-open-router-platform` : OpenRouter (includes `RerankModel` and a
   `Speech` namespace; this is the second canonical reranking bridge).
-- `symfony/ai-hugging-face-platform` : HuggingFace Inference API.
+- `symfony/ai-hugging-face-platform` : Hugging Face Inference Providers. Since
+  0.15 the catalog resolves the task: no `task` option, no `?task=` suffix, one
+  model class per task (`Completions`, `Embeddings`, `Reranker`,
+  `Classification`, …). The default `ModelCatalog` only knows the providers' chat
+  models and the most downloaded models of each task (`ModelNotFoundException`
+  otherwise): pass `$additionalModels`, or a `ModelApiCatalog` resolving models
+  through the Hub API (`api_catalog: true` in the bundle). `$provider` defaults to
+  `null` (Hugging Face picks) and only applies to chat completion, which now
+  supports tool calling and streaming. Reranking needs a `text-ranking` model.
 - `symfony/ai-generic-platform` : Generic OpenAI-compatible completion +
   embeddings (for self-hosted proxies).
 - `symfony/ai-fireworks-platform` : Fireworks AI (OpenAI-compatible chat,
@@ -189,8 +211,8 @@ These wrap any `PlatformInterface`; they do not target a vendor themselves.
 
 ## Reranking : where to find it
 
-Cohere and OpenRouter ship dedicated rerank models; Fireworks and Together
-(since 0.14) also serve reranking through `asReranking()`. There is **no** Voyage rerank.
+Cohere, OpenRouter and Voyage (since 0.15) ship dedicated rerank models;
+Fireworks and Together (since 0.14) also serve reranking through `asReranking()`.
 
 - `symfony/ai-cohere-platform` : `Bridge\Cohere\Reranker` with models
   `rerank-v3.5`, `rerank-v4.0-fast`, `rerank-v4.0-pro`, `rerank-english-v3.0`,
@@ -198,8 +220,9 @@ Cohere and OpenRouter ship dedicated rerank models; Fireworks and Together
   `RerankingEntry` (`getIndex(): int`, `getScore(): float`).
 - `symfony/ai-open-router-platform` : `Bridge\OpenRouter\RerankModel` plus a
   `Rerank/` subnamespace.
-
-`symfony/ai-voyage-platform` ships embeddings only.
+- `symfony/ai-voyage-platform` : `Bridge\Voyage\Reranker` with models `rerank-3`,
+  `rerank-3-lite`, `rerank-2.5`, `rerank-2.5-lite`, `rerank-2`, `rerank-2-lite`;
+  same `['query' => …, 'texts' => […]]` payload as Cohere.
 
 ## Installation pattern
 
