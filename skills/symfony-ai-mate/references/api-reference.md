@@ -322,10 +322,11 @@ Discovered by the core package's own `extra.ai-mate.scan-dirs: [src/Capability]`
 
 ## Notable bundled bridge tools
 
-Not exhaustive, but two 0.13 signature changes worth knowing:
+Not exhaustive, but worth knowing:
 
 - **`symfony-services`** (`src/Bridge/Symfony/Capability/ServiceTool.php`) : searches the DI container by service ID/class/tag. Returns `ResponseEncoder::encodeUntrusted([...])`, so the payload sits under `['untrusted_data']['services']` (plus `count`, `truncated`), or per-context under `['untrusted_data'][$context]['services']` for a multi-kernel app configured with several cache directories. Fails (instead of returning an empty result) when no container has been dumped yet for the requested context — run `bin/console cache:warmup` first. Default `limit` is 100 per context.
 - **`monolog-tail`** (`src/Bridge/Monolog/Capability/LogSearchTool.php`) : takes `limit` (not `lines`), matching `monolog-search`/`monolog-context-search`. `vendor/bin/mate tools:call monolog-tail --limit=50`.
+- **`symfony-dotenv-check`** (`src/Bridge/Symfony/Capability/DotenvTool.php`, registered only when `symfony/dotenv` is installed) : reports which `.env*` file declares each variable (Symfony's order; `.env.local` skipped when `APP_ENV=test`) and whether the Mate process resolves it. Parameters `key` (one variable, even undeclared) and `limit` (default 200, `0` for all). Never returns a value, only `length`, a masked `preview` (`s***t`) and `looks_like_placeholder`. Its result is **not** wrapped in the untrusted envelope. Since Mate does not load the project's `.env` files, a file-only variable shows `declared_not_resolved_in_this_process`: normal, not an error. `vendor/bin/mate tools:call symfony-dotenv-check --key=DATABASE_URL`.
 
 ---
 
