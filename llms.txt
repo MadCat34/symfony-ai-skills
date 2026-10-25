@@ -8,7 +8,7 @@
 
 - [Platform](skills/symfony-ai-platform/SKILL.md): Unified LLM invocation (chat, structured output, tool calling, embeddings, failover).
 - [Platform API Reference](skills/symfony-ai-platform/references/api-reference.md)
-- [Platform Bridges](skills/symfony-ai-platform/references/bridges.md): All 43 bridges: providers (OpenAI, Anthropic, Azure, Gemini, VertexAI, Ollama, Mistral, etc.) plus the failover and cache decorators.
+- [Platform Bridges](skills/symfony-ai-platform/references/bridges.md): All 44 bridges: providers (OpenAI, Anthropic, Azure, Gemini, VertexAI, Ollama, Mistral, etc.) plus the failover and cache decorators.
 - [Platform Embeddings](skills/symfony-ai-platform/references/embeddings.md)
 - [Platform Patterns](skills/symfony-ai-platform/references/patterns.md)
 - [Platform Gotchas](skills/symfony-ai-platform/references/gotchas.md)
