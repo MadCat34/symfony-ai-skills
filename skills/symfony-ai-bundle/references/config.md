@@ -8,14 +8,13 @@
 - `ai.platform`
   - Singleton providers (one platform per YAML key)
   - Named providers (multiple instances under one key)
-- `ai.model`
+  - `model_catalog` (every platform, 1.0)
 - `ai.agent`
 - `ai.multi_agent`
 - `ai.store`
 - `ai.vectorizer`
 - `ai.retriever`
 - `ai.indexer`
-- `ai.chat`
 - `ai.message_store`
 - Aliases auto-created by the bundle
 - Removed when optional packages are missing
@@ -24,19 +23,17 @@
 
 ```text
 ai:
-    platform:           # LLM providers
-    model:              # extra models per platform
+    platform:           # LLM providers (extra models: <provider>.model_catalog.models)
     agent:              # named agents
     multi_agent:        # orchestrator + handoffs
     store:              # vector stores, grouped by provider
     vectorizer:         # wraps a platform + model
     retriever:          # (vectorizer, store)
     indexer:            # (loader, source, transformers, filters, vectorizer, store)
-    chat:               # (agent, message_store)
-    message_store:      # persistent chat backends
+    message_store:      # conversation stores, referenced by ai.agent.<name>.message_store
 ```
 
-There is **no** `ai.profiler.*` key. Profiling is gated by `kernel.debug`.
+There is **no** `ai.profiler.*` key. Profiling is gated by `kernel.debug`. 1.0 removed the root `chat` key (with the Chat component; use the agent's `message_store` option) and the root `model` key (use the platform's `model_catalog.models`).
 
 ## `ai.platform`
 
@@ -88,12 +85,13 @@ ai:
         together:   { api_key: '%env(TOGETHER_API_KEY)%', endpoint: null }   # null => https://api.together.xyz
         typesafe:   { api_key: '%env(TYPESAFE_API_KEY)%' }
         venice:     { api_key: '%env(VENICE_API_KEY)%', endpoint: 'https://api.venice.ai/api/v1/' }
-        higgsfield: { api_key: '%env(HIGGSFIELD_API_KEY)%', api_secret: '%env(HIGGSFIELD_API_SECRET)%', base_url: null, model_catalog: null }
+        higgsfield: { api_key: '%env(HIGGSFIELD_API_KEY)%', api_secret: '%env(HIGGSFIELD_API_SECRET)%', base_url: null }
 
         huggingface:
             api_key: '%env(HF_TOKEN)%'
             provider: null        # 0.15: null (was 'hf-inference'); HF picks the provider; chat completion only
-            api_catalog: false    # 0.15: true resolves models through the Hub API (ModelApiCatalog)
+            model_catalog:
+                api: true         # 1.0 (was api_catalog: true): resolve models through the Hub API (ModelApiCatalog)
 ```
 
 `config/platform/openai.php` exposes `api_key`, `region`, `http_client` only : there is **no `base_url`**. Same goes for `anthropic` (`api_key`, `version`, `http_client`, `cache_retention`) and most hosted providers.
@@ -130,7 +128,7 @@ ai:
                 base_url: 'http://localhost:1234/v1'
                 api_key: null
                 http_client: 'http_client'
-                model_catalog: null   # optional service id
+                # model_catalog: 'App\AI\MyCatalog'   # optional, see model_catalog below
                 supports_completions: true
                 supports_embeddings: true
                 completions_path: '/v1/chat/completions'
@@ -141,14 +139,12 @@ ai:
                 base_url: 'http://localhost:9000'
                 api_key: null
                 http_client: 'http_client'
-                model_catalog: null
                 responses_path: '/v1/responses'   # this IS the default, not null
 
         bedrock:
             prod:
                 api: invoke_model              # since 0.14: invoke_model (default, AWS SDK) | completions | responses | messages
                 bedrock_runtime_client: null   # service id (null => SDK default); only with api: invoke_model
-                model_catalog: null           # service id or default
             mantle:
                 api: messages                  # a Bedrock Mantle route (Anthropic Messages here)
                 api_key: '%env(BEDROCK_API_KEY)%'   # omit to sign with AWS SigV4 (credential_provider)
@@ -164,18 +160,28 @@ Notes:
 - Bedrock: the Mantle options (`api_key`, `region`, `credential_provider`, `http_client`, `path`) and `bedrock_runtime_client` belong to different engines; mixing them fails at compile time, as does `cache_retention`/`workspace` outside `api: messages`.
 - Asynchronous jobs (since 0.14): the bundle registers `ai.platform.job_runner` (autowired as `Symfony\AI\Platform\Job\JobRunner`, using the application clock) and, for every platform that runs async jobs (`openai` batches, `minimax`, `venice`, `higgsfield`, `edenai`), an `ai.platform.job_client.<name>` service tagged `ai.platform.job_client` and autowirable by argument name (`JobClientInterface $openai`, or `#[Target('openai')]`). Replicate has no bundle configuration: build its job client with `Replicate\Factory::createJobClient()`. Store the `JobHandle` in a Messenger message and resolve it from a worker with both services.
 
-## `ai.model`
+### `model_catalog` (every platform, 1.0)
 
-Adds custom `Model` subclasses (with capabilities) to a platform's `ModelCatalog` (see `AiBundle::processModelConfig()`). Structure: `<platform_name>: { <model_name>: { class, capabilities } }`. `class` must extend `Symfony\AI\Platform\Model`; `capabilities` is a non-empty list of `Symfony\AI\Platform\Capability` enum values (the `ai.model` node of `config/options.php`).
+Every platform, singleton or named, takes a `model_catalog` node (`config/platform/model_catalog.php`); a plain string is short for `service`. It replaces the root `ai.model` key, the `huggingface` `api_catalog` option and the `ai.platform.model_catalog.amazeeai` / `.aimlapi` / `.meta` / `.replicate` services (register such a catalog class as your own service instead).
 
 ```yaml
 ai:
-    model:
-        openai:
-            'my-finetune-x':
-                class: 'App\AI\Model\MyFinetuneX'
-                capabilities: ['text-generation', 'tool-calling']
+    platform:
+        lmstudio:
+            host_url: '%env(LMSTUDIO_HOST_URL)%'
+            model_catalog:
+                service: ~                  # id of a custom ModelCatalogInterface, instead of the bridge's own
+                models:                     # added in front of the catalog, same name wins
+                    qwen3-coder-next:
+                        class: 'Symfony\AI\Platform\Bridge\Generic\CompletionsModel'   # default Symfony\AI\Platform\Model
+                        capabilities: ['input-messages', 'output-text']             # Capability values, at least one
+                cache: false                # true, or { service: 'cache.app', ttl: 3600 }: CachedModelCatalog
 ```
+
+- `api` (`huggingface`, `openrouter`, `edenai` only): fetch the models from the provider API instead of the bundled list; it cannot be combined with `service`.
+- Platforms whose catalog always comes from the API (`amazeeai`, `deepgram`, `elevenlabs`, `fireworks`, `higgsfield`, `ollama`, `together`, `venice`) take `service`, `models` and `cache`, but no `api`.
+- `cache` only makes sense for an API or custom catalog: on a bundled list it fails with `Caching the model catalog requires a custom "service" or "api: true", the bundled list needs no cache.`
+- A `class` that does not exist or does not extend `Symfony\AI\Platform\Model` fails the config (`The model class "…" does not exist.` / `… must extend Symfony\AI\Platform\Model.`).
 
 ## `ai.agent`
 
@@ -201,8 +207,8 @@ ai:
                 #                                  # its McpToolbox is tagged kernel.reset (0.15): the tool list is re-fetched per request/message
                 #       prefix: 'readme_'          # optional, only with mcp_server; default "<server>_"
                 # execution_strategy: fiber      # since 0.14: sequential (default) | fiber | custom ToolExecutorInterface service id
-            exclude_tool_messages: false
             include_sources: false
+            message_store: null              # 1.0: service id of an ai.message_store, e.g. 'ai.message_store.redis.chats'
             max_tool_calls: 50               # int or null
             fault_tolerant_toolbox: true     # boolean, default true
             speech:
@@ -225,6 +231,7 @@ Notes:
 - `speech:` requires at least one of `text_to_speech_platform`/`speech_to_text_platform` and one of `tts_model`/`stt_model`.
 - **`system_prompt` is NOT a valid key** : use `prompt:`.
 - **`input_processors` / `output_processors` are NOT valid keys** : processors are auto-tagged via attributes/interfaces (see `references/processors.md`).
+- `message_store` (1.0) passes that service to the `Agent`'s `messageStore` argument: the agent loads and saves each conversation under the id of the `MessageBag` it is called with (`MessageBag::forId()`, see the `symfony-ai-agent` skill). It replaces the 0.x `ai.chat` node. `exclude_tool_messages` is gone: tool messages never reach the caller's bag.
 - **`max_tool_calls` IS a valid key** (the `ai.agent.<name>.max_tool_calls` node of `config/options.php`): int or `null` to disable, default `50`. `circuit_breaker_threshold` and similar names are **not** valid — the only other fault-tolerance key is `fault_tolerant_toolbox: bool`.
 
 ## `ai.multi_agent`
@@ -245,7 +252,7 @@ Validation (the root-level `validate()` rules at the end of `config/options.php`
 
 ## `ai.store`
 
-Defined in `config/store/*.php`. Each provider is a top-level child of `ai.store`; under it, named instances. Per-store schemas vary : the example below is `pinecone` (`config/store/pinecone.php`):
+Defined in `config/store/*.php`. Each provider is a top-level child of `ai.store`; under it, named instances. Since 1.0 the names must be unique across all store types (`blog_store` and `blogStore` count as the same): `The stores "…" have conflicting names, store names must be unique across all store types.` Per-store schemas vary : the example below is `pinecone` (`config/store/pinecone.php`):
 
 ```yaml
 ai:
@@ -257,32 +264,51 @@ ai:
                 namespace: null
                 filter: []
                 top_k: null
-                setup_options:               # 0.15, read by `ai:store:setup`
-                    dimension: 1536          # required when setup_options is set
-                    metric: 'cosine'         # cosine | euclidean | dotproduct
-                    cloud: 'aws'
-                    region: 'us-east-1'
+                dimensions: 1536             # 1.0: plain keys, read by `ai:store:setup` (were setup_options.dimension, …)
+                metric: 'cosine'             # cosine | euclidean | dotproduct
+                cloud: 'aws'
+                region: 'us-east-1'
 
         memory:
-            default:
-                strategy: 'cosine'   # DistanceStrategy
+            main:
+                strategy: 'cosine'   # DistanceStrategy (in-process scoring)
 
         cache:
-            default:
+            cached:
                 service: 'cache.app'
                 cache_key: null
                 strategy: 'cosine'
 
         qdrant:
-            default:
+            documents:
                 collection_name: null
                 endpoint: null
                 api_key: null
                 http_client: 'http_client'
                 dimensions: 1536
-                distance: 'Cosine'
+                metric: 'Cosine'     # 1.0, was `distance`
                 async: false
 ```
+
+1.0 replaced the `setup_options` of `mariadb`, `mongodb`, `pinecone`, `postgres`, `redis`, `s3vectors` and `surrealdb` by store keys, and renamed the metric and size keys everywhere:
+
+| Store | Before 1.0 | 1.0 |
+| --- | --- | --- |
+| `mariadb` | `setup_options.dimensions`, `distance` | `dimensions`, `metric` |
+| `mongodb` | `setup_options.fields`, `similarity` | `index_fields`, `metric` |
+| `pinecone` | `setup_options.dimension`, `.metric`, `.cloud`, `.region` | `dimensions`, `metric`, `cloud`, `region` |
+| `postgres` | `setup_options.vector_size`, `.vector_type`, `.index_method`, `.index_opclass`, `distance` | `dimensions`, `vector_type`, `index_method`, `index_opclass`, `metric` |
+| `redis` | `setup_options.vector_size`, `distance` | `dimensions`, `metric` |
+| `s3vectors` | `setup_options.dimension`, `.distance_metric` | `dimensions`, `metric` |
+| `surrealdb` | `setup_options.force_database_creation`, `strategy` | `ai:store:setup <name> --option forceDatabaseCreation=true`, `metric` |
+| `elasticsearch`, `manticoresearch` | `similarity` | `metric` |
+| `milvus` | `metric_type` | `metric` |
+| `neo4j`, `qdrant` | `distance` | `metric` |
+| `opensearch` | `space_type` | `metric` |
+| `sqlite` | `distance`, `vector_dimension` | `metric`, `dimensions` |
+| `supabase` | `vector_dimension` | `dimensions` |
+
+`redis` now creates a 1536-dimensional index by default (was 3072): set `dimensions: 3072` to keep Gemini-sized vectors, documents of another size are not indexed. `pinecone` and `s3vectors` no longer require the dimensions (1536 by default).
 
 `postgres` (`config/store/postgres.php`) is worth its own example : it's the store the official `demo/` application actually runs in production-shaped config.
 
@@ -294,16 +320,15 @@ ai:
                 dbal_connection: 'doctrine.dbal.default_connection'   # OR dsn: '...' — exactly one of the two
                 table_name: 'symfony_blog'
                 vector_field: 'embedding'      # default
-                distance: 'cosine'             # cosine | inner_product | l1 | l2 ; default l2
+                metric: 'cosine'               # cosine | inner_product | l1 | l2 ; default l2 (was `distance`)
                 lang: 'english'                # default; used for the tsvector language config
-                setup_options:                 # only read by the `ai:store:setup` command
-                    vector_type: 'vector'       # default
-                    vector_size: 1536           # default
-                    # index_method: 'hnsw'      # unset = the store default, hnsw (0.15; was ivfflat)
-                    # index_opclass: ~          # unset = the opclass of `distance` (vector_cosine_ops here)
+                dimensions: 1536               # store default 1536 (was setup_options.vector_size)
+                vector_type: 'vector'          # vector | halfvec
+                # index_method: 'hnsw'         # unset = the store default, hnsw (0.15; was ivfflat)
+                # index_opclass: ~             # unset = the opclass of `metric` (vector_cosine_ops here)
 ```
 
-Since 0.15 the bundle no longer sets `index_method` / `index_opclass`, so `ai:store:setup` creates an `hnsw` index with the operator class matching `distance` (before: `ivfflat` with `vector_cosine_ops` whatever the distance). HNSW needs pgvector 0.5.0+. An existing index is kept as is; drop it and rerun `ai:store:setup` to rebuild it.
+`ai:store:setup symfony_blog` creates an `hnsw` index with the operator class matching `metric` (before 0.15: `ivfflat` with `vector_cosine_ops` whatever the distance). HNSW needs pgvector 0.5.0+. An existing index is kept as is; drop it and rerun `ai:store:setup` to rebuild it.
 
 `dsn` and `dbal_connection` are mutually exclusive and one of them is required (validated at compile time). `username`/`password` are only meaningful with `dsn`.
 
@@ -324,47 +349,67 @@ ai:
                 collection: 'docs'
 ```
 
-`redis`, `mongodb`, `s3vectors` and `surrealdb` store options read by `ai:store:setup` (0.15):
+`redis`, `mongodb`, `s3vectors` and `surrealdb` in 1.0:
 
 ```yaml
 ai:
     store:
         redis:
-            docs:
+            vectors:
                 client: 'my.redis'          # OR connection_parameters: {...} — exactly one
                 index_name: 'docs'
-                distance: 'COSINE'          # COSINE | L2 | IP; default COSINE
-                setup_options:
-                    vector_size: 1536       # unset = the store default, 3072 (Gemini-sized)
+                metric: 'COSINE'            # COSINE | L2 | IP; default COSINE
+                dimensions: 3072            # unset = the store default, 1536 (3072 before 1.0)
         mongodb:
-            docs:
+            atlas:
                 client: 'MongoDB\Client'    # default
                 database: 'app'             # required
                 collection: 'docs'
                 index_name: 'vector_index'  # required
                 dimensions: 1536            # vector index size; store default 1536
-                similarity: 'cosine'        # euclidean | cosine | dotProduct; store default euclidean
+                metric: 'cosine'            # euclidean | cosine | dotProduct; store default euclidean
+                index_fields: []            # filter fields of the index (was setup_options.fields)
         s3vectors:
-            docs:
+            aws:
                 vector_bucket_name: 'my-bucket'
                 index_name: 'docs'
-                setup_options:
-                    dimension: 1536
-                    distance_metric: 'cosine'   # cosine | euclidean
+                dimensions: 1536            # optional since 1.0
+                metric: 'cosine'            # cosine | euclidean
         surrealdb:
-            docs:
+            surreal:
                 endpoint: '%env(SURREAL_URL)%'
                 username: 'root'
                 password: '%env(SURREAL_PASS)%'
                 namespace: 'app'
                 database: 'rag'
-                setup_options:
-                    force_database_creation: true   # SurrealDB 3 no longer creates them on first use
+                # SurrealDB 3 no longer creates them on first use:
+                # php bin/console ai:store:setup surreal --option forceDatabaseCreation=true
 ```
+
+`doctrine` (1.0, `symfony/ai-doctrine-store`) keeps the vectors in an `#[Embedding]` field of a Doctrine entity and registers the `vector` DBAL type and the `VECTOR_DISTANCE` DQL function:
+
+```yaml
+ai:
+    store:
+        doctrine:
+            articles:
+                entity: 'App\Entity\Article'
+                metric: 'cosine'                              # cosine | euclidean | inner_product
+                entity_manager: 'doctrine.orm.entity_manager' # default
+                vectorizer: 'ai.vectorizer.openai_embeddings' # embeds on flush and registers the `articles` indexer
+            products:
+                entity: 'App\Entity\Product'                 # #[Embedding] on the class
+                vectorizer: 'ai.vectorizer.openai_embeddings'
+                mirror_to: 'ai.store.qdrant.catalog'          # no OrmStore: a mirror listener, an indexer and ai.retriever.products
+```
+
+With `mirror_to`, a `retriever` or `indexer` of the same name is not allowed. Mapping, indexes and write semantics are in the `symfony-ai-store` skill (`references/bridges.md` → *Doctrine*).
 
 Other supported providers (schemas in `config/store/<provider>.php`, not individually detailed here): `azuresearch`, `chromadb`, `clickhouse`, `cloudflare`, `elasticsearch`, `manticoresearch`, `mariadb`, `meilisearch`, `milvus`, `mongodb`, `neo4j`, `opensearch`, `redis`, `s3vectors`, `sqlite`, `supabase`, `surrealdb`, `typesense`, `vektor`, `weaviate`. Read the corresponding `config/store/<provider>.php` file directly when configuring one of these — the shape follows the same pattern (provider name as parent key, named instances under it) but options differ per backend.
 
 **There is no `bridge:` sub-key.** The provider name (`pinecone`, `mongodb`, `postgres`, …) is the parent key in YAML. There is no `embedding_model:` or `transformers:` sub-key : embedding is configured via `ai.vectorizer.<name>` and used by indexer/retriever.
+
+The `ai:store:setup`, `ai:store:drop` and `ai:store:clear` commands take the configured name since 1.0 (`ai:store:drop default --force`, was `ai.store.chromadb.default`), like `ai:store:index` and `ai:store:retrieve`; `setup` and `drop` accept `--option name=value`. The `store:` option of `ai.indexer` and `ai.retriever` still takes a service id.
 
 ## `ai.vectorizer`
 
@@ -410,23 +455,9 @@ If `loader` is null, the indexer is a `DocumentIndexer` (you pass documents at r
 
 There is **no `delay_ms` / `batch_size` / `chunk_size`** : indexing semantics are owned by the store/loader packages.
 
-## `ai.chat`
-
-The `ai.chat` node of `config/options.php`. Persisted chat session wrapping one agent and one message store.
-
-```yaml
-ai:
-    chat:
-        support:
-            agent: 'ai.agent.default'                   # required, non-empty
-            message_store: 'ai.message_store.memory.support'   # required, non-empty
-```
-
-There is **no `chat_store.doctrine.entity` or `chat_store.doctrine.chat_id_field`** : chat storage is configured under `ai.message_store` (see next section), not as a sub-key of `ai.chat`.
-
 ## `ai.message_store`
 
-Defined in `config/message_store/*.php`. Each provider is a top-level child of `ai.message_store`; under it, named instances.
+Defined in `config/message_store/*.php`. Each provider is a top-level child of `ai.message_store`; under it, named instances. Since 1.0 they are the message stores of the Agent component (`Symfony\AI\Agent\MessageStore\MessageStoreInterface`, classes under `Symfony\AI\Agent\Bridge\*`), used through an agent's `message_store` option; names must be unique across message-store types (`The message stores "…" have conflicting names, …`).
 
 `doctrine` (`config/message_store/doctrine.php`) is the DBAL-backed provider:
 
@@ -444,8 +475,7 @@ ai:
                 key: null                   # default = instance name
                 ttl: null
         memory:
-            support:
-                identifier: 'session_id'
+            support: ~                  # 1.0: no `identifier`, conversations are kept by their id
         redis:
             support:
                 # Exactly one of `client` / `connection_parameters` — the node
@@ -489,9 +519,13 @@ ai:
                 namespaced_user: null
 ```
 
+Service ids are `ai.message_store.<type>.<name>`, except Doctrine: `ai.message_store.doctrine.dbal.<name>` (the shorter `ai.message_store.doctrine.<name>` is only a named-argument alias). That id is what an agent's `message_store` and the `ai:message-store:setup <id>` / `ai:message-store:drop <id> --force` commands take. The `cache`, `pogocache`, `session` and `memory` stores have nothing to set up. Each store receives the application's `serializer`, on which the bundle registers `ai.platform.message_normalizer` (renamed from `ai.chat.message_bag.normalizer`), `ai.platform.message_bag_normalizer` and `ai.agent.source_collection_normalizer`.
+
+The 1.0 stores keep one serialized `MessageBag` per conversation and do not read what the 0.x Chat stores wrote; for Doctrine, drop the old table and run `ai:message-store:setup` again (`setup()` keeps an existing table).
+
 ## Aliases auto-created by the bundle
 
-For each singleton platform, the bundle auto-aliases `PlatformInterface::class` when only one platform is configured (`AiBundle::loadExtension()`, `setAlias()` calls). Since 0.15 every service tagged `ai.platform` also gets a `#[Target]` alias named after its tag (dots replaced by underscores): `#[Target('openai')]` for a singleton provider, `#[Target('cache_<name>')]` for a cache instance, `#[Target('<name>')]` for a failover instance. A failover service's `ai.platform` tag now carries its instance name instead of the hardcoded `failover`, which only matters to code reading that tag attribute. Same for `AgentInterface::class`, `StoreInterface::class`, `MessageStoreInterface::class`, `ChatInterface::class`, `IndexerInterface::class`, `RetrieverInterface::class`. When several are configured, you must type-hint the named service (`ai.agent.default`, `ai.store.pinecone.default`, …) or use `#[Target('default')]`.
+For each singleton platform, the bundle auto-aliases `PlatformInterface::class` when only one platform is configured (`AiBundle::loadExtension()`, `setAlias()` calls). Since 0.15 every service tagged `ai.platform` also gets a `#[Target]` alias named after its tag (dots replaced by underscores): `#[Target('openai')]` for a singleton provider, `#[Target('cache_<name>')]` for a cache instance, `#[Target('<name>')]` for a failover instance. A failover service's `ai.platform` tag now carries its instance name instead of the hardcoded `failover`, which only matters to code reading that tag attribute. Same for `AgentInterface::class`, `StoreInterface::class`, `MessageStoreInterface::class`, `IndexerInterface::class`, `RetrieverInterface::class`. When several are configured, you must type-hint the named service (`ai.agent.default`, `ai.store.pinecone.default`, …) or use `#[Target('default')]`. Stores and message stores are also autowirable by their configured name (`StoreInterface $documents`, `MessageStoreInterface $support`); 1.0 removed the type-prefixed aliases (`StoreInterface $chromadbDocuments`). A `failover` platform must not be named like another platform (`The platforms "…" and "…" have conflicting names, platform names must be unique.`).
 
 ## Removed when optional packages are missing
 
@@ -501,9 +535,9 @@ For each singleton platform, the bundle auto-aliases `PlatformInterface::class` 
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `symfony/security-core` | `ai.security.is_granted_attribute_listener` + `#[IsGrantedTool]` autoconfig (throws on compile)                                                      |
 | `symfony/validator`     | `ai.tool.validate_tool_call_arguments_listener`, `ai.platform.structured_output.validator_subscriber`, `ai.platform.json_schema.describer.validator` |
-| `symfony/ai-agent`      | tool/agent commands + toolbox wiring                                                                                                                 |
+| `symfony/ai-agent`      | tool/agent commands, toolbox wiring, `ai.agent.source_collection_normalizer`                                                                         |
 | `symfony/ai-store`      | store/indexer/retrieve commands                                                                                                                      |
-| `symfony/ai-chat`       | message-store commands, `ai.chat.message_bag.normalizer`                                                                                             |
+| no `ai.message_store`   | `ai:message-store:setup` / `ai:message-store:drop` (`ai.command.setup_message_store`, `ai.command.drop_message_store`)                               |
 | `kernel.debug == false` | `ai.data_collector`, `ai.traceable_toolbox`                                                                                                          |
 
 Compiler passes (registered in `AiBundle::build()`): `DebugCompilerPass`, `ProcessorCompilerPass`, `SchemaProviderValidationPass`.

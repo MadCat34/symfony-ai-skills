@@ -20,6 +20,7 @@ is not documented here.
 - `Vector`
 - `Message` named constructors
 - `MessageBag`
+- Serializer (`MessageNormalizer`, `MessageBagNormalizer`, 1.0)
 - Content parts
 - `Tool` (raw Platform : not Agent)
 - `Model`
@@ -54,7 +55,7 @@ Symfony\AI\Platform\
 │                                   JobStateCase — asynchronous provider jobs, since 0.14)
 ├── Message\
 │   ├── Message                     (named constructors)
-│   ├── MessageBag                  (mutable + immutable helpers)
+│   ├── MessageBag                  (immutable since 1.0; forId(), withId())
 │   ├── MessageInterface
 │   ├── Role                        (enum: System, Assistant, User, ToolCall)
 │   ├── SystemMessage
@@ -63,9 +64,10 @@ Symfony\AI\Platform\
 │   ├── ToolCallMessage
 │   ├── Template                    (string or expression renderer)
 │   ├── TemplateRenderer\
-│   └── Content\                    (Text, File, Image, ImageUrl, Audio, Video, Document, DocumentUrl, Collection, plus response-content helpers)
+│   └── Content\                    (Text, File, Image, ImageUrl, Audio, Video, Document, DocumentUrl, Collection, Commentary (1.0), plus response-content helpers)
 ├── Metadata\                       (Metadata, MetadataAwareTrait, MergeableMetadataInterface)
-├── ModelCatalog\                   (ModelCatalogInterface + AbstractModelCatalog, CompositeModelCatalog, FallbackModelCatalog, MockModelCatalog)
+├── ModelCatalog\                   (ModelCatalogInterface + AbstractModelCatalog, CompositeModelCatalog, FallbackModelCatalog,
+│                                   CachedModelCatalog (1.0), InMemoryModelCatalog (1.0); MockModelCatalog is in Test\)
 ├── ModelRouter\                    (CatalogBasedModelRouter, RoutingDecision)
 ├── Reranking\RerankingEntry
 ├── Result\
@@ -74,7 +76,7 @@ Symfony\AI\Platform\
 │   ├── BaseResult
 │   ├── TextResult, ObjectResult, BinaryResult, VectorResult, StreamResult,
 │   │   ToolCallResult, RerankingResult, ChoiceResult, MultiPartResult,
-│   │   ThinkingResult, InMemoryRawResult, RawResultInterface, RawHttpResult,
+│   │   ThinkingResult, CommentaryResult (1.0), InMemoryRawResult, RawResultInterface, RawHttpResult,
 │   │   + ResultCode executors (CodeExecutionResult, ComputerCallResult,
 │   │     ExecutableCodeResult, FileSearchResult, LocalShellCallResult,
 │   │     McpCallResult, McpApprovalRequestResult, McpListToolsResult,
@@ -84,7 +86,8 @@ Symfony\AI\Platform\
 │   │   StartEvent, DeltaEvent, CompleteEvent, ErrorEvent, AbstractStreamListener, HttpStreamInterface)
 │   ├── Stream\Delta\               (TextDelta, PartialObjectDelta, ToolInputDelta,
 │   │   ToolCallStart, ToolCallComplete, BinaryDelta, ChoiceDelta, MetadataDelta,
-│   │   ThinkingStart, ThinkingDelta, ThinkingComplete, ThinkingSignature, DeltaInterface)
+│   │   ThinkingStart, ThinkingDelta, ThinkingComplete, ThinkingSignature,
+│   │   CommentaryStart, CommentaryDelta, CommentaryComplete (1.0), DeltaInterface)
 │   ├── Exception\RawResultAlreadySetException
 │   ├── InMemoryRawResult, RawHttpResult, HttpStatusErrorHandlingTrait,
 │   │   RawResultAwareTrait
@@ -97,7 +100,8 @@ Symfony\AI\Platform\
 │                                   InMemoryPlatform removed in 0.15)
 ├── TokenUsage\                     (TokenUsage, TokenUsageInterface, TokenUsageAggregation,
 │                                   StreamListener, TokenUsageExtractorInterface)
-├── Tool\                           (Tool, ExecutionReference)
+├── Serializer\                     (1.0: MessageNormalizer, MessageBagNormalizer, MetadataNormalizer)
+├── Tool\                           (Tool, ExecutionReference, ToolEffectHints (1.0))
 └── Vector\                         (Vector, VectorInterface, NullVector)
 ```
 
@@ -279,7 +283,7 @@ There is no `asText()` / `asObject()` on the interface : those are on
 | Concrete result        | `getContent()` returns                       |
 |------------------------|----------------------------------------------|
 | `TextResult`           | `string` (+ optional `getSignature()`)       |
-| `ObjectResult`         | `object\|array<string, mixed>`               |
+| `ObjectResult`         | `object\|array<string, mixed>` (+ `getText()`, 1.0: the JSON the model answered) |
 | `BinaryResult`         | `string` (+ `getMimeType()`, `toDataUri()`, `asFile()`) |
 | `VectorResult`         | `Vector[]`                                   |
 | `RerankingResult`      | `list<RerankingEntry>`                       |
@@ -288,6 +292,7 @@ There is no `asText()` / `asObject()` on the interface : those are on
 | `ChoiceResult`         | `ResultInterface[]` (≥ 2 required)           |
 | `MultiPartResult`      | non-empty `ResultInterface[]`, iterable      |
 | `ThinkingResult`       | `?string` (text content only, nullable)      |
+| `CommentaryResult`     | `string` (1.0: narration a model emits next to its answer) |
 | `JobResult`            | `Job\JobHandle` (read it with `asJob()`)     |
 | `BatchResult`          | `iterable<BatchItem>` (read it with `asBatch()`) |
 | `RealtimeSessionResult`| `array` (+ `getId()`, `getClientSecret()`, `getExpiresAt()`, `getModel()`, `getVoice()`, `getModalities()`) |
@@ -577,52 +582,101 @@ as content parts).
 ## `MessageBag`
 
 `class MessageBag` (not final) implements `\Countable` and `\IteratorAggregate`.
-It has a v7 UUID identity (`getId()`) and supports both mutable and immutable
-operations.
+It has a time-based UUID identity (`getId()`, a v7 by default) and, since 1.0,
+is **immutable**: every change returns a copy, and copies no longer share their
+metadata.
 
 ```php
 class MessageBag implements \Countable, \IteratorAggregate
 {
     /** @param MessageInterface ...$messages */
-    public function __construct(MessageInterface ...$messages);
+    public function __construct(MessageInterface ...$messages);                 // new Uuid::v7() id
 
+    /** 1.0: a bag with the given id; strings become user messages */
+    public static function forId(AbstractUid&TimeBasedUidInterface $id, MessageInterface|string ...$messages): self;
+    public function withId(AbstractUid&TimeBasedUidInterface $id): static;      // 1.0
     public function getId(): AbstractUid&TimeBasedUidInterface;
-
-    // Mutable operations (in place)
-    public function add(MessageInterface $message): void;
-    public function prepend(MessageInterface $message): void;
-    public function removeSystemMessage(): void;
 
     // Read-only helpers
     /** @return list<MessageInterface> */
     public function getMessages(): array;
     public function getSystemMessage(string $separator = \PHP_EOL.\PHP_EOL): ?SystemMessage;
-    public function getUserMessage(): ?UserMessage;
-    public function count(): int;
-
-    // Immutable operations (return a clone)
-    public function with(MessageInterface $message): self;
-    public function merge(self $messageBag): self;
-    public function replace(AbstractUid&TimeBasedUidInterface $uuid, MessageInterface $newMessage): self;
-    public function withoutSystemMessage(): self;
-    public function withoutToolMessages(): self;
-    public function withSystemMessage(SystemMessage $message): self;
-    public function latestAs(Role $role): MessageInterface;       // throws if no match
+    public function getUserMessage(): ?UserMessage;                              // the first one
+    /** @return ($role is Role::User ? UserMessage : (… AssistantMessage, SystemMessage, ToolCallMessage)) */
+    public function latestAs(Role $role): MessageInterface;                      // throws InvalidArgumentException if none
     public function isLastMessageFrom(Role $role): bool;
     public function containsAudio(): bool;
     public function containsImage(): bool;
+    public function count(): int;
+
+    // Copies
+    public function with(MessageInterface $message): self;                      // appends
+    public function merge(self $messageBag): self;
+    public function replace(AbstractUid&TimeBasedUidInterface $uuid, MessageInterface $newMessage): self;  // 1.0: returns the copy
+    public function withoutSystemMessage(): self;
+    public function withoutToolMessages(): self;
+    public function withSystemMessage(SystemMessage $message): self;            // drops every system message, prepends this one
 }
 ```
 
+1.0 removed the in-place `add()`, `prepend()` and `removeSystemMessage()`:
+
+```php
+// 0.x: $messages->add(Message::ofUser('Hello'));
+$messages = $messages->with(Message::ofUser('Hello'));
+// 0.x: $messages->prepend(Message::forSystem('You are a pirate.'));
+$messages = $messages->withSystemMessage(Message::forSystem('You are a pirate.'));
+```
+
+`replace()` throws `InvalidArgumentException` when no message, or more than one,
+has the given id. `latestAs()` only returns the built-in class of the role
+(`UserMessage` for `Role::User`, …): since 1.0 a custom `MessageInterface`
+implementation is skipped, so iterate the bag to find one. `forId()` is how
+`symfony-ai-agent` identifies a conversation kept in a message store.
+
 `Role` is an enum: `System = 'system'`, `Assistant = 'assistant'`,
 `User = 'user'`, `ToolCall = 'tool'`.
+
+## Serializer (`MessageNormalizer`, `MessageBagNormalizer`, 1.0)
+
+```php
+namespace Symfony\AI\Platform\Serializer;
+
+final class MessageNormalizer implements NormalizerInterface, DenormalizerInterface, NormalizerAwareInterface, DenormalizerAwareInterface
+{
+    public function __construct();
+}
+
+final class MessageBagNormalizer implements NormalizerInterface, DenormalizerInterface, NormalizerAwareInterface, DenormalizerAwareInterface
+{
+    public function __construct(MessageNormalizer $messageNormalizer = new MessageNormalizer());
+}
+```
+
+They persist messages and bags losslessly: ids, metadata and every content
+type, all content written as `parts`. `addedAt` is derived from the message id
+instead of the time of normalization. Objects in the metadata keep their class
+name: token usage and finish reason are handled directly, any other object is
+handed to the surrounding serializer, so add a normalizer for it (e.g.
+`DateTimeNormalizer`) or normalization throws `NotNormalizableValueException`.
+Since loading instantiates the stored class names, only denormalize data your
+application wrote. `MessageNormalizer` replaces the removed
+`Symfony\AI\Chat\MessageNormalizer`, no longer needs a `ToolCallNormalizer`
+next to it, and still reads messages persisted in the old format.
+
+```php
+$serializer = new Serializer([new MessageBagNormalizer(), new DateTimeNormalizer()], [new JsonEncoder()]);
+$json = $serializer->serialize($messages, 'json');
+$messages = $serializer->deserialize($json, MessageBag::class, 'json');
+```
 
 ## Content parts
 
 ```php
 namespace Symfony\AI\Platform\Message\Content;
 
-final class Text           implements ContentInterface { __construct(string $text, ?string $signature = null); }
+final class Text           implements ContentInterface { __construct(string $text, ?string $signature = null, ?string $phase = null); }  // getPhase(), 1.0
+final class Commentary     implements ContentInterface { __construct(string $content); }  // 1.0
 final class Image          extends File { }      // image MIME, inherited static factories
 final class Audio          extends File { }
 final class Video          extends File { }
@@ -675,6 +729,7 @@ final class Tool
         string $description,
         ?array $parameters = null,
         array $metadata = [],
+        ToolEffectHints $effectHints = new ToolEffectHints(),   // 1.0, merged into the metadata
     );
 
     public function getReference(): ExecutionReference;
@@ -685,6 +740,19 @@ final class Tool
     /** @return array<string, mixed> */
     public function getMetadata(): array;
     public function getMetadataValue(string $key, mixed $default = null): mixed;
+
+    // 1.0, from the MCP tool annotations (readOnlyHint, destructiveHint, idempotentHint, openWorldHint)
+    public function getEffectHints(): ToolEffectHints;
+    public function isReadOnly(): bool;     // default false
+    public function isDestructive(): bool;  // default true, false when read-only
+    public function isIdempotent(): bool;   // default false, true when read-only
+    public function isOpenWorld(): bool;    // default true
+}
+
+final class ToolEffectHints   // 1.0
+{
+    public function __construct(?bool $readOnlyHint = null, ?bool $destructiveHint = null, ?bool $idempotentHint = null, ?bool $openWorldHint = null);
+    public function toArray(): array;   // only the hints that are set
 }
 ```
 

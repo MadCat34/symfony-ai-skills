@@ -18,7 +18,7 @@ Source of truth: `https://github.com/symfony/ai/tree/main/src/store/src/`. All n
   - TextDocument
   - VectorDocumentInterface / VectorDocument
   - Metadata
-  - EmbeddableDocumentInterface
+  - DocumentInterface
 - Vectorizer
   - `VectorizerInterface`
   - `Vectorizer` (concrete)
@@ -54,7 +54,7 @@ Symfony\AI\Store
 ├── TraceableStore
 │
 ├── Document\
-│   ├── EmbeddableDocumentInterface
+│   ├── DocumentInterface              (1.0, was DocumentInterface)
 │   ├── TextDocument
 │   ├── VectorDocumentInterface
 │   ├── VectorDocument
@@ -114,7 +114,7 @@ Symfony\AI\Store
 ├── InMemory\
 │   └── Store
 │
-└── Bridge\                          (24 packages — see references/bridges.md)
+└── Bridge\                          (25 packages — see references/bridges.md)
 ```
 
 There is **no** `Symfony\AI\Store\Indexer\Indexer` concrete class, no `Vectorizer\PlatformVectorizer`, no `Transformer\RemoveMetadataTransformer`. The interfaces themselves live at `Symfony\AI\Store\{IndexerInterface, Document\TransformerInterface, Document\VectorizerInterface}`, not under `Indexer\` or `Transformer\` or `Vectorizer\`.
@@ -159,7 +159,7 @@ interface ManagedStoreInterface
 }
 ```
 
-- `setup()` creates the index / table / collection. Options are backend-specific (e.g. `['dimension' => 1536, 'metric' => 'cosine']` for Pinecone).
+- `setup()` creates the index / table / collection. Since 1.0 the index definition (`dimensions`, `metric`, …) is a constructor argument of the store, and Elasticsearch, MariaDB, MongoDB, OpenSearch, Pinecone, Postgres, Redis and S3 Vectors throw `InvalidArgumentException` ("No supported options.") when `setup()` receives options; the remaining options are runtime switches such as SurrealDB's `forceDatabaseCreation`.
 - `drop()` destroys the underlying infrastructure. It is *not* reversible.
 - Not every bridge implements `ManagedStoreInterface` : `Supabase`, `AzureSearch`, etc. leave lifecycle to the user.
 
@@ -184,7 +184,7 @@ public function __construct(DocumentProcessor $processor);
 public function index(string|iterable|object $input, array $options = []): void;
 ```
 
-Accepts an `EmbeddableDocumentInterface` or an iterable of them; anything else throws `InvalidArgumentException`.
+Accepts an `DocumentInterface` or an iterable of them; anything else throws `InvalidArgumentException`.
 
 ### `SourceIndexer`
 
@@ -199,12 +199,12 @@ Accepts a source identifier (string or iterable of strings) and delegates to `Lo
 ### `ConfiguredSourceIndexer`
 
 ```php
-public function __construct(SourceIndexer $indexer, string|array $defaultSource);
+public function __construct(IndexerInterface $indexer, string|array $defaultSource);
 
 public function index(string|iterable|object|null $input = null, array $options = []): void;
 ```
 
-A decorator for `SourceIndexer` that supplies a default source when `$input` is `null` : useful for bundle configuration where the source is defined in YAML.
+A decorator for any `IndexerInterface` (only a `SourceIndexer` before 1.0) that supplies a default source when `$input` is `null` : useful for bundle configuration where the source is defined in YAML.
 
 ### `DocumentProcessor` (the actual pipeline)
 
@@ -289,7 +289,7 @@ Both vector queries take `Platform\Vector\VectorInterface` (since 0.14), so a "m
 ```php
 namespace Symfony\AI\Store\Document;
 
-final class TextDocument implements EmbeddableDocumentInterface
+final class TextDocument implements DocumentInterface
 {
     public function __construct(
         int|string $id,        // REQUIRED first positional
@@ -380,12 +380,14 @@ final class Metadata extends \ArrayObject
 
 The reserved keys (`_text`, `_parent_id`, …) are used by transformers and bridges; do not repurpose them for your own data.
 
-### EmbeddableDocumentInterface
+### DocumentInterface
+
+Renamed from `DocumentInterface` in 1.0 (same methods); update `implements` clauses and type hints.
 
 ```php
 namespace Symfony\AI\Store\Document;
 
-interface EmbeddableDocumentInterface
+interface DocumentInterface
 {
     public function getId(): int|string;
     public function getContent(): string|object;
@@ -403,13 +405,13 @@ namespace Symfony\AI\Store\Document;
 interface VectorizerInterface
 {
     public function vectorize(
-        string|\Stringable|EmbeddableDocumentInterface|array $values,
+        string|\Stringable|DocumentInterface|array $values,
         array $options = [],
     ): Vector|VectorDocumentInterface|array;
 }
 ```
 
-A single method. The return type narrows by input shape : string in ⇒ `Vector` out; `EmbeddableDocumentInterface` in ⇒ `VectorDocumentInterface` out; array in ⇒ array out.
+A single method. The return type narrows by input shape : string in ⇒ `Vector` out; `DocumentInterface` in ⇒ `VectorDocumentInterface` out; array in ⇒ array out.
 
 ### `Vectorizer` (concrete)
 
@@ -427,7 +429,7 @@ final class Vectorizer implements VectorizerInterface
 }
 ```
 
-The fourth constructor argument (`bool $includeText = false`) controls whether the source text is copied into `Metadata::KEY_TEXT` when vectorizing an `EmbeddableDocumentInterface`. Without it, downstream `TextQuery` and `Reranker` cannot recover the original text.
+The fourth constructor argument (`bool $includeText = false`) controls whether the source text is copied into `Metadata::KEY_TEXT` when vectorizing an `DocumentInterface`. Without it, downstream `TextQuery` and `Reranker` cannot recover the original text.
 
 ## Transformers
 
@@ -644,13 +646,13 @@ Both are dispatched by `Retriever` (when an `EventDispatcherInterface` is wired)
 
 ## Commands
 
-All under `Symfony\AI\Store\Command\`. They are tagged in `ai-bundle` for `bin/console`:
+All under `Symfony\AI\Store\Command\`. They are tagged in `ai-bundle` for `bin/console`. Since 1.0 `<store>`, `<indexer>` and `<retriever>` are the configured names (`default`, not `ai.store.chromadb.default`); without an argument the commands offer an interactive choice, and an unknown name fails with `The "…" store does not exist, did you mean "…"?`. `Command\SetupStoreCommand` no longer takes the setup options as second constructor argument.
 
 | Command                                             | Purpose                                                   | Notes                                                 |
 | --------------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------------- |
-| `ai:store:setup <store>`                            | Call `ManagedStoreInterface::setup()` on the named store. | Iterates `ServiceLocator<ManagedStoreInterface>`.     |
-| `ai:store:drop <store> --force`                     | Destroy the store's infrastructure.                       | Requires `--force` (no default).                      |
-| `ai:store:clear <store> --force`                    | Remove all documents, keep the store.                     | Different from `drop` : store remains usable.         |
+| `ai:store:setup <store> [-o name=value]`            | Call `ManagedStoreInterface::setup()` on the named store. | `--option`/`-o` (1.0) passes runtime options, values JSON-decoded, a bare name is `true`. |
+| `ai:store:drop <store> --force [-o name=value]`     | Destroy the store's infrastructure.                       | Asks for confirmation when interactive without `--force` (1.0); `--option` as for setup. |
+| `ai:store:clear <store> --force`                    | Remove all documents, keep the store.                     | Different from `drop` : store remains usable. Confirmation as for drop. |
 | `ai:store:index <indexer> [--source=…]`             | Run a `SourceIndexer` / `ConfiguredSourceIndexer`.        | Multiple `--source` allowed.                          |
 | `ai:store:retrieve <retriever> [query] [--limit=N]` | Query via a configured `RetrieverInterface`.              | Interactive if `$query` is omitted; default limit 10. |
 

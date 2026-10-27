@@ -49,7 +49,7 @@ acme/mate-myext/
     "type": "symfony-ai-mate",
     "require": {
         "php": ">=8.2",
-        "symfony/ai-mate": "^0.13"
+        "symfony/ai-mate": "^1.0"
     },
     "autoload": {
         "psr-4": {
@@ -138,7 +138,7 @@ When the assistant cannot see Mate tools:
 ```bash
 # 1. Verify Mate is installed and on PATH
 vendor/bin/mate --version
-# Symfony AI Mate 0.14.0
+# Symfony AI Mate 1.0.0-BETA1
 
 # 2. Verify the DI container builds and discover runs
 vendor/bin/mate discover

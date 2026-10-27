@@ -1,6 +1,6 @@
 # Symfony AI Agent Skills
 
-> AI agent skills for the [Symfony AI](https://ai.symfony.com) PHP components: Platform, Agent, Chat, Store, AI Bundle, MCP Bundle, and Mate. Built on the agentskills.io open standard.
+> AI agent skills for the [Symfony AI](https://ai.symfony.com) PHP components: Platform, Agent, Store, AI Bundle, MCP Bundle, and Mate (symfony/ai 1.0.0-BETA1). Built on the agentskills.io open standard.
 
 ## Skills
 
@@ -13,25 +13,19 @@
 - [Platform Patterns](skills/symfony-ai-platform/references/patterns.md)
 - [Platform Gotchas](skills/symfony-ai-platform/references/gotchas.md)
 
-### Agent — tool-calling, memory, multi-agent
+### Agent — tool-calling, memory, multi-agent, conversations
 
-- [Agent](skills/symfony-ai-agent/SKILL.md): Build autonomous AI agents with input/output processors.
+- [Agent](skills/symfony-ai-agent/SKILL.md): Build autonomous AI agents with input/output processors, and keep conversations across requests in a message store (replaces the Chat component removed in 1.0).
 - [Agent API Reference](skills/symfony-ai-agent/references/api-reference.md)
+- [Agent Bridges](skills/symfony-ai-agent/references/bridges.md): The 9 message stores (Redis, Doctrine DBAL, MongoDB, cache, session, …), the migration from symfony/ai-chat, and the 14 tool bridges.
 - [Agent Patterns](skills/symfony-ai-agent/references/patterns.md)
 - [Agent Gotchas](skills/symfony-ai-agent/references/gotchas.md)
-
-### Chat — stateful conversation
-
-- [Chat](skills/symfony-ai-chat/SKILL.md): Send messages to an Agent and persist the conversation.
-- [Chat API Reference](skills/symfony-ai-chat/references/api-reference.md)
-- [Chat Patterns](skills/symfony-ai-chat/references/patterns.md)
-- [Chat Gotchas](skills/symfony-ai-chat/references/gotchas.md)
 
 ### Store — vector DB and RAG
 
 - [Store](skills/symfony-ai-store/SKILL.md): Store and query documents in a vector database. Requires a Platform for embeddings.
 - [Store API Reference](skills/symfony-ai-store/references/api-reference.md)
-- [Store Bridges](skills/symfony-ai-store/references/bridges.md): All 24 supported vector stores.
+- [Store Bridges](skills/symfony-ai-store/references/bridges.md): All 25 supported vector stores, Doctrine entities included.
 - [Store Patterns](skills/symfony-ai-store/references/patterns.md)
 - [Store Gotchas](skills/symfony-ai-store/references/gotchas.md)
 

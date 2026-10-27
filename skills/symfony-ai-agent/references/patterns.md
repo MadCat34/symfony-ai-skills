@@ -1,6 +1,6 @@
 # Agent : Patterns
 
-Five end-to-end recipes, each one a complete, syntactically-valid PHP snippet. Source-of-truth: `src/agent/src/`.
+End-to-end recipes, each one a complete, syntactically-valid PHP snippet. Source-of-truth: `src/agent/src/`.
 
 ## Contents
 
@@ -11,6 +11,10 @@ Five end-to-end recipes, each one a complete, syntactically-valid PHP snippet. S
 - 4. Multi-agent routing with `MultiAgent`
 - 5. Speech + chat with `SpeechAgent`
 - 6. Shared lifecycle dispatcher and source propagation
+- 7. Conversation kept across requests (message store)
+- 8. Conversation without a store (`getMessages()`)
+- 9. Streamed answer saved to the store
+- 10. Message store in tests
 
 ## 1. Tool-calling agent (pass a `toolbox` to `Agent`)
 
@@ -172,7 +176,16 @@ public function processInput(Input $input): void
 
 It has no `save()` method. It reads each provider with `MemoryProviderInterface::load(Input): array`, then injects the resulting facts into the system prompt rather than adding user/assistant turns. `EmbeddingProvider::load()` therefore returns `Memory[]`, not conversation turns; its underlying `StoreInterface` is a vector store that the application populates separately.
 
-For retention, indexing, isolation, and cost differences, see *MessageStore vs MemoryProvider vs Vector Store* in the `symfony-ai-chat` skill (`references/patterns.md`).
+| Concern | `MessageStoreInterface` | `MemoryProviderInterface` | `StoreInterface` (vector) |
+| --- | --- | --- | --- |
+| What it persists | Full conversation turns (`MessageBag`) | A short list of `Memory` facts | Vector embeddings of documents |
+| When written | By `Agent::call()`: input, each tool round, answer | Application code (or seeding step) | Ingestion step (`add()`) |
+| Retention | Grows per conversation (no trimming) | App-owned; `StaticMemoryProvider` is immutable | App-owned |
+| Isolation | One conversation per `MessageBag` id | App-owned | App-owned |
+| Typical cost | Cheap (one serialized bag per conversation) | Cheap (a few strings per call) | Expensive per query (embedding + vector search) |
+| Used by | `Agent`'s `messageStore` argument | `MemoryInputProcessor` (system prompt only) | `EmbeddingProvider`, `SimilaritySearch`, `Retriever` |
+
+Conversation history and memory are independent: an agent can keep history without memory, or memory without history.
 
 ## 4. Multi-agent routing with `MultiAgent`
 
@@ -306,3 +319,98 @@ $agent = new Agent(
 With `includeSources: true` on `Agent`, it merges each `ToolResult::getSources()` collection and stores the final `SourceCollection` under the result metadata key `sources` after the outermost tool loop completes. For a streamed result, consume the stream completely before treating that metadata as final.
 
 This flow records provenance metadata: source name, reference, and content associated with tool output. It does **not** establish phrase-level attribution, a guaranteed citation relationship, or the truth of either the source or generated answer. Symfony AI is experimental; check `UPGRADE.md` before upgrading.
+
+## 7. Conversation kept across requests (message store)
+
+Since 1.0 this replaces `symfony/ai-chat`'s `Chat`. One store holds every conversation, each under the id of its `MessageBag`; the agent loads it, adds the new messages, and saves after the input, after each tool round and with the answer.
+
+```php
+use Doctrine\DBAL\DriverManager;
+use Symfony\AI\Agent\Agent;
+use Symfony\AI\Agent\Bridge\Doctrine\DoctrineDbalMessageStore;
+use Symfony\AI\Agent\InputProcessor\SystemPromptInputProcessor;
+use Symfony\AI\Agent\Toolbox\Toolbox;
+use Symfony\AI\Platform\Bridge\OpenAi\Factory as OpenAiFactory;
+use Symfony\AI\Platform\Message\MessageBag;
+use Symfony\Component\Uid\Uuid;
+
+$connection = DriverManager::getConnection(['driver' => 'pdo_sqlite', 'path' => '/tmp/conversations.sqlite']);
+$store = new DoctrineDbalMessageStore('conversations', $connection);
+$store->setup(); // once: creates the table when it does not exist
+
+$agent = new Agent(
+    OpenAiFactory::createPlatform($_ENV['OPENAI_API_KEY']),
+    'gpt-4o-mini',
+    [new SystemPromptInputProcessor('You are a concise travel assistant.')],
+    toolbox: new Toolbox([new WeatherService()]),
+    messageStore: $store,
+);
+
+// Request 1: a new conversation. Keep $id with the user (session, URL, database row).
+$id = Uuid::v7();
+echo $agent->call(MessageBag::forId($id, 'Weather in Paris?'))->asText();
+
+// Request 2, maybe in another process: same id, only the new message.
+echo $agent->call(MessageBag::forId($id, 'And in London?'))->asText(); // sees the Paris turn
+
+// Read or forget a conversation.
+$history = $store->load($id);   // MessageBag without the system prompt
+$store->delete($id);
+```
+
+The id comes from the caller: resolve it from the current user and check ownership before passing it. A `ConflictException` on `call()` means another request saved the same conversation in the meantime; retry the turn.
+
+## 8. Conversation without a store (`getMessages()`)
+
+When the application keeps the history itself (or for a CLI loop), continue from what the execution returns. The agent never changes the bag you pass.
+
+```php
+use Symfony\AI\Platform\Message\Message;
+use Symfony\AI\Platform\Message\MessageBag;
+
+$messages = new MessageBag(Message::ofUser('What time is it?'));
+$messages = $agent->call($messages)->getMessages();       // + tool calls, tool results, answer; same bag id
+
+$messages = $messages->with(Message::ofUser('And in Tokyo?'));
+$messages = $agent->call($messages)->getMessages();
+```
+
+## 9. Streamed answer saved to the store
+
+With a store, the streamed answer is saved once the stream is drained. Iterate to the end, even if the client is gone (or call `$execution->cancel()` and accept that the answer is not saved).
+
+```php
+use Symfony\AI\Platform\Message\MessageBag;
+use Symfony\AI\Platform\Result\Stream\Delta\TextDelta;
+
+$execution = $agent->call(MessageBag::forId($id, 'Tell me a story.'), ['stream' => true]);
+
+foreach ($execution->asStream() as $delta) {
+    if ($delta instanceof TextDelta) {
+        echo $delta->getText();
+    }
+}
+// Only now is the assistant message in the store.
+```
+
+## 10. Message store in tests
+
+```php
+use Symfony\AI\Agent\Agent;
+use Symfony\AI\Agent\MessageStore\InMemoryMessageStore;
+use Symfony\AI\Agent\MessageStore\TraceableMessageStore;
+use Symfony\AI\Platform\Message\MessageBag;
+use Symfony\AI\Platform\Test\MockPlatformFactory;
+use Symfony\Component\Clock\MockClock;
+use Symfony\Component\Uid\Uuid;
+
+$store = new TraceableMessageStore(new InMemoryMessageStore(), new MockClock());
+$agent = new Agent(MockPlatformFactory::createPlatform('Hello Alice'), 'gpt-4o-mini', messageStore: $store);
+
+$id = Uuid::v7();
+$agent->call(MessageBag::forId($id, 'I am Alice.'))->getResult();
+
+\assert(2 === \count($store->load($id)));   // the user message and the answer
+\assert([] !== $store->getCalls());          // one entry per save()
+$store->reset();                             // between tests
+```

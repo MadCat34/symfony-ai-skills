@@ -32,7 +32,7 @@ Verify: `gemini extensions list` should show `symfony-ai-skills`.
 gh skill install MadCat34/symfony-ai-skills --all --agent codex --scope user
 ```
 
-Installs the seven skills to `~/.agents/skills/`, the user-level directory Codex scans. Needs the GitHub CLI with `gh skill` (in preview). Codex also reads `AGENTS.md` at the project root.
+Installs the six skills to `~/.agents/skills/`, the user-level directory Codex scans. Needs the GitHub CLI with `gh skill` (in preview). Codex also reads `AGENTS.md` at the project root.
 
 ## GitHub Copilot
 
@@ -49,7 +49,7 @@ Verify: `copilot plugin list` should show `symfony-ai-skills`. Copilot CLI reads
 gh skill install MadCat34/symfony-ai-skills --all --agent universal --scope user
 ```
 
-Installs the seven skills to `~/.agents/skills/`, which Kilo Code loads by default. Needs the GitHub CLI with `gh skill` (in preview).
+Installs the six skills to `~/.agents/skills/`, which Kilo Code loads by default. Needs the GitHub CLI with `gh skill` (in preview).
 
 ## OpenCode
 
@@ -57,7 +57,7 @@ Installs the seven skills to `~/.agents/skills/`, which Kilo Code loads by defau
 gh skill install MadCat34/symfony-ai-skills --all --agent opencode --scope user
 ```
 
-Installs the seven skills to `~/.config/opencode/skills/`. Needs the GitHub CLI with `gh skill` (in preview).
+Installs the six skills to `~/.config/opencode/skills/`. Needs the GitHub CLI with `gh skill` (in preview).
 
 ## Manual copy (any agent that reads skills from `~/.claude/skills/`)
 
@@ -78,7 +78,7 @@ Verify:
 
 ### "The same skill shows up twice after an upgrade"
 
-Since the skills were renamed after their Composer packages (`platform` became `symfony-ai-platform`, and so on) and the `symfony-ai` orchestrator was removed, a manual copy of a previous version leaves the old directories next to the new ones. Remove the old copies from `~/.claude/skills/` (`platform`, `agent`, `chat`, `store`, `ai-bundle`, `mcp-bundle`, `mate`, `symfony-ai`), after checking that each one really came from this repository: these generic names may also belong to other skills. Plugin and extension installs are updated in place.
+Since the skills were renamed after their Composer packages (`platform` became `symfony-ai-platform`, and so on) and the `symfony-ai` orchestrator was removed, a manual copy of a previous version leaves the old directories next to the new ones. Remove the old copies from `~/.claude/skills/` (`platform`, `agent`, `chat`, `store`, `ai-bundle`, `mcp-bundle`, `mate`, `symfony-ai`), after checking that each one really came from this repository: these generic names may also belong to other skills. Since 1.0.0-BETA1, also remove `symfony-ai-chat` (the Chat component is gone; `symfony-ai-agent` covers conversations), and the `gh skill` installs too (`~/.agents/skills/`, `~/.config/opencode/skills/`). Plugin and extension installs are updated in place.
 
 ### "The agent loads the wrong skill"
 

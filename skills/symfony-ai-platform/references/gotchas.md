@@ -117,6 +117,14 @@ Set both `options['prompt_cache_key']` and (optionally)
 `options['prompt_cache_ttl']` to activate caching. Without
 `prompt_cache_key`, every call hits the underlying platform.
 
+The cache key joins the `prompt_cache_key` namespace, the model name, the input
+and, since 1.0, a hash of the options (merged with the `Model`'s own options).
+A `MessageBag` input is keyed by its **content** since 1.0
+(`MessageBagCacheKeyGenerator` ignores message ids, metadata and `addedAt`); in
+0.x it was keyed by the bag id, so the same question in a new bag never hit the
+cache. Entries written by 0.x are therefore never read again, and options
+holding a closure cannot be keyed: such a call bypasses the cache.
+
 `CachePlatform::__construct()` defaults to a built-in Symfony Serializer
 but you can pass your own `(SerializerInterface&NormalizerInterface&DenormalizerInterface)`.
 

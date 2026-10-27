@@ -2,11 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-This project uses the [Symfony AI](https://ai.symfony.com) stack : components for invoking LLMs, building AI agents, RAG, and MCP servers in PHP/Symfony. Seven agent skills are installed; pick by what you are trying to do. When a task spans several components, load each matching skill.
+This project uses the [Symfony AI](https://ai.symfony.com) stack : components for invoking LLMs, building AI agents, RAG, and MCP servers in PHP/Symfony. Six agent skills are installed; pick by what you are trying to do. When a task spans several components, load each matching skill.
 
 ## What this repository is
 
-A **content repository**, not an application. It packages seven [agentskills.io](https://agentskills.io/specification)-compatible skills documenting the [Symfony AI](https://github.com/symfony/ai) PHP stack, shipped simultaneously as a Claude Code plugin (`.claude-plugin/`), a Gemini CLI extension (`gemini-extension.json`), and a plain `skills/` directory for Codex and others.
+A **content repository**, not an application. It packages six [agentskills.io](https://agentskills.io/specification)-compatible skills documenting the [Symfony AI](https://github.com/symfony/ai) PHP stack, shipped simultaneously as a Claude Code plugin (`.claude-plugin/`), a Gemini CLI extension (`gemini-extension.json`), and a plain `skills/` directory for Codex and others.
 
 There is no `composer.json`, no `package.json`, no build step. Everything under `skills/` is Markdown; the only executable code is the PHP snippets embedded in fenced `php` blocks, which are lint-checked, never run.
 
@@ -46,9 +46,9 @@ The landing page is published by a fifth, GitHub-only workflow, `.github/workflo
 Enforced by CI or by convention; breaking one silently breaks skill loading in the consuming agent.
 
 - **`name:` in SKILL.md frontmatter == directory name.** Hard CI failure otherwise. Names mirror the Composer package (`symfony/ai-platform` → `symfony-ai-platform`, `symfony/mcp-bundle` → `symfony-mcp-bundle`): generic names such as `chat` or `store` collided with other skills in flat skill directories (`cp -r skills/* ~/.claude/skills/`).
-- **`SKILL.md` stays under 500 lines and 5,000 tokens** (currently 173–234 lines, ~2,200–2,900 tokens). References carry the bulk; the SKILL.md is a router.
+- **`SKILL.md` stays under 500 lines and 5,000 tokens** (currently 187–248 lines, ~2,800–3,600 tokens counted as characters / 4). References carry the bulk; the SKILL.md is a router.
 - **Frontmatter carries only spec fields**: `name`, `description`, `license`, `compatibility`, `metadata`. A top-level `version` (which skillevaluator's scorer asks for) fails `skills-ref validate`; the version lives in `metadata.version`. `metadata` values must be strings, so `metadata.tags` is a comma-separated string, not a YAML list.
-- **Bump every version string together on each release**: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `gemini-extension.json`, each SKILL.md `metadata.version`, and the landing page `docs/index.html` (its `v0.15.0` badge and the `symfony/ai 0.15` mentions), as a strict `x.y.z` (skillevaluator rejects anything else, including `0.14.1+1` or `0.14.1-1`). `major.minor` follows the symfony/ai line the skills target; the patch number counts skill releases within it. Claude Code keeps installed users on their cached copy until the `version` in `plugin.json` changes, so a content release without a bump never reaches them.
+- **Bump every version string together on each release**: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `gemini-extension.json`, each SKILL.md `metadata.version`, and the landing page (the `v1.0.0-BETA1` badge and the `symfony/ai 1.0` mentions of `docs/index.html`, the `scramble($('version'), …)` target in `docs/assets/site.js`). The version is semver: `x.y.z`, or `x.y.z-PRERELEASE` while the skills target an upstream pre-release, the suffix copied from the symfony/ai tag (`1.0.0-BETA1` for `v1.0.0-BETA1`). `major.minor` follows the symfony/ai line the skills target; the patch number counts skill releases within it. A second skill release against the same upstream pre-release appends a counter (`1.0.0-BETA1.1`), which semver orders after `1.0.0-BETA1` and before `1.0.0-BETA2` and `1.0.0`; build metadata (`0.14.1+1`) and a bare counter (`0.14.1-1`) stay forbidden. skillevaluator's scorer rejects any pre-release suffix: accept that finding while a pre-release is targeted, it goes away with the next stable release. Claude Code keeps installed users on their cached copy until the `version` in `plugin.json` changes, so a content release without a bump never reaches them.
 - **Reference filenames come from a closed whitelist**: `api-reference`, `patterns`, `gotchas`, `bridges`, `embeddings`, `config`, `processors`, `security`. Adding a ninth name means editing *three* places: the `case` statement in `.gitlab-ci.yml`'s `lint:references` job, the same statement in `.github/workflows/ci.yml`'s `lint-references` job, and the justification table in `README.md` ("Reference naming convention").
 - **Every `symfony/ai-*` and `symfony/mcp-*` package name appearing anywhere under `skills/` must resolve on Packagist.** A typo in a bridge package name fails `check:composer`.
 - **Never cite source line numbers** (`lines 361-367`, `File.php:55`). They drift every release. Anchor to a stable symbol instead: `Class::method()`, a service id (`ai.data_collector` in `config/services.php`), or a config node path (the `ai.agent.<name>.tools` node of `config/options.php`). By convention, not CI-enforced; `grep -rnE '\blines? [0-9]+|\.php:[0-9]+' skills` must stay empty.
@@ -70,7 +70,7 @@ The negative clause is load-bearing. `symfony-mcp-bundle` (build an MCP server *
 
 ### Evals
 
-`skills/*/evals/evals.json` hold four prompts each: three with `expected_skill` set to the skill itself, plus expected output and assertions, and one with `expected_skill: null` that must route elsewhere. They are a specification of routing behaviour, not an automated suite — nothing in CI runs them. To measure routing for real, run each prompt through `claude -p "<prompt>" --setting-sources project --plugin-dir . --output-format stream-json --verbose --max-turns 1` from an empty directory and read the first `Skill` tool call: `--setting-sources project` drops the maintainer's other plugins and hooks, so only these seven skills compete.
+`skills/*/evals/evals.json` hold four prompts each: three with `expected_skill` set to the skill itself, plus expected output and assertions, and one with `expected_skill: null` that must route elsewhere. They are a specification of routing behaviour, not an automated suite — nothing in CI runs them. To measure routing for real, run each prompt through `claude -p "<prompt>" --setting-sources project --plugin-dir . --output-format stream-json --verbose --max-turns 1` from an empty directory and read the first `Skill` tool call: `--setting-sources project` drops the maintainer's other plugins and hooks, so only these six skills compete.
 
 ## The three root context files
 
@@ -85,8 +85,7 @@ Keep `AGENTS.md` and `GEMINI.md` in sync with each other and consumer-facing. Do
 ## Which skill to use
 
 - **Invoke any LLM through one unified interface** (chat, completions, embeddings, structured output, tool calling) : `symfony-ai-platform`
-- **Build a tool-calling agent with memory or sub-agents** : `symfony-ai-agent`
-- **Build a stateful chat session persisted across requests** : `symfony-ai-chat`
+- **Build a tool-calling agent with memory or sub-agents, or keep a chatbot conversation across requests (message stores)** : `symfony-ai-agent`
 - **Store or query documents in a vector store for RAG / semantic search** : `symfony-ai-store`
 - **Configure AI components via YAML, register tools with attributes, or wire Symfony Security / Profiler** : `symfony-ai-bundle`
 - **Build an MCP server inside a Symfony app (tools, prompts, resources)** : `symfony-mcp-bundle`

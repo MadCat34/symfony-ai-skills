@@ -79,17 +79,16 @@ $store = new Store(
     connection: $pdo,
     tableName: 'documents',
     vectorFieldName: 'embedding',
-    distance: \Symfony\AI\Store\Bridge\Postgres\Distance::Cosine,
+    metric: \Symfony\AI\Store\Bridge\Postgres\Metric::Cosine,
     lang: 'english',
+    dimensions: 1536,         // match OpenAI text-embedding-3-small
+    vectorType: 'vector',
+    // indexMethod defaults to 'hnsw' and indexOpclass to the one of the
+    // store metric: vector_cosine_ops here, since metric is Cosine
 );
 
-// Create extension + table + index (run once)
-$store->setup([
-    'vector_type' => 'vector',
-    'vector_size' => 1536,    // match OpenAI text-embedding-3-small
-    // index_method defaults to 'hnsw' (0.15) and index_opclass to the one of
-    // the store distance: vector_cosine_ops here, since distance is Cosine
-]);
+// Create extension + table + index (run once). Since 1.0 it takes no options.
+$store->setup();
 
 $platform = OpenAiFactory::createPlatform($_ENV['OPENAI_API_KEY']);
 $vectorizer = new Vectorizer($platform, 'text-embedding-3-small');
@@ -128,7 +127,7 @@ CREATE INDEX IF NOT EXISTS "documents_embedding_idx"
 
 The opclass is `<vector_type>_<distance>_ops`: `cosine`, `ip` (inner product),
 `l1` or `l2`, so `halfvec_l2_ops` for a `halfvec` column with the default
-`Distance::L2`. Before 0.15 `setup()` created an `ivfflat` index with
+`Metric::L2`. Before 0.15 `setup()` created an `ivfflat` index with
 `vector_cosine_ops` whatever the distance, and the AI bundle forced the same
 values. `IF NOT EXISTS` keeps such an index after the upgrade; recreate it to
 match the distance:
@@ -161,15 +160,14 @@ $store = new Store(
     pinecone: $pinecone,
     indexName: 'symfony-ai',
     topK: 3,
+    dimensions: 1536,   // must match the embedding model (1536 by default since 1.0)
+    metric: 'cosine',
+    cloud: 'aws',
+    region: 'us-east-1',
 );
 
-// One-time setup — dimension must match the embedding model
-$store->setup([
-    'dimension' => 1536,
-    'metric'    => 'cosine',
-    'cloud'     => 'aws',
-    'region'    => 'us-east-1',
-]);
+// One-time setup: creates the index from the constructor arguments
+$store->setup();
 
 $platform = OpenAiFactory::createPlatform($_ENV['OPENAI_API_KEY']);
 $vectorizer = new Vectorizer($platform, 'text-embedding-3-small');
@@ -263,7 +261,7 @@ use Symfony\AI\Store\Indexer\SourceIndexer;
 $platform = OpenAiFactory::createPlatform($_ENV['OPENAI_API_KEY']);
 $vectorizer = new Vectorizer($platform, 'text-embedding-3-small');
 
-$store = new Store($httpClient, 'docs', embeddingsDimension: 1536);
+$store = new Store($httpClient, 'docs', dimensions: 1536);
 $store->setup();
 
 $indexer = new SourceIndexer(

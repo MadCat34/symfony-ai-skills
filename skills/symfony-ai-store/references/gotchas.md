@@ -17,7 +17,7 @@ Source of truth: `https://github.com/symfony/ai/tree/main/src/store/src/`. Every
 - 11. Re-indexing after metadata schema change
 - 12. Empty result sets
 - 13. Adding documents without an id
-- 14. `Vectorizer::vectorize()` on arrays of `EmbeddableDocumentInterface`
+- 14. `Vectorizer::vectorize()` on arrays of `DocumentInterface`
 - 15. `CombinedStore` and equal sub-stores
 - 16. `TraceableStore` reset between tests
 - 17. `Metadata::KEY_TEXT` propagation
@@ -98,7 +98,7 @@ Rules:
 
 - Never compare raw scores across systems.
 
-- For Postgres, the metric is the store's `Distance` constructor argument; since 0.15 `setup()` derives the index operator class from it (`vector_cosine_ops`, `vector_ip_ops`, `vector_l1_ops`, `vector_l2_ops`). Passing an `index_opclass` that disagrees with the distance builds an index the queries cannot use.
+- For Postgres, the metric is the store's `metric` constructor argument (a `Postgres\Metric`, named `Distance` before 1.0); since 0.15 `setup()` derives the index operator class from it (`vector_cosine_ops`, `vector_ip_ops`, `vector_l1_ops`, `vector_l2_ops`). Passing an `index_opclass` that disagrees with the distance builds an index the queries cannot use.
 
 - For `InMemory\Store` and `Cache\Store`, scores come from `DistanceCalculator` and match the configured `DistanceStrategy`.
 
@@ -160,13 +160,9 @@ There is **no** `DimensionMismatchException` in the Store component. Dimension e
 
 Practical rules:
 
-- Match the model's output dimension in `setup()` (`['vector_size' => 1536]`).
+- Match the model's output dimension with the store's `dimensions` constructor argument (1.0; `setup(['vector_size' => …])`, `embeddingsDimension`, `vectorDimension` or `dimension` before). Every bridge that takes it defaults to 1536.
 
-- For `VecStore` (sqlite-vec), `$vectorDimension` is a constructor argument.
-
-- For `Qdrant\Store`, `embeddingsDimension` is a constructor argument.
-
-- For `Pinecone\Store`, `dimension` is a `setup()` option.
+- Redis defaulted to 3072 before 1.0: a store set up by 0.x keeps its 3072-dimensional index, while a new one is 1536-dimensional and silently skips 3072-dimensional documents (Gemini). Pass `dimensions: 3072` to keep the old size.
 
 ## 11. Re-indexing after metadata schema change
 
@@ -193,15 +189,15 @@ The score on a `VectorDocument` is `null` until the store has ranked it. Some st
 
 `TextDocument::__construct(int|string $id, string $content, Metadata $metadata = new Metadata())` : the id is **required** and must be the first positional argument. Loaders that don't have an obvious id use `Uuid::v4()`. `RssFeedLoader` is the exception and the difference matters: it reuses the item's `<guid>` when that is a valid UUID, and otherwise derives a **deterministic `Uuid::v5($namespace, $guid ?? $link)`** (`RssFeedLoader::load()`). Re-indexing the same feed therefore produces the same ids and updates rows in place, where a v4-based loader would insert duplicates. Your custom documents must pick the semantics they want deliberately.
 
-## 14. `Vectorizer::vectorize()` on arrays of `EmbeddableDocumentInterface`
+## 14. `Vectorizer::vectorize()` on arrays of `DocumentInterface`
 
 `Vectorizer::vectorize()` distinguishes the array variant by inspecting the first element:
 
 ```php
-$vectorizer->vectorize([$doc1, $doc2]); // array of EmbeddableDocumentInterface → array of VectorDocument
+$vectorizer->vectorize([$doc1, $doc2]); // array of DocumentInterface → array of VectorDocument
 $vectorizer->vectorize(['hello', 'world']); // array of strings → array of Vector
 $vectorizer->vectorize('hello'); // single string → single Vector
-$vectorizer->vectorize($doc); // single EmbeddableDocumentInterface → single VectorDocument
+$vectorizer->vectorize($doc); // single DocumentInterface → single VectorDocument
 ```
 
 Mixing types in the array (`['hello', $doc]`) throws `RuntimeException`.
@@ -216,7 +212,7 @@ If you pass the same store instance as both `$vectorStore` and `$textStore`, `Co
 
 ## 17. `Metadata::KEY_TEXT` propagation
 
-When `Vectorizer` is constructed with `includeText: true`, it copies `EmbeddableDocumentInterface::getContent()` into `Metadata::KEY_TEXT` at vectorization time. This is required for:
+When `Vectorizer` is constructed with `includeText: true`, it copies `DocumentInterface::getContent()` into `Metadata::KEY_TEXT` at vectorization time. This is required for:
 
 - `TextQuery` matching (the bridge looks at `KEY_TEXT`).
 
@@ -232,7 +228,7 @@ Every Store configuration depends on the Platform. If you have not configured `B
 
 The Store component does not ship a source manifest, change-data-capture, or scheduler. Everything between "I have content" and "the store has vectors" is composed by the application:
 
-- **Loader** (`Document\LoaderInterface`, e.g. `TextFileLoader`, `MarkdownLoader`, `DirectoryLoader`): turns a source identifier into a stream of `EmbeddableDocumentInterface` instances.
+- **Loader** (`Document\LoaderInterface`, e.g. `TextFileLoader`, `MarkdownLoader`, `DirectoryLoader`): turns a source identifier into a stream of `DocumentInterface` instances.
 
 - **Filter** (`Document\FilterInterface`): drops documents before they reach the embedding API.
 

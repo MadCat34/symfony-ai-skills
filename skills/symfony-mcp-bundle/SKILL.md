@@ -5,7 +5,7 @@ license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: 0.15.0
+  version: 1.0.0-BETA1
   tags: symfony, php, mcp, model-context-protocol, mcp-server, mcp-client, ai-tools, symfony-bundle
 ---
 

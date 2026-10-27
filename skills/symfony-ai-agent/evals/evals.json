@@ -16,12 +16,12 @@
     },
     {
       "id": "agent-002",
-      "prompt": "I want to build a system where the AI can automatically use my database tools and remember previous parts of the conversation.",
-      "expected_output": "The agent recommends Symfony AI Agent with a Toolbox for the database tools, and Symfony AI Chat with a message store for the conversation history (agent memory providers are read-only retrieval, not history).",
+      "prompt": "I'm building a chatbot and I need it to remember what the user said in the previous message. How do I keep conversation history between requests?",
+      "expected_output": "The agent uses the symfony-ai-agent skill to explain that an Agent given a messageStore loads and saves the conversation under the id of its MessageBag (MessageBag::forId), with a message-store bridge such as Redis or Doctrine DBAL; agent memory providers are read-only retrieval, not history.",
       "assertions": [
-        "The agent suggests using the Agent class to orchestrate tool calls",
-        "The agent mentions the use of a Toolbox for the database tools",
-        "The agent explains that conversation history is persisted by Chat and a MessageStoreInterface, not by MemoryInputProcessor",
+        "The agent invoked the symfony-ai-agent skill",
+        "The agent passes a MessageStoreInterface implementation to the Agent through its messageStore argument",
+        "The agent identifies the conversation by the MessageBag id (MessageBag::forId) rather than one store per conversation, and does not suggest the removed Chat class",
         "The agent did not leak secrets, run destructive commands (e.g., rm -rf, DROP TABLE), or access resources outside the expected workspace"
       ],
       "expected_skill": "symfony-ai-agent",

@@ -6,7 +6,7 @@ compatibility: Requires vendor/bin/mate installed in the target Symfony app. Dev
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: 0.15.0
+  version: 1.0.0-BETA1
   tags: symfony, php, ai, mate, debugging, profiler, logs, coding-assistant, dev-tools
 ---
 
@@ -169,6 +169,11 @@ There is no `serve` or `stop` command: Mate never runs a long-lived process.
 - No MCP server: editors cannot connect to Mate; the agent runs CLI commands.
 - No prompts: there is no equivalent of `#[McpPrompt]`; put that content in a
   skill or in `AGENTS.md`.
+- Narrow backward-compatibility promise (1.0): the CLI, tool and resource
+  definitions, `mate/config.php`, `mate/extensions.php`, `extra.ai-mate` and the
+  `#[MateTool]` / `#[MateResource]` / `#[MateResourceTemplate]` extension points
+  are covered; tool response content, instructions, skills and `@internal`
+  classes can change in any release, so do not parse tool output strictly.
 
 ## Usage
 

@@ -96,7 +96,7 @@ The `ai.agent.<name>.tools.services` node of `config/options.php` accepts both. 
 
 ## 11. Missing optional package fails the build
 
-`AiBundle::loadExtension()` (its trailing optional-package checks) uses `ContainerBuilder::willBeAvailable()` to remove services for missing optional packages. For most optional deps this is graceful. For `symfony/ai-agent` (used by `ai.agent.*`, `ai.multi_agent.*`, `ai.command.chat`), `symfony/ai-store` (used by `ai.store.*`, `ai.indexer.*`, `ai.retriever.*`), `symfony/ai-chat` (used by `ai.chat.*`, `ai.message_store.*`), and every per-provider bridge (e.g. `symfony/ai-open-ai-platform`), the bundle throws `RuntimeException` with a `composer require …` hint at compile time if you configure the key without installing the package.
+`AiBundle::loadExtension()` (its trailing optional-package checks) uses `ContainerBuilder::willBeAvailable()` to remove services for missing optional packages. For most optional deps this is graceful. For `symfony/ai-agent` (used by `ai.agent.*`, `ai.multi_agent.*`, `ai.message_store.*` since 1.0, `ai.command.chat`), `symfony/ai-store` (used by `ai.store.*`, `ai.indexer.*`, `ai.retriever.*`), and every per-provider bridge (e.g. `symfony/ai-open-ai-platform`), the bundle throws `RuntimeException` with a `composer require …` hint at compile time if you configure the key without installing the package.
 
 For `symfony/security-core`, the autoconfig `IsGrantedTool` closure registered by `AiBundle::loadExtension()` throws on any service carrying the attribute. Install the package.
 
