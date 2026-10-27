@@ -178,7 +178,8 @@ Inference you run yourself.
   `Classification`, …). The default `ModelCatalog` only knows the providers' chat
   models and the most downloaded models of each task (`ModelNotFoundException`
   otherwise): pass `$additionalModels`, or a `ModelApiCatalog` resolving models
-  through the Hub API (`api_catalog: true` in the bundle). `$provider` defaults to
+  through the Hub API (`model_catalog: { api: true }` in the bundle since 1.0,
+  `api_catalog: true` before). `$provider` defaults to
   `null` (Hugging Face picks) and only applies to chat completion, which now
   supports tool calling and streaming. Reranking needs a `text-ranking` model.
 - `symfony/ai-generic-platform` : Generic OpenAI-compatible completion +

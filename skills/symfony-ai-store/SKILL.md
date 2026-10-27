@@ -1,11 +1,11 @@
 ---
 name: symfony-ai-store
-description: 'Use when building RAG, semantic search or similarity lookup with Symfony AI Store, including generic questions on chunking documents or picking a vector database: loading and chunking documents, indexing embeddings, querying pgvector, Pinecone, Qdrant, Elasticsearch, Redis and others, hybrid search or reranking. Triggers on `StoreInterface`, `VectorQuery`, `DocumentIndexer`, `Vectorizer`. Not for generating embeddings alone (`symfony-ai-platform`) or chat history (`symfony-ai-chat`).'
+description: 'Use when building RAG, semantic search or similarity lookup with Symfony AI Store, including generic questions on chunking documents or picking a vector database: loading and chunking documents, indexing embeddings, querying pgvector, Pinecone, Qdrant, Elasticsearch, Redis and others, hybrid search or reranking. Triggers on `StoreInterface`, `VectorQuery`, `DocumentIndexer`, `Vectorizer`. Not for generating embeddings alone (`symfony-ai-platform`) or conversation history (`symfony-ai-agent`).'
 license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: 0.15.0
+  version: 1.0.0-BETA1
   tags: symfony, php, ai, rag, vector-database, semantic-search, embeddings, pgvector, pinecone, qdrant
 ---
 
@@ -15,7 +15,7 @@ metadata:
 
 The persistence and retrieval layer of Symfony AI: load documents, chunk them,
 turn them into vectors through a Platform embedding model, store them in one
-of 24 backends, and query them back by similarity, keywords, or both.
+of 25 backends, and query them back by similarity, keywords, or both.
 
 ## When to use
 
@@ -23,13 +23,15 @@ of 24 backends, and query them back by similarity, keywords, or both.
 - Swapping vector databases without rewriting the application (Pinecone ↔ Postgres ↔ Qdrant).
 - Standard loaders and transformers: directories, Markdown, chunking, batching, throttling.
 - Hybrid (vector + keyword) search, reranking, or a store for tests (`InMemory\Store`).
+- Similarity search over Doctrine entities, the vector kept in an entity field
+  (`Bridge\Doctrine\OrmStore`, 1.0) or mirrored into another store.
 - Embeddings kept in a MySQL `JSON` column today: a JSON column has no vector
   index and no similarity search, so every query becomes a full scan in PHP.
 
 ## When not to use
 
 - Generating embeddings without storing them: use `symfony-ai-platform`.
-- Persisting a chat conversation: use `symfony-ai-chat`.
+- Persisting a chat conversation: use `symfony-ai-agent` (its message stores).
 - The agent that consumes retrieved documents: use `symfony-ai-agent`.
 - Declaring stores, indexers and retrievers in `config/packages/ai.yaml`: use `symfony-ai-bundle`.
 - A database-specific feature the bridge hides (Pinecone namespaces, Qdrant
@@ -106,7 +108,7 @@ TransformerInterface[]   VectorizerInterface   RetrieverInterface
 (chunking, trim, …)      (Platform delegate)   (query side)
 ```
 
-- `StoreInterface`: write/read interface, implemented by the 24 bridges; it
+- `StoreInterface`: write/read interface, implemented by the 25 bridges; it
   extends `\Countable`, so `count($store)` returns the number of documents.
 - `ManagedStoreInterface`: adds `setup()` / `drop()` for the index lifecycle.
 - `DocumentProcessor::process()` runs filter → transform → vectorize → store,
@@ -126,7 +128,8 @@ TransformerInterface[]   VectorizerInterface   RetrieverInterface
 Documents and queries:
 
 - `TextDocument(int|string $id, string $content, Metadata $metadata = new Metadata())`:
-  the `id` is required. `Metadata` extends `\ArrayObject`; reserved keys are
+  the `id` is required. Documents to embed implement `Document\DocumentInterface`
+  (named `EmbeddableDocumentInterface` before 1.0). `Metadata` extends `\ArrayObject`; reserved keys are
   `_parent_id`, `_text`, `_source`, `_summary`, `_title`, `_depth`.
 - `VectorDocument(int|string $id, VectorInterface $vector, Metadata $metadata = new Metadata(), ?float $score = null)`:
   `withScore()` returns a copy. Stores, retrievers and rerankers are typed
@@ -137,9 +140,11 @@ Documents and queries:
   for both.
 
 Inside a Symfony app (`symfony-ai-bundle`), five commands manage stores:
-`ai:store:setup <store>`, `ai:store:drop <store> --force`,
+`ai:store:setup <store> [--option name=value]`, `ai:store:drop <store> --force`,
 `ai:store:clear <store> --force`, `ai:store:index <indexer> [--source=…]` and
-`ai:store:retrieve <retriever> [query] [--limit=N]`.
+`ai:store:retrieve <retriever> [query] [--limit=N]`. Since 1.0 `<store>` is the
+configured name (`default`), not the service id, and an unknown name proposes
+the closest matches.
 
 ## Key gotchas
 
@@ -157,12 +162,21 @@ Inside a Symfony app (`symfony-ai-bundle`), five commands manage stores:
 5. **Check support before querying.** Some bridges are text-only or
    vector-only: call `$store->supports(VectorQuery::class)` first.
 6. **Postgres `setup()` builds an `hnsw` index** (0.15, was `ivfflat`) whose
-   operator class follows the store's `Distance` (`vector_l2_ops` for the
+   operator class follows the store's `Metric` (`vector_l2_ops` for the
    default `L2`). It needs pgvector 0.5.0+, and an index that already exists is
    kept: drop it to rebuild it with the new defaults.
 7. **SurrealDB `setup()` builds an `HNSW` index** (0.15, was `MTREE`, which
    SurrealDB 3 removed). On SurrealDB 2, a query against an old `MTREE` index
    returns no results and **no error**: recreate the index.
+8. **The index is defined in the constructor (1.0).** Elasticsearch, MariaDB,
+   MongoDB, OpenSearch, Pinecone, Postgres, Redis and S3 Vectors take
+   `dimensions`, `metric` and the rest as constructor arguments; their
+   `setup()` throws `No supported options.` when given any. Every bridge names
+   them `dimensions` and `metric` (was `embeddingsDimension`, `distance`,
+   `similarity`, …), and the `Distance` / `Similarity` enums are now `Metric`.
+9. **Redis indexes 1536 dimensions by default** (1.0, was 3072): pass
+   `dimensions: 3072` for Gemini-sized embeddings, or documents of another
+   size are silently not indexed. Existing indexes are kept.
 
 ## Troubleshooting
 
@@ -174,10 +188,11 @@ Inside a Symfony app (`symfony-ai-bundle`), five commands manage stores:
 | `Query type "…" is not supported by store "…"` (`UnsupportedQueryTypeException`) | The bridge cannot run that query type. | Check `$store->supports(…)`; for hybrid search use a bridge that supports `HybridQuery` or a `CombinedStore`. |
 | `Semantic ratio must be between 0.0 and 1.0, got …` | `HybridQuery` received a ratio outside `[0.0, 1.0]`. | Pass a ratio between 0 and 1 (0.5 by default). |
 | `For using the DirectoryLoader, the Symfony Finder component is required. …` (same pattern for `MarkdownLoader`, RSS, JSON loaders) | An optional dependency of the loader is missing. | Run the `composer require` named in the message. |
-| `The "…" vector type is not supported, use "vector" or "halfvec".` (`InvalidArgumentException`) | Postgres `setup()` got another `vector_type` (e.g. `bit`, `sparsevec`). | Use `vector`, or `halfvec` above 2,000 dimensions. |
-| `The "ivfflat" index method does not support the L1 distance, use "hnsw".` | Postgres `setup(['index_method' => 'ivfflat'])` with `Distance::L1` and no `index_opclass`. | Drop `index_method` (defaults to `hnsw`) or change the distance. |
-| `The "fields" option cannot define the vector field "…", use the "embeddingsDimension" and "similarity" arguments of the store instead.` | MongoDB `setup(['fields' => …])` lists the vector path. | Keep only filter fields in `fields`; set the vector index through the `Store` constructor. |
-| `You need MariaDB >=11.8 to use "Distance::Distance", VEC_DISTANCE() does not exist before.` (`InvalidArgumentException`) | MariaDB store built with `Distance::Distance` on a server older than 11.8. | Upgrade MariaDB or pick `Distance::Cosine` / `Distance::Euclidean`. |
+| `The "…" vector type is not supported, use "vector" or "halfvec".` (`InvalidArgumentException`) | Postgres store built with another `vectorType` (e.g. `bit`, `sparsevec`). | Use `vector`, or `halfvec` above 2,000 dimensions. |
+| `No supported options.` (`InvalidArgumentException`) | `setup([...])` on a store whose index is defined by the constructor since 1.0 (Elasticsearch, MariaDB, MongoDB, OpenSearch, Pinecone, Postgres, Redis, S3 Vectors). | Move the values to the constructor (`dimensions:`, `metric:`, …) and call `setup()` bare. |
+| `The "ivfflat" index method does not support the L1 distance, use "hnsw".` | Postgres store built with `indexMethod: 'ivfflat'`, `Metric::L1` and no `indexOpclass`. | Drop `indexMethod` (defaults to `hnsw`) or change the metric. |
+| `The index fields cannot define the vector field "…", use the "dimensions" and "metric" arguments of the store instead.` | MongoDB `indexFields` lists the vector path. | Keep only filter fields in `indexFields`; the vector index comes from `dimensions` and `metric`. |
+| `You need MariaDB >=11.8 to use "Metric::Distance", VEC_DISTANCE() does not exist before.` (`InvalidArgumentException`) | MariaDB store built with `Metric::Distance` on a server older than 11.8. | Upgrade MariaDB or pick `Metric::Cosine` / `Metric::Euclidean`. |
 | Results look unrelated after a model or provider change | Documents were embedded with the previous model. | Re-index everything with the new model. |
 
 ## Limitations
@@ -199,6 +214,9 @@ Inside a Symfony app (`symfony-ai-bundle`), five commands manage stores:
   then issue `HybridQuery` queries.
 - **Rerank results**: wire a `Reranker` (a `PlatformInterface` plus a reranking
   model such as Cohere's) into a `RerankerListener` on `PostQueryEvent`.
+- **Search Doctrine entities**: put `#[Embedding(from: ['title', 'body'])]` on a
+  `vector` field and query `new OrmStore($entityManager, Article::class)`
+  through a `Retriever` (`references/bridges.md` → *Doctrine*).
 - **Test without a database**: use `InMemory\Store`. It implements both
   `StoreInterface` and `ManagedStoreInterface`, supports `VectorQuery`,
   `TextQuery` and `HybridQuery`, and accepts `maxItems` plus a `filter`
@@ -210,7 +228,7 @@ Inside a Symfony app (`symfony-ai-bundle`), five commands manage stores:
   classes by hand or in the container: the namespace tree, every constructor
   signature, every query type, the commands.
 - Read [`references/bridges.md`](references/bridges.md) when the user picks a
-  backend: the 24 bridge packages, their classes and quirks.
+  backend: the 25 bridge packages, their classes and quirks.
 - Read [`references/patterns.md`](references/patterns.md) when the user wants
   runnable code: InMemory, Postgres + pgvector, Pinecone, hybrid retrieval.
 - Read [`references/gotchas.md`](references/gotchas.md) when retrieval

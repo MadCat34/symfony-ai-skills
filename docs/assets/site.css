@@ -97,7 +97,7 @@ h2 { font-size: clamp(30px, 3.6vw, 54px); line-height: 1.05; max-width: 760px; }
 section.route { background: var(--band); border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
 .prompt { margin-top: 32px; font: clamp(15px, 1.5vw, 20px)/1.5 var(--mono); border-bottom: 1px solid var(--rule); padding: 14px 0; min-height: 64px; }
 .prompt .u { color: var(--muted); }
-.board { position: relative; margin-top: 36px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
+.board { position: relative; margin-top: 36px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
 .chip { border: 1px solid var(--rule); border-top: 3px solid var(--c); border-radius: 8px; padding: 16px 14px 18px; background: var(--paper);
   font: 13px var(--mono); min-height: 150px; display: flex; flex-direction: column; justify-content: space-between; min-width: 0;
   transition: border-color .35s, transform .45s var(--ease-out), box-shadow .35s, opacity .35s, background-color .35s; }
@@ -168,7 +168,6 @@ footer { position: relative; z-index: 1; display: flex; justify-content: space-b
   --rule: color-mix(in srgb, var(--accent) 24%, transparent);
   --accent-soft: color-mix(in srgb, var(--accent) 11%, transparent);
   --grid-line: color-mix(in srgb, var(--accent) 22%, transparent);
-  --grid: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
   --cut: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
   --ticks: linear-gradient(var(--accent), var(--accent)) top left / 16px 2px no-repeat, linear-gradient(var(--accent), var(--accent)) top left / 2px 16px no-repeat,
     linear-gradient(var(--accent), var(--accent)) top right / 16px 2px no-repeat, linear-gradient(var(--accent), var(--accent)) top right / 2px 16px no-repeat,
@@ -238,12 +237,7 @@ section.block, section.install { border-color: var(--rule); }
 .faq details[open] summary { color: var(--accent); }
 footer { border-top-color: var(--accent); }
 
-body::before, body::after { content: ''; position: fixed; z-index: -1; left: -200%; right: -200%; height: 300vh; pointer-events: none;
-  background-image: var(--grid); background-size: 90px 90px; }
-body::before { bottom: 0; transform: perspective(86.6vh) rotateX(60deg); transform-origin: bottom;
-  -webkit-mask: linear-gradient(to top, #000 0, transparent 60%); mask: linear-gradient(to top, #000 0, transparent 60%); }
-body::after { top: 0; transform: perspective(86.6vh) rotateX(-60deg); transform-origin: top;
-  -webkit-mask: linear-gradient(to bottom, #000 0, transparent 60%); mask: linear-gradient(to bottom, #000 0, transparent 60%); }
+.grid { position: fixed; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; color: var(--grid-line); }
 html { background: var(--paper); }
 body { background: transparent; isolation: isolate; }
 .field { z-index: 0; }

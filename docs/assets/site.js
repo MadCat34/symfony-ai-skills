@@ -48,7 +48,7 @@ $('motion').addEventListener('click', e => {
 
 (function field() {
   const names = ['DeferredResult::asObject()', 'Message::forSystem()', 'FailoverPlatform', 'McpToolbox::reset()',
-    'Progress::STAGE_TOOL_CALL', 'ChatInterface::submit()', 'VectorQuery', 'HybridQuery', '#[AsTool]', '#[IsGrantedTool]',
+    'Progress::STAGE_TOOL_CALL', 'MessageBag::forId()', 'VectorQuery', 'HybridQuery', '#[AsTool]', '#[IsGrantedTool]',
     '#[McpTool]', 'mcp:server', 'ai:store:setup', 'RetryableExceptionInterface', 'MaxOutputTokensException', 'session.lock',
     'allowed_origins', 'vector_l2_ops', 'StoreInterface::query()', 'MultiAgent', 'Vectorizer', 'DocumentIndexer', 'vendor/bin/mate'];
   const cells = (Math.max(screen.width, innerWidth) / 6.6) * (Math.max(screen.height, innerHeight, 1440) / 21);
@@ -60,6 +60,40 @@ $('motion').addEventListener('click', e => {
     $('field').style.setProperty('--mx', e.clientX + 'px');
     $('field').style.setProperty('--my', e.clientY + 'px');
   }, { passive: true });
+})();
+
+(function grid() {
+  // Drawn at viewport size: as two CSS 3D planes 5 viewports wide and 3 high, the floor and ceiling were rasterised
+  // whole, overran Chrome's GPU tile budget on high-DPI screens (Android, Retina) and made the page flicker.
+  const canvas = $('grid'), ctx = canvas.getContext('2d'), SIN = Math.sin(Math.PI / 3);
+  new ResizeObserver(() => {
+    const w = canvas.clientWidth, h = canvas.clientHeight, dpr = devicePixelRatio;
+    if (!w || !h) return;
+    canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // perspective(86.6vh) rotateX(±60deg) on a 90px grid 5 viewports wide, faded out 1.8 viewports deep
+    const half = 2.5 * w, depth = 1.8 * h, scale = d => 1 / (1 + SIN * d / (0.866 * h)), rise = d => d / 2 * scale(d);
+    ctx.fillStyle = getComputedStyle(canvas).color;
+    for (const [edge, dir, first] of [[h, -1, 3 * h % 90 - 1], [0, 1, 0]]) {
+      const y = d => edge + dir * rise(d), far = scale(depth);
+      ctx.beginPath();
+      for (let x = -half; x < half; x += 90) {
+        ctx.moveTo(w / 2 + x, edge); ctx.lineTo(w / 2 + x + 1, edge);
+        ctx.lineTo(w / 2 + (x + 1) * far, y(depth)); ctx.lineTo(w / 2 + x * far, y(depth)); ctx.closePath();
+      }
+      ctx.fill();
+      ctx.beginPath();
+      for (let d = first; d < depth; d += 90) ctx.rect(w / 2 - half * scale(d), Math.min(y(d), y(d + 1)), 2 * half * scale(d), Math.abs(y(d + 1) - y(d)));
+      ctx.fill();
+    }
+    const fade = ctx.createLinearGradient(0, 0, 0, h);
+    for (let i = 0; i <= 24; i++) {
+      const at = rise(depth * i / 24) / h, alpha = `rgba(0, 0, 0, ${1 - i / 24})`;
+      fade.addColorStop(at, alpha); fade.addColorStop(1 - at, alpha);
+    }
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.fillStyle = fade; ctx.fillRect(0, 0, w, h);
+  }).observe(canvas);
 })();
 
 if (!reduced) {
@@ -252,5 +286,5 @@ tabs.forEach((tab, i) => {
 $('copy').addEventListener('click', copyInstall);
 onVisible($('install'), () => {
   if (!installRun) showInstall(selectedAgent());
-  scramble($('version'), '0.15', 700);
+  scramble($('version'), '1.0', 700);
 });

@@ -2,11 +2,12 @@
 
 ## Repository purpose
 
-This is a content repository, not a Symfony application. It packages seven
+This is a content repository, not a Symfony application. It packages six
 agentskills.io-compatible Markdown skills for Symfony AI: `symfony-ai-platform`,
-`symfony-ai-agent`, `symfony-ai-chat`, `symfony-ai-store`, `symfony-ai-bundle`,
+`symfony-ai-agent`, `symfony-ai-store`, `symfony-ai-bundle`,
 `symfony-mcp-bundle`, and `symfony-ai-mate`, one per component, each named
-after its Composer package.
+after its Composer package (the Chat component was removed in symfony/ai 1.0;
+its message stores are documented in `symfony-ai-agent`).
 There is deliberately no orchestrator skill: the host agent already routes on
 every skill's `name` and `description`.
 

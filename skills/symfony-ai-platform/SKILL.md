@@ -1,11 +1,11 @@
 ---
 name: symfony-ai-platform
-description: 'Use when PHP code calls an LLM or embedding model through Symfony AI Platform: completions, streaming, structured JSON output, tool calling, multimodal input, async jobs, or switching and failing over between OpenAI, Anthropic, Gemini, Ollama and other providers, even when Symfony AI is not named. Triggers on `PlatformInterface`, `MessageBag`, `DeferredResult`, `FailoverPlatform`. Not for agent loops, chat history or vector stores (`symfony-ai-agent`, `symfony-ai-chat`, `symfony-ai-store`).'
+description: 'Use when PHP code calls an LLM or embedding model through Symfony AI Platform: completions, streaming, structured JSON output, tool calling, multimodal input, async jobs, or switching and failing over between OpenAI, Anthropic, Gemini, Ollama and other providers, even when Symfony AI is not named. Triggers on `PlatformInterface`, `MessageBag`, `DeferredResult`, `FailoverPlatform`. Not for agent loops, conversation history or vector stores (`symfony-ai-agent`, `symfony-ai-store`).'
 license: MIT
 metadata:
   author: Romain Bastide <madcat34@gmail.com>
   url: https://github.com/MadCat34
-  version: 0.15.0
+  version: 1.0.0-BETA1
   tags: symfony, php, ai, llm, openai, anthropic, gemini, embeddings, structured-output, tool-calling
 ---
 
@@ -29,7 +29,8 @@ site. Switching provider means changing the factory line, not the call sites.
 ## When not to use
 
 - An automatic tool-calling loop, memory or sub-agents: use `symfony-ai-agent`.
-- Conversation history persisted between requests: use `symfony-ai-chat`.
+- Conversation history persisted between requests: use `symfony-ai-agent` (its
+  `messageStore`; the Chat component is gone in 1.0).
 - Storing or searching vectors: use `symfony-ai-store`.
 - Declaring platforms in `config/packages/ai.yaml`: use `symfony-ai-bundle`.
 - A provider feature no bridge exposes yet (an unusual streaming protocol, a
@@ -103,9 +104,13 @@ Platform (Symfony\AI\Platform\Platform)
 - **Raw tool calls need `Tool` + `ExecutionReference`.** There is no
   `ToolDefinition` class. `#[AsTool]` belongs to the Agent component
   (`symfony-ai-agent`) and does nothing in raw Platform calls.
+- **`MessageBag` is immutable (1.0).** `with()`, `withSystemMessage()`,
+  `replace()` return a copy: `$messages = $messages->with(...)`. `add()`,
+  `prepend()` and `removeSystemMessage()` are gone.
 - **`CachePlatform` is opt-in.** Caching only activates when
   `options['prompt_cache_key']` is set; without it, `CachePlatform` is a
-  pass-through.
+  pass-through. Since 1.0 the key covers the bag content and the options, so
+  entries cached by 0.x are never hit again.
 - **`FailoverPlatform` is a separate package** (`symfony/ai-failover-platform`)
   and requires a `RateLimiterFactoryInterface`.
 - **`MiniMax` is its own provider.** `Bridge\MiniMax\Factory` ships in
@@ -176,7 +181,7 @@ Platform (Symfony\AI\Platform\Platform)
 
 ## See also
 
-- `symfony-ai-agent`: a tool-calling agent built on top of Platform.
+- `symfony-ai-agent`: a tool-calling agent built on top of Platform, and the
+  message stores that keep a conversation across requests.
 - `symfony-ai-store`: storing and searching the vectors Platform generates.
-- `symfony-ai-chat`: conversation history across requests.
 - `symfony-ai-bundle`: declaring platforms in `config/packages/ai.yaml`.

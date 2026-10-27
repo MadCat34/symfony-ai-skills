@@ -459,7 +459,7 @@ Traversal is blocked by `PathGuard::hasTraversal()` : directories like `../../et
     "name": "symfony/ai-symfony-mate-extension",
     "type": "symfony-ai-mate",
     "require": {
-        "symfony/ai-mate": "^0.13"
+        "symfony/ai-mate": "^1.0"
     },
     "extra": {
         "ai-mate": {
@@ -471,7 +471,7 @@ Traversal is blocked by `PathGuard::hasTraversal()` : directories like `../../et
 }
 ```
 
-**`symfony/ai-monolog-mate-extension`** (`src/Bridge/Monolog/composer.json`): same shape, `require.symfony/ai-mate: "^0.13"`.
+**`symfony/ai-monolog-mate-extension`** (`src/Bridge/Monolog/composer.json`): same shape, `require.symfony/ai-mate: "^1.0"`.
 
 Both packages use Composer package type `symfony-ai-mate` (no `keywords` filter is applied at runtime).
 
@@ -515,7 +515,7 @@ This is what makes the built-in `server-info` tool and the bundled `system-infor
 
 - Subscribes to `ScriptEvents::POST_INSTALL_CMD` and `ScriptEvents::POST_UPDATE_CMD`.
 - On each event: if `mate/extensions.php` exists, `proc_open` `vendor/bin/mate discover --composer` (compact output). Otherwise prints a banner suggesting `vendor/bin/mate init`.
-- Declared as a runtime dependency of `symfony/ai-mate` via `"symfony/ai-mate-composer-plugin": "^0.13"` in `src/mate/composer.json`.
+- Declared as a runtime dependency of `symfony/ai-mate` via `"symfony/ai-mate-composer-plugin": "^1.0"` in `src/mate/composer.json`.
 
 ---
 

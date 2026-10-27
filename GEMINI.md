@@ -1,12 +1,11 @@
 # Symfony AI Agent Skills
 
-This project uses the [Symfony AI](https://ai.symfony.com) stack : components for invoking LLMs, building AI agents, RAG, and MCP servers in PHP/Symfony. Seven agent skills are installed; pick by what you are trying to do. When a task spans several components, load each matching skill.
+This project uses the [Symfony AI](https://ai.symfony.com) stack : components for invoking LLMs, building AI agents, RAG, and MCP servers in PHP/Symfony. Six agent skills are installed; pick by what you are trying to do. When a task spans several components, load each matching skill.
 
 ## Which skill to use
 
 - **Invoke any LLM through one unified interface** (chat, completions, embeddings, structured output, tool calling) : `symfony-ai-platform`
-- **Build a tool-calling agent with memory or sub-agents** : `symfony-ai-agent`
-- **Build a stateful chat session persisted across requests** : `symfony-ai-chat`
+- **Build a tool-calling agent with memory or sub-agents, or keep a chatbot conversation across requests (message stores)** : `symfony-ai-agent`
 - **Store or query documents in a vector store for RAG / semantic search** : `symfony-ai-store`
 - **Configure AI components via YAML, register tools with attributes, or wire Symfony Security / Profiler** : `symfony-ai-bundle`
 - **Build an MCP server inside a Symfony app (tools, prompts, resources)** : `symfony-mcp-bundle`

@@ -9,7 +9,7 @@
 - 3. Security-gated tool
 - 4. Custom processor auto-tagging
 - 5. RAG: indexer + retriever
-- 6. Persistent chat
+- 6. Conversations kept across requests
 
 ## 1. Multi-platform config
 
@@ -65,14 +65,14 @@ The single-agent shortcut (`ai.agent.default` and no other agents) still aliases
 
 ## 2. Dev profiler (no setup)
 
-The `ai.data_collector` is registered in `config/services.php` and removed only when `kernel.debug` is false (`AiBundle::loadExtension()`). When `kernel.debug` is true, the `DebugCompilerPass` decorates every `ai.platform`, `ai.message_store`, `ai.chat`, `ai.toolbox`, `ai.agent`, `ai.store` with the matching `Traceable*` decorator (`DebugCompilerPass::process()`), and the data collector harvests them in `lateCollect()`.
+The `ai.data_collector` is registered in `config/services.php` and removed only when `kernel.debug` is false (`AiBundle::loadExtension()`). When `kernel.debug` is true, the `DebugCompilerPass` decorates every `ai.platform`, `ai.message_store`, `ai.toolbox`, `ai.agent`, `ai.store` with the matching `Traceable*` decorator (`DebugCompilerPass::process()`), and the data collector harvests them in `lateCollect()`.
 
 In dev, open the Web Debug Toolbar, click "AI" : you will see:
 
 - Per-call latency, input, output, options, and metadata for every platform call.
 - Tool calls (name, arguments, result) per toolbox.
 - Agent calls.
-- Chat calls.
+- Message-store saves (the chats panel went away with the Chat component in 1.0).
 - Store / indexer / retriever calls (when configured).
 
 No YAML keys are needed. There is no `ai.profiler.*` key.
@@ -178,7 +178,9 @@ ai:
 
 Then run `bin/console ai:store:index docs` to populate the store (the `ai.command.index` service is wired in `config/services.php`).
 
-## 6. Persistent chat
+## 6. Conversations kept across requests
+
+Since 1.0 the agent itself keeps the conversation (the `ai.chat` key and `ChatInterface` are gone):
 
 ```yaml
 ai:
@@ -189,6 +191,11 @@ ai:
         support:
             platform: 'ai.platform.openai'
             model: 'gpt-4o-mini'
+            prompt: 'You are the support assistant of ACME.'   # added on every call, never stored
+            # The Doctrine branch inserts a `dbal` segment into the service id
+            # (AiBundle::processMessageStoreConfig(), Doctrine branch). The shorter ai.message_store.doctrine.support
+            # is only a named-argument alias, not a service.
+            message_store: 'ai.message_store.doctrine.dbal.support'
 
     message_store:
         doctrine:
@@ -196,17 +203,33 @@ ai:
                 support:
                     connection: 'default'
                     table_name: 'ai_support_messages'
-
-    chat:
-        support:
-            agent: 'ai.agent.support'
-            # The Doctrine branch inserts a `dbal` segment into the service id
-            # (AiBundle::processMessageStoreConfig(), Doctrine branch). The shorter ai.message_store.doctrine.support
-            # is only a named-argument alias, not a service.
-            message_store: 'ai.message_store.doctrine.dbal.support'
 ```
 
-Then inject `ChatInterface $supportChat` (auto-aliased because there is exactly one chat) and call `$supportChat->submit(...)`.
+```bash
+php bin/console ai:message-store:setup ai.message_store.doctrine.dbal.support   # once, creates the table
+```
+
+```php
+use Symfony\AI\Agent\AgentInterface;
+use Symfony\AI\Platform\Message\MessageBag;
+use Symfony\Component\DependencyInjection\Attribute\Target;
+use Symfony\Component\Uid\Uuid;
+
+final class SupportController
+{
+    public function __construct(#[Target('support')] private AgentInterface $agent) {}
+
+    public function answer(Conversation $conversation, string $question): string
+    {
+        // $conversation is your entity: check that the current user owns it before going on.
+        $id = Uuid::fromString($conversation->getId());   // a UUID v7 kept with the conversation
+
+        return $this->agent->call(MessageBag::forId($id, $question))->asText();
+    }
+}
+```
+
+The agent loads the stored messages, adds the question, and saves after each step and with the answer. Two requests answering the same conversation at once make the slower one throw `Symfony\AI\Agent\Exception\ConflictException`. Message stores written by 0.x Chat are not read by 1.0: drop the old table first (`setup()` keeps an existing one).
 
 ## See also
 

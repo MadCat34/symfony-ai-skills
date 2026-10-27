@@ -25,7 +25,7 @@ The bundle registers these processors itself, not via attributes (see `AiBundle:
 | `SystemPromptInputProcessor` | `Symfony\AI\Agent\InputProcessor\SystemPromptInputProcessor` | `ai.agent.input_processor` (only when `ai.agent.<name>.prompt` is set) | `-30` |
 | `MemoryInputProcessor` | `Symfony\AI\Agent\Memory\MemoryInputProcessor` | `ai.agent.input_processor` (only when `ai.agent.<name>.memory` is set) | `-40` |
 
-Tool calling is **not** a tagged processor. When `ai.agent.<name>.tools.enabled` is true, the bundle wires the toolbox service directly onto the `Agent` definition's `$toolbox` argument (plus `$maxToolCalls`, `$excludeToolMessages`, `$includeSources`, `$eventDispatcher`) : `Agent` drives the tool-calling loop itself, it no longer goes through the input/output processor chains.
+Tool calling is **not** a tagged processor. When `ai.agent.<name>.tools.enabled` is true, the bundle wires the toolbox service directly onto the `Agent` definition's `$toolbox` argument (plus `$maxToolCalls`, `$includeSources`, `$eventDispatcher`, and `$messageStore` when the agent has a `message_store`) : `Agent` drives the tool-calling loop itself, it no longer goes through the input/output processor chains.
 
 Higher priority runs first — on **both** chains. `ProcessorCompilerPass::process()` builds the two lists separately but sorts them with the *same* descending comparator (`static fn (array $a, array $b): int => $b[0] <=> $a[0]`, applied by two `usort()` calls), and `Agent::call()` iterates each list in array order. There is no reversal on the output side. Priorities are integers; `0` is the default for unannotated custom processors.
 
